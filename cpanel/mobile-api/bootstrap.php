@@ -3,8 +3,8 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/roles-lib.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
-function mobile_json(array $a,int $code=200):never {http_response_code($code);echo json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);exit;}
-function mobile_error(string $message,int $code=400):never {mobile_json(['ok'=>false,'error'=>$message],$code);}
+function mobile_json(array $a,int $code=200):void {http_response_code($code);echo json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);exit;}
+function mobile_error(string $message,int $code=400):void {mobile_json(['ok'=>false,'error'=>$message],$code);}
 function mobile_db():PDO {
  static $db=null;
  if($db)return $db;
@@ -28,7 +28,8 @@ function mobile_schema(PDO $db):void {
  $done=true;
 }
 function mobile_body():array { $raw=file_get_contents('php://input');$v=json_decode($raw?:'{}',true);return is_array($v)?$v:[];}
-function mobile_text($value,int $max=1000):string {return mb_substr(trim((string)$value),0,$max);}
+function mobile_text($value,int $max=1000):string {$s=trim((string)$value);return function_exists('mb_substr')?mb_substr($s,0,$max):substr($s,0,$max);}
+function mobile_strlen(string $s):int {return function_exists('mb_strlen')?mb_strlen($s):strlen($s);}
 function mobile_auth(bool $required=true):?array {
  $header=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'';
  if(!preg_match('/^Bearer\s+([A-Za-z0-9_-]{40,128})$/',$header,$m)){if($required)mobile_error('Silakan login ulang',401);return null;}

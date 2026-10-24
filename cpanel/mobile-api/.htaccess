@@ -1,4 +1,7 @@
 Options -Indexes
-<FilesMatch "^(bootstrap|cron_dispatch|schema|config\.local)\." >
+<FilesMatch "^(bootstrap|permissions|cron_dispatch|schema|v205_role_permissions|config\.local)\.(php|sql|ini)$">
+Require all denied
+</FilesMatch>
+<FilesMatch "\.(sql|log|bak|old)$">
 Require all denied
 </FilesMatch>

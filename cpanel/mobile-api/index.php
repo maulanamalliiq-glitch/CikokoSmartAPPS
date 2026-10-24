@@ -1,10 +1,35 @@
 <?php
 declare(strict_types=1);
+// API responses must always be JSON, including dependency/runtime failures.
+ini_set('display_errors','0');
+error_reporting(E_ALL);
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+set_exception_handler(static function(Throwable $exception):void {
+    error_log('[Cikoko mobile-api v205] '.$exception->getMessage().' at '.$exception->getFile().':'.$exception->getLine());
+    if(!headers_sent()){http_response_code(503);header('Content-Type: application/json; charset=utf-8');}
+    echo json_encode(['ok'=>false,'error'=>'Server API belum siap. Periksa error_log PHP atau konfigurasi database.'],JSON_UNESCAPED_UNICODE);
+});
+$action=(string)($_GET['action']??'');
+$method=(string)($_SERVER['REQUEST_METHOD']??'GET');
+if($action==='health'){
+    $files=[
+        'website_lib'=>is_file(dirname(__DIR__).'/lib.php'),
+        'roles_lib'=>is_file(dirname(__DIR__).'/roles-lib.php'),
+        'api_bootstrap'=>is_file(__DIR__.'/bootstrap.php'),
+        'api_permissions'=>is_file(__DIR__.'/permissions.php'),
+        'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
+    ];
+    $ready=!in_array(false,$files,true);
+    http_response_code($ready?200:503);
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'205.1','ready'=>$ready,
+        'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
+    exit;
+}
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
-header('Content-Type: application/json; charset=utf-8');
-$action=(string)($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
-if($action==='health')mobile_json(['ok'=>true,'service'=>'Cikoko API','time'=>date('c')]);
+
 if($action==='login'&&$method==='POST'){
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
  $a=db_read('admin');if($username!==''&&hash_equals((string)($a['username']??''),$username) && password_verify($pass,(string)($a['password_hash']??''))){$found=['id'=>'admin','name'=>'Administrator','username'=>$username,'role'=>'admin'];}
@@ -15,7 +40,7 @@ if($action==='login'&&$method==='POST'){
 if($action==='register'&&$method==='POST'){
  $b=mobile_body();$name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);$pass=(string)($b['password']??'');$confirm=(string)($b['confirm']??'');$address=mobile_text($b['address']??'',600);$phone=mobile_text($b['phone']??'',40);$email=mobile_text($b['email']??'',160);
  if($pass===''||$pass!==$confirm)mobile_error('Konfirmasi password tidak sama atau kosong',422);
- if(mb_strlen($name)<3 || !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||!preg_match('/^[0-9+ -]{8,20}$/',$phone)||$address===''||!filter_var($email,FILTER_VALIDATE_EMAIL))mobile_error('Periksa nama, username, alamat, nomor telepon dan email',422);
+ if(mobile_strlen($name)<3 || !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||!preg_match('/^[0-9+ -]{8,20}$/',$phone)||$address===''||!filter_var($email,FILTER_VALIDATE_EMAIL))mobile_error('Periksa nama, username, alamat, nomor telepon dan email',422);
  $users=db_read('portal_users');$a=db_read('admin');$taken=strcasecmp((string)($a['username']??''),$username)===0;foreach($users as $v)if(strcasecmp((string)($v['username']??''),$username)===0)$taken=true;
  if($taken)mobile_error('Username sudah digunakan',409);
  $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'role'=>'warga','department'=>'Warga','address'=>$address,'phone'=>$phone,'email'=>$email,'active'=>true,'created_at'=>date('c')];
@@ -53,7 +78,7 @@ if($action==='role_permissions'){
 }
 if($action==='content_create'&&$method==='POST'){
  mobile_need($u,'content:create');$b=mobile_body();$type=mobile_text($b['type']??'',30);$title=mobile_text($b['title']??'',200);$body=mobile_text($b['body']??'',12000);
- if(!in_array($type,['berita','pengumuman'],true)||mb_strlen($title)<5||mb_strlen($body)<10)mobile_error('Judul (5 karakter) dan isi (10 karakter) wajib',422);
+ if(!in_array($type,['berita','pengumuman'],true)||mobile_strlen($title)<5||mobile_strlen($body)<10)mobile_error('Judul (5 karakter) dan isi (10 karakter) wajib',422);
  $content=db_read('content');$id=bin2hex(random_bytes(12));
  $content[]=['id'=>$id,'type'=>$type,'title'=>$title,'body'=>nl2br(esc($body)),'image'=>'','created_at'=>date('c')];
  if(!db_write('content',$content))mobile_error('Konten gagal disimpan',503);
@@ -77,7 +102,7 @@ if($action==='events'){
  $s->execute(['admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>$uid]);mobile_json(['ok'=>true,'events'=>$s->fetchAll()]);
 }
 if($action==='chat_send'&&$method==='POST'){
- $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mb_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
+ $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mobile_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
  $st=$db->prepare('SELECT created_at FROM mobile_chat WHERE user_id=? AND sender="warga" ORDER BY id DESC LIMIT 1');$st->execute([$uid]);$last=$st->fetchColumn();if($last && strtotime($last)>time()-3)mobile_error('Tunggu sebentar sebelum mengirim lagi',429);
  $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');$st->execute([$uid,$u['username'],'warga',$message]);mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json(['ok'=>true]);
 }
