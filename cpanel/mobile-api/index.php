@@ -128,7 +128,7 @@ if($action==='report'&&$method==='POST'){
 if($action==='waris'&&$method==='POST'){
  mobile_need($u,'waris:create');
  require_once dirname(__DIR__).'/ahli-waris/bootstrap.php';
- aw_prepare_schema($db);
+ try {aw_prepare_schema($db);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
  foreach(['name','phone','address','relation','deceased_name','heirs'] as $k)if(trim((string)($_POST[$k]??''))==='')mobile_error('Lengkapi '.$k,422);
  foreach(['r1','r2','r3','r4','r5','r6'] as $k)if(!isset($_FILES[$k])||$_FILES[$k]['error']!==UPLOAD_ERR_OK)mobile_error('Persyaratan foto belum lengkap: '.$k,422);
@@ -147,7 +147,7 @@ if($action==='waris'&&$method==='POST'){
    $name=bin2hex(random_bytes(20)).'.'.$ext;if(!move_uploaded_file($f['tmp_name'],$dir.'/'.$name))throw new RuntimeException('Simpan dokumen gagal');$paths[]=$dir.'/'.$name;$ins->execute([$id,$key,basename($f['name']),$name,$mime,(int)$f['size']]);
   }
   $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);$db->commit();
- }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error($e->getMessage(),422);}
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error('Permohonan belum berhasil disimpan. Data tetap berada di formulir. Periksa dokumen atau hubungi admin jika masalah berulang.',503);}
  mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');mobile_emit('progres_surat','Permohonan diterima',$reference,'personal',$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
 }
 if($action==='history'){

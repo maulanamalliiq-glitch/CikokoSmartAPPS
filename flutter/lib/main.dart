@@ -21,7 +21,7 @@ class CikokoApp extends StatelessWidget {
 }
 class Entry extends StatefulWidget{const Entry({super.key});@override State<Entry> createState()=>_EntryState();}
 class _EntryState extends State<Entry>{bool loading=true;@override void initState(){super.initState();api.restore().whenComplete((){if(mounted)setState(()=>loading=false);});}
- @override Widget build(BuildContext c)=>loading?const Scaffold(body:Center(child:CircularProgressIndicator())):api.token==null?LoginPage(onLogin:()=>setState((){})):HomePage(onLogout:()=>setState((){}));}
+ @override Widget build(BuildContext c)=>loading?const Scaffold(body:Center(child:CircularProgressIndicator())):HomePage(key:ValueKey(api.token??'guest'),onAuthenticated:()=>setState((){}),onLogout:()=>setState((){}));}
 class Logo extends StatelessWidget{final double size;const Logo({super.key,this.size=58});@override Widget build(BuildContext c)=>ClipOval(child:Image.asset('assets/logo.png',width:size,height:size,fit:BoxFit.cover));}
 class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPage({super.key,required this.onLogin});@override State<LoginPage> createState()=>_LoginState();}
 class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
@@ -32,6 +32,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
  Widget build(BuildContext context) {
    final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
    return Scaffold(
+     appBar: AppBar(title: const Text('Masuk ke Cikoko'), backgroundColor: pale),
      body: Center(
        child: SingleChildScrollView(
          padding: const EdgeInsets.all(18),
@@ -102,7 +103,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
 
 }
 void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(text),backgroundColor:error?Colors.red.shade700:navy));}
-class HomePage extends StatefulWidget{final VoidCallback onLogout;const HomePage({super.key,required this.onLogout});@override State<HomePage> createState()=>_HomeState();}
+class HomePage extends StatefulWidget{final VoidCallback onLogout,onAuthenticated;const HomePage({super.key,required this.onLogout,required this.onAuthenticated});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage> {
   String section='Dashboard';
   int nav=0;
@@ -111,23 +112,24 @@ class _HomeState extends State<HomePage> {
   bool loading=true,permissionsOk=false;
   Timer? timer;
   PushService? push;
-  String get role => '${api.profile?['role']??'warga'}';
-  String get roleLabel=>roleNames[role]??role.toUpperCase();
-  bool get isStaff=>role!='warga';
+  String get role => api.token==null?'guest':'${api.profile?['role']??'warga'}';
+  String get roleLabel=>role=='guest'?'Portal Publik':(roleNames[role]??role.toUpperCase());
+  bool get isStaff=>role!='warga'&&role!='guest';
   bool get isAdmin=>capabilities['reports:view']==true;
-  List<RoleFeature> get modules=>modulesForRole(role,capabilities);
-  @override void initState(){super.initState();load();push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}
+  List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
+  @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
   Future<void> refresh() async {
-    try {final v=await api.call('events');if(mounted)setState(()=>events=List<dynamic>.from(v['events']??[]));}
+    try {if(api.token==null)return;final v=await api.call('events');final incoming=List<dynamic>.from(v['events']??[]);await push?.onEvents(incoming);if(mounted)setState(()=>events=incoming);}
     catch(_) {}
   }
   Future<void> load() async {
     if(mounted)setState(()=>loading=true);
     try {
+      if(api.token==null){if(mounted)setState(()=>permissionsOk=true);}else{
       final permissionResult=await api.call('permissions');
       final raw=Map<String,dynamic>.from(permissionResult['capabilities'] as Map);
-      if(mounted)setState((){capabilities=raw.map((key,value)=>MapEntry(key,value==true));permissionsOk=true;});
+      if(mounted)setState((){capabilities=raw.map((key,value)=>MapEntry(key,value==true));permissionsOk=true;});}
     } catch(e){if(mounted){setState(()=>permissionsOk=false);notify(context,'Hak akses belum tersambung: $e',error:true);}}
     try {
       await refresh();
@@ -136,7 +138,17 @@ class _HomeState extends State<HomePage> {
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
+  bool get guest=>api.token==null;
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  Future<void> openLogin() async {
+    if(!mounted)return;
+    final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
+      builder:(pageContext)=>LoginPage(onLogin:()=>Navigator.of(pageContext).pop(true)),
+    ));
+    if(loggedIn==true&&mounted){widget.onAuthenticated();}
+  }
   void switchTo(String s) {
+    if(guest&&_needsLogin(s)){openLogin();return;}
     setState(() {
       section=s;
       if(s=='Dashboard'){nav=0;}
@@ -173,7 +185,7 @@ class _HomeState extends State<HomePage> {
       title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Cikoko',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,style:const TextStyle(fontSize:11,color:Colors.blueGrey))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
-    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Pengguna'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
@@ -221,7 +233,8 @@ class _HomeState extends State<HomePage> {
     const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
   Widget home()=>ListView(padding:const EdgeInsets.all(14),children:[
-    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[navy,blue],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Row(children:[const Logo(size:58),const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Selamat datang, ${api.profile?['name']??'Pengguna'}',style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800)),const SizedBox(height:4),Text('Kelurahan Cikoko • $roleLabel',style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:9),const Text('Melayani dengan hati, lebih cepat dan mudah.',style:TextStyle(color:Colors.white,fontSize:12))]))])),
+    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[navy,blue],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Row(children:[const Logo(size:58),const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(guest?'Selamat datang di Cikoko':'Selamat datang, ${api.profile?['name']??'Pengguna'}',style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800)),const SizedBox(height:4),Text('Kelurahan Cikoko • $roleLabel',style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:9),const Text('Melayani dengan hati, lebih cepat dan mudah.',style:TextStyle(color:Colors.white,fontSize:12))]))])),
+    if(guest)Card(child:ListTile(leading:const Icon(Icons.lock_open_outlined,color:blue),title:const Text('Akses layanan warga'),subtitle:const Text('Baca berita dan lihat layanan tanpa login. Masuk hanya saat mengajukan surat, membuat laporan, atau melihat riwayat.'),trailing:FilledButton(onPressed:openLogin,child:const Text('Login')))),
     const SizedBox(height:18),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Text('Menu Cepat',style:Theme.of(context).textTheme.titleMedium),TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →'))]),
     LayoutBuilder(builder:(ctx,c)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:c.maxWidth>700?4:2,mainAxisSpacing:8,crossAxisSpacing:8,childAspectRatio:1.62),itemCount:modules.length>6?6:modules.length,itemBuilder:(ctx,i){final f=modules[i];return Card(elevation:0,child:InkWell(borderRadius:BorderRadius.circular(16),onTap:()=>switchTo(f.route),child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[CircleAvatar(radius:17,backgroundColor:sky,child:Icon(iconFor(f.route),color:blue,size:19)),Text(f.title,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:navy,fontSize:12,fontWeight:FontWeight.w700))]))));})),
     const SizedBox(height:16),Text('Informasi Terbaru',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),
@@ -287,26 +300,67 @@ class _HomeState extends State<HomePage> {
  }
 
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
- Widget eventList()=>ListView(children:[for(final e in events)ListTile(leading:const Icon(Icons.notifications_active_outlined,color:blue),title:Text('${e['title']??''}'),subtitle:Text('${e['created_at']??''}')),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
- Widget profilePage()=>ListView(padding:const EdgeInsets.all(16),children:[for(final e in (api.profile??{}).entries)if(!['id','password_hash','token'].contains(e.key))Card(child:ListTile(title:Text(e.key),subtitle:Text('${e.value}')))]);
+ Widget eventList()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(22),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.notifications_outlined,size:40,color:blue),const Text('Notifikasi surat dan laporan memerlukan login.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login'))])))):ListView(children:[for(final e in events)ListTile(leading:const Icon(Icons.notifications_active_outlined,color:blue),title:Text('${e['title']??''}'),subtitle:Text('${e['created_at']??''}')),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
+ Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const SizedBox(height:10),const Text('Masuk untuk melihat profil Anda.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login / Daftar Warga'))])))):ListView(padding:const EdgeInsets.all(16),children:[for(final e in (api.profile??{}).entries)if(!['id','password_hash','token'].contains(e.key))Card(child:ListTile(title:Text(e.key),subtitle:Text('${e.value}')))]);
 }
 class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
-class PhotoInput extends StatefulWidget{final String label;final void Function(String path) onChanged;const PhotoInput({super.key,required this.label,required this.onChanged});@override State<PhotoInput> createState()=>_PhotoState();}
-class _PhotoState extends State<PhotoInput>{String? selected;Future<void> pick(ImageSource source) async{try{final file=await ImagePicker().pickImage(source:source,maxWidth:1900,maxHeight:2400,imageQuality:78,requestFullMetadata:false);if(file!=null){var newPath=file.path;
-        try{
-          final original=File(file.path);
-          if(await original.length()>1550000){
-            for(final quality in [85,75,65,55]){
-              final compressed=await FlutterImageCompress.compressWithFile(file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
-              if(compressed==null)break;
-              final output=File('${Directory.systemTemp.path}/cikoko_${DateTime.now().microsecondsSinceEpoch}.jpg');
-              await output.writeAsBytes(compressed,flush:true);newPath=output.path;
-              if(compressed.length<=1550000)break;
-            }
+class PhotoInput extends StatefulWidget {
+  final String label;
+  final void Function(String path) onChanged;
+  const PhotoInput({super.key,required this.label,required this.onChanged});
+  @override State<PhotoInput> createState()=>_PhotoState();
+}
+class _PhotoState extends State<PhotoInput> {
+  String? selectedPath, selectedName;
+  bool selecting=false;
+  Future<void> pick(ImageSource source) async {
+    if(selecting)return;
+    setState(()=>selecting=true);
+    try {
+      final file=await ImagePicker().pickImage(source:source,maxWidth:1900,maxHeight:2400,imageQuality:78,requestFullMetadata:false);
+      if(file==null)return;
+      var newPath=file.path;
+      try {
+        final original=File(file.path);
+        if(await original.length()>1550000) {
+          for(final quality in [78,67,55]) {
+            final compressed=await FlutterImageCompress.compressWithFile(file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
+            if(compressed==null)break;
+            final output=File('${Directory.systemTemp.path}/cikoko_${DateTime.now().microsecondsSinceEpoch}.jpg');
+            await output.writeAsBytes(compressed,flush:true);
+            newPath=output.path;
+            if(compressed.length<=1550000)break;
           }
-        }catch(_){ /* Gunakan berkas foto dari picker bila kompresi gagal */ }
-        setState(()=>selected=file.name);widget.onChanged(newPath);}}catch(e){if(mounted)notify(context,'Gagal mengambil foto: $e',error:true);}}
- @override Widget build(BuildContext c)=>Card(child:Padding(padding:const EdgeInsets.all(10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(widget.label,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:12)),const SizedBox(height:5),Wrap(spacing:6,children:[OutlinedButton.icon(onPressed:()=>pick(ImageSource.camera),icon:const Icon(Icons.camera_alt_outlined,size:18),label:const Text('Kamera')),OutlinedButton.icon(onPressed:()=>pick(ImageSource.gallery),icon:const Icon(Icons.photo_library_outlined,size:18),label:const Text('Galeri'))]),Text(selected??'Belum ada foto',style:const TextStyle(fontSize:11,color:Colors.blueGrey),overflow:TextOverflow.ellipsis)])));
+        }
+      }catch(_) { /* Gunakan foto asli jika kompresi tidak didukung. */ }
+      if(!mounted)return;
+      setState(() {
+        selectedPath=newPath;
+        final original=file.name;
+        selectedName=source==ImageSource.camera ? 'Foto Kamera - ${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.jpg' : original;
+      });
+      widget.onChanged(newPath);
+    }catch(e) {if(mounted)notify(context,'Gagal mengambil foto: $e',error:true);}
+    finally {if(mounted)setState(()=>selecting=false);}
+  }
+  @override Widget build(BuildContext c)=>Card(
+    child:Padding(padding:const EdgeInsets.all(10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(widget.label,style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12)),
+      const SizedBox(height:8),
+      Row(crossAxisAlignment:CrossAxisAlignment.center,children:[
+        if(selectedPath!=null)...[
+          ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.file(File(selectedPath!),width:57,height:62,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox(width:57,height:62,child:Icon(Icons.broken_image_outlined)))),
+          const SizedBox(width:10),
+        ],
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Wrap(spacing:6,runSpacing:5,children:[
+            OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.camera),icon:const Icon(Icons.camera_alt_outlined,size:16),label:const Text('Kamera',style:TextStyle(fontSize:12))),
+            OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.gallery),icon:const Icon(Icons.photo_library_outlined,size:16),label:const Text('Galeri',style:TextStyle(fontSize:12))),
+          ]),
+          Text(selectedName??'Belum ada foto',maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
+        ]))
+      ]),
+    ])));
 }
 class WarisForm extends StatefulWidget{const WarisForm({super.key});@override State<WarisForm> createState()=>_WarisState();}
 class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingController>{};final files=<String,List<String>>{};int children=0;bool sending=false;double progress=0;bool agree=false;
@@ -338,8 +392,39 @@ class _ChatState extends State<ChatPage>{final ctrl=TextEditingController();List
 class AdminChatPage extends StatefulWidget{const AdminChatPage({super.key});@override State<AdminChatPage> createState()=>_AdminChatState();}
 class _AdminChatState extends State<AdminChatPage>{List<dynamic> threads=[];@override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('chat_threads');if(mounted)setState(()=>threads=List<dynamic>.from(d['threads']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
- Future<void> reply(Map<String,dynamic> t) async {final ctrl=TextEditingController();await showDialog(context:context,builder:(c)=>AlertDialog(title:Text('Balas ${t['name']}'),content:TextField(controller:ctrl,decoration:const InputDecoration(hintText:'Balasan admin')),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Batal')),FilledButton(onPressed:()async{try{await api.call('chat_reply',body:{'user_id':t['user_id'],'message':ctrl.text});if(c.mounted)Navigator.pop(c);load();}catch(e){if(c.mounted)notify(c,'$e',error:true);}},child:const Text('Kirim'))]));ctrl.dispose();}
- @override Widget build(BuildContext c)=>ListView(children:[for(final t in threads)ListTile(leading:const Icon(Icons.person),title:Text('${t['name']}'),subtitle:Text('${t['message']}'),trailing:const Icon(Icons.reply),onTap:()=>reply(Map<String,dynamic>.from(t))),if(threads.isEmpty)const ListTile(title:Text('Belum ada pesan masuk.'))]);
+ Future<void> reply(Map<String,dynamic> thread)async{
+   final sent=await showModalBottomSheet<bool>(context:context,isScrollControlled:true,useSafeArea:true,
+     builder:(_)=>AdminReplySheet(thread:thread));
+   if(sent==true&&mounted)await load();
+ }
+ @override Widget build(BuildContext c)=>ListView(children:[for(final t in threads)ListTile(leading:const CircleAvatar(child:Icon(Icons.person_outline)),title:Text('${t['name']}'),subtitle:Text('${t['message']}',maxLines:2,overflow:TextOverflow.ellipsis),trailing:const Icon(Icons.reply),onTap:()=>reply(Map<String,dynamic>.from(t))),if(threads.isEmpty)const ListTile(title:Text('Belum ada pesan masuk.'))]);
+}
+class AdminReplySheet extends StatefulWidget{
+ final Map<String,dynamic> thread;
+ const AdminReplySheet({super.key,required this.thread});
+ @override State<AdminReplySheet> createState()=>_AdminReplySheetState();
+}
+class _AdminReplySheetState extends State<AdminReplySheet>{
+ final TextEditingController message=TextEditingController();bool sending=false;
+ @override void dispose(){message.dispose();super.dispose();}
+ Future<void> submit()async{
+   final text=message.text.trim();if(text.isEmpty||sending)return;
+   setState(()=>sending=true);
+   try{
+     await api.call('chat_reply',body:{'user_id':'${widget.thread['user_id']}','message':text});
+     if(mounted)Navigator.of(context).pop(true);
+   }catch(e){if(mounted)notify(context,'Balasan gagal: $e',error:true);}
+   finally{if(mounted)setState(()=>sending=false);}
+ }
+ @override Widget build(BuildContext context)=>Padding(
+   padding:EdgeInsets.only(left:18,right:18,top:20,bottom:MediaQuery.viewInsetsOf(context).bottom+18),
+   child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text('Balas pesan ${widget.thread['name']}',style:Theme.of(context).textTheme.titleMedium),
+     const SizedBox(height:12),
+     TextField(controller:message,minLines:2,maxLines:5,autofocus:true,decoration:const InputDecoration(hintText:'Tulis balasan untuk warga...')),
+     const SizedBox(height:12),
+     SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send),label:Text(sending?'Mengirim...':'Kirim Balasan'))),
+   ]));
 }
 class AdminReports extends StatefulWidget{const AdminReports({super.key});@override State<AdminReports> createState()=>_AdminReportsState();}
 class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];@override void initState(){super.initState();load();}
