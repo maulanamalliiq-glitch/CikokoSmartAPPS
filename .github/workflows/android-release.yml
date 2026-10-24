@@ -39,7 +39,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v205-TEST-APK
+          name: Cikoko-v206-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -51,7 +51,7 @@ jobs:
       - name: Upload unsigned AAB for secure offline signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v205-UNSIGNED-AAB-FOR-OFFLINE-SIGNING
+          name: Cikoko-v206-UNSIGNED-AAB-FOR-OFFLINE-SIGNING
           path: flutter/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
@@ -63,18 +63,18 @@ jobs:
       - name: Export unsigned release APK and Android signer
         run: |
           mkdir -p flutter/build/offline-release
-          cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v205-unsigned.apk
+          cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v206-unsigned.apk
           SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
           if [ -z "$SIGNER" ]; then
             echo "::error::apksigner.jar tidak ditemukan pada Android SDK runner"
             exit 1
           fi
           cp "$SIGNER" flutter/build/offline-release/apksigner.jar
-          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v205-unsigned.aab
+          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v206-unsigned.aab
       - name: Upload unsigned offline signing bundle
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v205-OFFLINE-SIGNING-APK-AAB
+          name: Cikoko-v206-OFFLINE-SIGNING-APK-AAB
           path: flutter/build/offline-release/
           if-no-files-found: error
           retention-days: 7
@@ -136,7 +136,7 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v205-SIGNED-APK-AAB
+          name: Cikoko-v206-SIGNED-APK-AAB
           path: |
             flutter/build/app/outputs/flutter-apk/app-release.apk
             flutter/build/app/outputs/bundle/release/app-release.aab
