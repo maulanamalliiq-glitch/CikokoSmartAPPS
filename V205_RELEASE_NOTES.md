@@ -17,7 +17,7 @@ Nama: **Cikoko** · Package: `com.KelurahanCikoko.malik` · Version code: **205*
 ## Deploy
 1. Backup seluruh cPanel dan database.
 2. Pastikan patch `cpanel/mobile-api/` versi sebelumnya telah terpasang. Dari revisi ini gunakan pembaruan `mobile-api/index.php`, `mobile-api/permissions.php`, dan `roles-lib.php`. **Jangan ekstrak seluruh folder sumber cpanel langsung di hosting** karena itu bisa menimpa perubahan website lainnya.
-3. PHP harus mengizinkan CREATE TABLE untuk tabel hak akses; bisa juga impor SQL dari source sebelum API dibuka.
+3. PHP harus mengizinkan CREATE TABLE untuk tabel hak akses; jika tidak, impor `cpanel/mobile-api/v205_role_permissions.sql` terlebih dahulu sebagai admin database.
 4. Verifikasi endpoint `mobile-api/index.php?action=health` dan uji login/token/izin berbagai role.
 5. Jalankan GitHub Actions sampai APK debug berhasil. Signed AAB hanya jika keystore secrets tersedia dan fingerprint upload cert cocok. Jangan unggah keystore/password ke repo.
 
