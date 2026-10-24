@@ -55,6 +55,29 @@ jobs:
           path: flutter/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
+      - name: Build unsigned release APK for offline signing
+        working-directory: flutter
+        run: |
+          flutter build apk --release
+          test -s build/app/outputs/flutter-apk/app-release.apk
+      - name: Export unsigned release APK and Android signer
+        run: |
+          mkdir -p flutter/build/offline-release
+          cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v205-unsigned.apk
+          SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
+          if [ -z "$SIGNER" ]; then
+            echo "::error::apksigner.jar tidak ditemukan pada Android SDK runner"
+            exit 1
+          fi
+          cp "$SIGNER" flutter/build/offline-release/apksigner.jar
+          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v205-unsigned.aab
+      - name: Upload unsigned offline signing bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v205-OFFLINE-SIGNING-APK-AAB
+          path: flutter/build/offline-release/
+          if-no-files-found: error
+          retention-days: 7
       - name: Check whether signing is configured
         id: signing
         env:
@@ -62,11 +85,11 @@ jobs:
           PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
           KEYPASS: ${{ secrets.CIKOKO_KEY_PASSWORD }}
         run: |
-          if [[ -n "$STORE" && -n "$PASSWORD" && -n "$KEYPASS" ]]; then
+          if [[ -n "$STORE" && -n "$PASSWORD" && -n "$KEYPASS" ]] && python3 -c "import os,base64; data=base64.b64decode(''.join(os.environ['STORE'].split()),validate=True); assert len(data)>500 and data[:4]==bytes.fromhex('feedfeed')" 2>/dev/null; then
             echo 'enabled=true' >> "$GITHUB_OUTPUT"
           else
             echo 'enabled=false' >> "$GITHUB_OUTPUT"
-            echo 'Signing secrets not configured. Debug APK is available, but no publishable AAB will be produced.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Signing secrets missing/invalid. Unsigned APK/AAB artifacts will be provided for offline signing; no private key was uploaded to this repository.' >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Restore signing keystore
         if: steps.signing.outputs.enabled == 'true'
