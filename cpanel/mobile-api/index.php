@@ -82,6 +82,7 @@ if($action==='content_create'&&$method==='POST'){
  $content=db_read('content');$id=bin2hex(random_bytes(12));
  $content[]=['id'=>$id,'type'=>$type,'title'=>$title,'body'=>nl2br(esc($body)),'image'=>'','created_at'=>date('c')];
  if(!db_write('content',$content))mobile_error('Konten gagal disimpan',503);
+ mobile_emit($type,$type==='berita'?'Berita Kelurahan terbaru':'Pengumuman Kelurahan terbaru',$title,'public');
  mobile_json(['ok'=>true,'id'=>$id]);
 }
 if($action==='archive_create'&&$method==='POST'){
