@@ -1,6 +1,6 @@
 # Cikoko SmartApp — Flutter Native (bukan WebView)
 
-**Identitas**: `Cikoko`, `com.KelurahanCikoko.malik`, versionCode **204**, target SDK **36**.
+**Identitas**: `Cikoko`, `com.KelurahanCikoko.malik`, versionCode **205**, target SDK **36**.
 
 ## Paket
 
@@ -30,15 +30,19 @@ Tanpa service account/cron, aplikasi tetap menarik notifikasi dari database tiap
 
 ## Build di GitHub Actions
 
-1. Upload seluruh direktori `flutter/` dan `.github/workflows/android-release.yml` ke repository GitHub, jangan unggah keystore, password atau PHP private database.
+1. Source Flutter v205 sudah berada di repository `maulanamalliiq-glitch/CikokoSmartAPPS`. Jangan unggah keystore, password, atau database private.
 2. Pada Settings → Secrets and variables → Actions, siapkan tiga secret: `CIKOKO_KEYSTORE_B64` (keystore dalam base64), `CIKOKO_STORE_PASSWORD`, dan `CIKOKO_KEY_PASSWORD`.
-3. Actions → Cikoko Android Signed Release → Run workflow. Ambil dua hasil signed dari artifact.
-4. Fingerprint sertifikat dibandingkan dengan keystore yang disertakan pengguna. VersionCode 204 harus **lebih tinggi** dari rilis aktif Play Store; sesuaikan jika Play Console menunjukkan versi ≥204.
+3. Actions → Cikoko Android APK dan AAB → Run workflow. Ambil file APK dan AAB dari artifact `Cikoko-v205-SIGNED-APK-AAB` setelah build berhasil.
+4. Fingerprint sertifikat dibandingkan dengan keystore yang disertakan pengguna. VersionCode 205 harus **lebih tinggi** dari rilis aktif Play Store; sesuaikan jika Play Console menunjukkan versi ≥204.
 
 **Keamanan**: Jangan memasukkan kunci signing, password, service-account Firebase, NIK, dan database warga dalam repository GitHub. Rotasi password DB sebelumnya telah dibagikan di percakapan.
 
 ## Status QA dan keterbatasan
 
-PHP syntax & local API GET/invalid auth dapat diuji tanpa database. **Belum ada Flutter/Android SDK di lingkungan saat ZIP ini disusun**, sehingga Dart/Gradle build, uji di perangkat, koneksi cPanel/MySQL produksi, dan pengiriman FCM langsung **belum diverifikasi**. Jangan label APK/AAB *siap publish* sampai workflow berhasil dan tes end-to-end selesai.
+PHP syntax & local API GET/invalid auth dapat diuji tanpa database. **Build dan tes dilakukan oleh GitHub Actions; status terbaru harus diperiksa pada tab Actions**. Pengujian di perangkat, koneksi cPanel/MySQL produksi, dan pengiriman FCM langsung belum diverifikasi. Jangan label APK/AAB *siap publish* sampai workflow berhasil dan tes end-to-end selesai.
 
 Tampilan adalah widget native Flutter, **bukan WebView**. Foto kamera/galeri diperkecil dan dikompresi ketika perlu. Proses kompresi lossy tidak dapat menjamin kualitas pixel sama persis dengan gambar asli; selalu periksa keterbacaan dokumen.
+
+## Pembaruan v205 (24 Oktober 2026)
+
+Lihat `V205_RELEASE_NOTES.md`. Bottom navigation lima tab, menu dashboard sesuai role, pencatatan arsip lama dari aplikasi, publikasi berita/pengumuman dari aplikasi, serta hak akses via `mobile-api/permissions.php`. Fitur seperti absensi, PROTAP, cap geo foto, dan cakupan per RT/RW belum diintegrasikan.
