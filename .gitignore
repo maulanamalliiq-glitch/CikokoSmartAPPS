@@ -1,0 +1,7 @@
+*.keystore
+*.jks
+**/config.php
+**/private/
+**/data/
+**/build/
+**/.dart_tool/
