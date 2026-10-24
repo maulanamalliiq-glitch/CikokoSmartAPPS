@@ -345,7 +345,6 @@ class _HomeState extends State<HomePage> {
    final image = api.media('${item['image']??''}');
    final title = '${item['title']??''}';
    final description = '${item['body']??''}';
-   final link = 'https://datawebs.my.id/article.php?id=${item['id']??''}';
    Widget photo() => image.isEmpty ? const SizedBox.shrink() : Image.network(
      image, height: 150, width: double.infinity, fit: BoxFit.cover,
      errorBuilder: (c, e, stack) => const SizedBox.shrink(),

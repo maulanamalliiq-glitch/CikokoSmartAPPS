@@ -32,7 +32,7 @@ class _InnovationPageState extends State<InnovationPage>{
       for(final e in ctrls.entries)Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:e.value,maxLines:e.key=='body'?5:1,decoration:InputDecoration(labelText:const {'title':'Judul','summary':'Ringkasan','body':'Deskripsi','image':'Tautan foto resmi'}[e.key]))),
       SizedBox(width:double.infinity,child:FilledButton(onPressed:()async{try{await widget.api.call('v211_innovations_update',body:{'slug':item['slug'],for(final e in ctrls.entries)e.key:e.value.text.trim()});if(sheet.mounted)Navigator.pop(sheet);if(mounted)setState(reload);if(mounted)civicMessage(context,'Informasi inovasi telah disimpan.');}catch(_){if(sheet.mounted)civicMessage(sheet,'Informasi inovasi belum berhasil disimpan.');}},child:const Text('Simpan Perubahan'))),
     ])),));
-  } finally {for(final c in ctrls.values)c.dispose();}
+  } finally {for(final c in ctrls.values){c.dispose();}}
  }
  @override Widget build(BuildContext context)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){
   if(s.hasError)return Center(child:Text('Informasi inovasi belum dapat dimuat. Silakan coba kembali.\n${s.error}',textAlign:TextAlign.center));
@@ -58,7 +58,7 @@ class CivicProfilePage extends StatefulWidget{final CikokoApi api;const CivicPro
 class _CivicProfileState extends State<CivicProfilePage>{
  late Future<Map<String,dynamic>> pending;final fields={for(final k in ['name','username','phone','email','address','nik'])k:TextEditingController()};bool editing=false,saving=false;int imageVersion=0;
  @override void initState(){super.initState();pending=widget.api.call('v211_profile');}
- @override void dispose(){for(final c in fields.values)c.dispose();super.dispose();}
+ @override void dispose(){for(final c in fields.values){c.dispose();}super.dispose();}
  void fill(Map<String,dynamic> row){for(final k in fields.keys){fields[k]!.text='${row[k]??''}';}}
  Future<void> save()async{if(saving)return;setState(()=>saving=true);try{
   await widget.api.call('v211_profile_update',body:{for(final k in ['name','phone','email','address','nik'])k:fields[k]!.text.trim()});
@@ -92,7 +92,7 @@ class _PpsuReportState extends State<PpsuReportPage>{
  Future<void> pick(int index,ImageSource source)async{final f=await ImagePicker().pickImage(source:source,imageQuality:86,maxWidth:2200);if(f!=null && mounted)setState(()=>photos[index]=f.path);}
  Future<void> send()async{if(sending)return;if(name.text.trim().isEmpty||activity.text.trim().length<5||photos.any((x)=>x==null)){civicMessage(context,'Mohon lengkapi nama, kegiatan, dan tiga foto dokumentasi.');return;}setState(()=>sending=true);
  try{await widget.api.upload('v211_ppsu_submit',{'name':name.text.trim(),'team':team,'work_date':date.toIso8601String().substring(0,10),'activity':activity.text.trim()}, {'photo1':[photos[0]!],'photo2':[photos[1]!],'photo3':[photos[2]!]});
-  if(mounted){setState((){for(var i=0;i<3;i++)photos[i]=null;activity.clear();});civicMessage(context,'Laporan PPSU telah diterima untuk ditindaklanjuti.');}
+  if(mounted){setState((){for(var i=0;i<3;i++){photos[i]=null;}activity.clear();});civicMessage(context,'Laporan PPSU telah diterima untuk ditindaklanjuti.');}
  }catch(_){if(mounted)civicMessage(context,'Laporan belum berhasil dikirim. Mohon coba kembali.');}finally{if(mounted)setState(()=>sending=false);}}
  @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(14),children:[const Text('Laporan Kegiatan PPSU',style:TextStyle(fontSize:19,fontWeight:FontWeight.bold,color:civicNavy)),const SizedBox(height:7),
   Card(child:Padding(padding:const EdgeInsets.all(13),child:Column(children:[
@@ -125,7 +125,22 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
  Future<void> share(String service)async{final url='https://datawebs.my.id/article.php?id=$id';if(service=='copy'||service=='instagram'){await Clipboard.setData(ClipboardData(text:url));if(mounted)civicMessage(context,'Tautan berita berhasil disalin.');return;}
  final u=service=='wa'?'https://wa.me/?text=${Uri.encodeComponent(url)}':'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';await launchUrl(Uri.parse(u),mode:LaunchMode.externalApplication);}
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return const Center(child:Text('Berita belum dapat ditampilkan.'));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
-  if(photos.isNotEmpty)...[SizedBox(height:215,child:PageView.builder(itemCount:photos.length,onPageChanged:(v)=>setState(()=>page=v),itemBuilder:(_,i)=>ClipRRect(borderRadius:BorderRadius.circular(12),child:Image.network(photos[i],fit:BoxFit.cover,errorBuilder:(_,__,___)=>const Icon(Icons.broken_image_outlined)))) ,const SizedBox(height:6),Text('${page+1} / ${photos.length}',textAlign:TextAlign.center,style:const TextStyle(fontSize:11,color:Colors.blueGrey))],
+  if(photos.isNotEmpty)...[
+    SizedBox(
+      height:215,
+      child:PageView.builder(
+        itemCount:photos.length,
+        onPageChanged:(v)=>setState(()=>page=v),
+        itemBuilder:(_,i)=>ClipRRect(
+          borderRadius:BorderRadius.circular(12),
+          child:Image.network(photos[i],fit:BoxFit.cover,
+            errorBuilder:(_,__,___)=>const Icon(Icons.broken_image_outlined)),
+        ),
+      ),
+    ),
+    const SizedBox(height:6),
+    Text('${page+1} / ${photos.length}',textAlign:TextAlign.center,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
+  ],
   const SizedBox(height:14),Text('${x['title']??''}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:civicNavy)),const SizedBox(height:10),Text('${x['body']??''}'),const SizedBox(height:12),
   Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[
    _shareIcon(Icons.chat_outlined,'WhatsApp',Colors.green,()=>share('wa')),
@@ -145,12 +160,12 @@ class _ArchiveEditorState extends State<ArchiveEditorPage>{
  final data={for(final key in ['archive_year','reference_no','name','nik','phone','address','relation','deceased_name','birthplace','birthdate','marriage_date','deathdate','marital_status','heirs','notes'])key:TextEditingController()};
  final children=<TextEditingController>[];final photos=<String,String>{};bool saving=false,loaded=false;
  @override void initState(){super.initState();data['archive_year']!.text='${DateTime.now().year}';if(widget.editId!=null)load();}
- @override void dispose(){for(final c in data.values)c.dispose();for(final c in children)c.dispose();super.dispose();}
+ @override void dispose(){for(final c in data.values){c.dispose();}for(final c in children){c.dispose();}super.dispose();}
  Future<void> load()async{try{final r=await widget.api.callWithQuery('v211_archive_detail',{'id':'${widget.editId}'});final row=Map<String,dynamic>.from(r['item'] as Map);final details=Map<String,dynamic>.from(row['details']??{});for(final e in data.entries){e.value.text='${row[e.key]??details[e.key]??''}';}data['name']!.text='${row['applicant_name']??''}';final raw=List<dynamic>.from(details['children']??[]);for(final item in raw){children.add(TextEditingController(text:'${item['name']??''}'));}if(mounted)setState(()=>loaded=true);}catch(_){if(mounted)civicMessage(context,'Arsip belum dapat dimuat untuk disunting.');}}
  Future<void> photoPick(String key,ImageSource source)async{final f=await ImagePicker().pickImage(source:source,maxWidth:2300,imageQuality:85);if(f!=null&&mounted)setState(()=>photos[key]=f.path);}
  Widget photoEntry(String key,String label)=>Card(child:Padding(padding:const EdgeInsets.all(9),child:Row(children:[if(photos.containsKey(key))Image.file(File(photos[key]!),height:48,width:48,fit:BoxFit.cover)else const Icon(Icons.image_outlined,color:civicBlue),const SizedBox(width:9),Expanded(child:Text(label,style:const TextStyle(fontSize:11.5))),IconButton(onPressed:()=>photoPick(key,ImageSource.camera),tooltip:'Kamera',icon:const Icon(Icons.camera_alt_outlined)),IconButton(onPressed:()=>photoPick(key,ImageSource.gallery),tooltip:'Galeri',icon:const Icon(Icons.photo_library_outlined))])));
  Future<void> save()async{if(saving)return;setState(()=>saving=true);try{final fields={for(final e in data.entries)e.key:e.value.text.trim(),'id':'${widget.editId??0}','children_json':'[${children.map((c)=>'{"name":${_quote(c.text.trim())}}').join(',')}]'};
- final files={for(final e in photos.entries)e.key:[e.value]};await widget.api.upload('v211_archive_save',fields,files);if(mounted){civicMessage(context,'Arsip Ahli Waris berhasil disimpan.');if(widget.editId!=null)Navigator.of(context).pop(true);else{for(final c in data.values)c.clear();setState(()=>photos.clear());}}}catch(_){if(mounted)civicMessage(context,'Arsip belum berhasil disimpan. Mohon periksa kembali data dan lampiran.');}finally{if(mounted)setState(()=>saving=false);}}
+ final files={for(final e in photos.entries)e.key:[e.value]};await widget.api.upload('v211_archive_save',fields,files);if(mounted){civicMessage(context,'Arsip Ahli Waris berhasil disimpan.');if(widget.editId!=null)Navigator.of(context).pop(true);else{for(final c in data.values){c.clear();}setState(()=>photos.clear());}}}catch(_){if(mounted)civicMessage(context,'Arsip belum berhasil disimpan. Mohon periksa kembali data dan lampiran.');}finally{if(mounted)setState(()=>saving=false);}}
  String _quote(String v)=>'"${v.replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('\n',' ')}"';
  Widget field(String key,String label,{int lines=1})=>Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(controller:data[key],maxLines:lines,decoration:InputDecoration(labelText:label)));
  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14),children:[Text(widget.editId==null?'Tambah Arsip Ahli Waris':'Edit Arsip Ahli Waris',style:const TextStyle(color:civicNavy,fontSize:19,fontWeight:FontWeight.w800)),if(widget.editId!=null&&!loaded)const LinearProgressIndicator(),const SizedBox(height:10),
