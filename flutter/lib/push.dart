@@ -16,24 +16,39 @@ class PushService {
   bool _seeded=false;
   bool _initialized=false;
   Future<void> start(void Function() onRefresh) async {
+    // Notifications while the app is open work even when FCM configuration
+    // is temporarily unavailable. Android notification channels are immutable,
+    // hence a new channel ID for a user-visible default sound.
+    try {
+      const channel=AndroidNotificationChannel('cikoko_updates_v2','Aktivitas dan Pelayanan Cikoko',
+        description:'Berita, surat, laporan dan chat Cikoko',importance:Importance.high,
+        playSound:true,enableVibration:true);
+      await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+      await local.initialize(const InitializationSettings(android:AndroidInitializationSettings('@drawable/ic_launcher')));
+      await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+      _initialized=true;
+    }catch(_){ /* In-app event inbox remains available. */ }
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(backgroundMessage);
-      const channel=AndroidNotificationChannel('cikoko_updates','Kegiatan dan Pelayanan',description:'Pembaruan berita, surat dan laporan Cikoko',importance:Importance.high,playSound:true,enableVibration:true);
-      await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
-      await local.initialize(const InitializationSettings(android:AndroidInitializationSettings('@drawable/ic_launcher')));
       await FirebaseMessaging.instance.requestPermission(alert:true,badge:true,sound:true);
-      await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
-      _initialized=true;
-      final t=await FirebaseMessaging.instance.getToken();if(t!=null)await register(t);
-      refresh=FirebaseMessaging.instance.onTokenRefresh.listen((t){register(t);});
+      final t=await FirebaseMessaging.instance.getToken();
+      if(t!=null)await register(t);
+      refresh=FirebaseMessaging.instance.onTokenRefresh.listen(register);
       incoming=FirebaseMessaging.onMessage.listen((m) async {
+        final id=m.data['event_id'];
+        if(id is String && id.isNotEmpty){_seenEventIds.add(id);}
         final n=m.notification;
-        if(n!=null)await local.show(m.hashCode,n.title,n.body,const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates','Kegiatan dan Pelayanan',importance:Importance.max,priority:Priority.high,playSound:true,enableVibration:true)));
+        if(n!=null&&_initialized) {
+          await local.show(m.hashCode,n.title,n.body,
+            const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates_v2',
+              'Aktivitas dan Pelayanan Cikoko',importance:Importance.max,priority:Priority.high,
+              playSound:true,enableVibration:true)));
+        }
         onRefresh();
       });
       FirebaseMessaging.onMessageOpenedApp.listen((_){onRefresh();});
-    }catch(_){ /* API tetap berjalan bila layanan Google tidak tersedia */ }
+    }catch(_){ /* Server polling still works while application is open. */ }
   }
   // Cadangan saat aplikasi aktif: notifikasi baru dari polling API tetap tampil.
   // Push ketika aplikasi tertutup memerlukan konfigurasi FCM server + cron.
@@ -48,7 +63,7 @@ class PushService {
     for(final e in newer){
       try{await local.show(int.tryParse('${e['id']}')??DateTime.now().millisecondsSinceEpoch%1000000,
         '${e['title']??'Aktivitas Cikoko'}','${e['message']??''}',
-        const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates','Kegiatan dan Pelayanan',importance:Importance.max,priority:Priority.high,playSound:true,enableVibration:true)));
+        const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates_v2','Kegiatan dan Pelayanan',importance:Importance.max,priority:Priority.high,playSound:true,enableVibration:true)));
       }catch(_){ }
     }
   }

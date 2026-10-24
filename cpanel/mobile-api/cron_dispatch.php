@@ -18,7 +18,7 @@ function oauth_token(string $path):?string {
  $json=json_decode((string)$response,true);return $status===200?($json['access_token']??null):null;
 }
 function send_fcm(string $project,string $oauth,string $to,array $event):bool {
- $payload=['message'=>['token'=>$to,'notification'=>['title'=>$event['title'],'body'=>$event['message']],'data'=>['category'=>$event['category'],'event_id'=>(string)$event['id']],'android'=>['priority'=>'high','notification'=>['channel_id'=>'cikoko_updates']]]];
+ $payload=['message'=>['token'=>$to,'notification'=>['title'=>$event['title'],'body'=>$event['message']],'data'=>['category'=>$event['category'],'event_id'=>(string)$event['id']],'android'=>['priority'=>'high','notification'=>['channel_id'=>'cikoko_updates_v2']]]];
  $ch=curl_init('https://fcm.googleapis.com/v1/projects/'.rawurlencode($project).'/messages:send');curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_UNESCAPED_UNICODE),CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$oauth,'Content-Type: application/json'],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>15]);$response=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);if($status!==200)error_log('Cikoko FCM delivery HTTP '.$status.' '.substr((string)$response,0,400));return $status===200;
 }
 $sa=getenv('CIKOKO_FIREBASE_SA')?:'';
