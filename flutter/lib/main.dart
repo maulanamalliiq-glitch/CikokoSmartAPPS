@@ -198,7 +198,7 @@ class _HomeState extends State<HomePage> {
     _=>Icons.category_outlined};
   @override Widget build(BuildContext c)=>Scaffold(
     appBar:AppBar(
-      title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Cikoko',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,style:const TextStyle(fontSize:11,color:Colors.blueGrey))]),
+      title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
     drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
@@ -281,20 +281,39 @@ class _HomeState extends State<HomePage> {
     )),
     if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
       counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
-    Padding(padding:const EdgeInsets.only(top:10,bottom:5),child:Row(
+    Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
-        const Text('Menu Cepat',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
+        Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
         TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
-    LayoutBuilder(builder:(ctx,c)=>GridView.builder(
+    if(role=='warga'||guest)
+      LayoutBuilder(builder:(ctx,c)=>GridView.count(
+        crossAxisCount:c.maxWidth>700?3:2,
+        crossAxisSpacing:8,mainAxisSpacing:8,
+        childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        children:[
+          CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
+          CikokoServiceTile(title:'Surat Keterangan',description:'Ahli waris dan lainnya',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Ahli Waris')),
+          CikokoServiceTile(title:'Layanan PBB',description:'Informasi pajak daerah',icon:Icons.receipt_long_outlined,accent:const Color(0xff386bd9),onTap:()=>switchTo('Layanan Online')),
+          CikokoServiceTile(title:'Pengaduan',description:'Kirim pesan ke petugas',icon:Icons.support_agent_outlined,accent:const Color(0xffe88a25),onTap:()=>switchTo('Hubungi Kami')),
+          CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
+          CikokoServiceTile(title:'Layanan Lainnya',description:'Jelajahi semua layanan',icon:Icons.apps_outlined,accent:const Color(0xff54738d),onTap:()=>switchTo('Menu Cikoko')),
+        ],
+      ))
+    else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
       shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
       gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount:c.maxWidth>680?3:2,mainAxisSpacing:8,crossAxisSpacing:8,
-        childAspectRatio:c.maxWidth>680?3.6:(c.maxWidth<340?2.2:2.55)),
+        mainAxisExtent:80),
       itemCount:homeShortcuts.length,
       itemBuilder:(ctx,i){final feature=homeShortcuts[i];return CikokoQuickMenu(
         title:feature.title,icon:iconFor(feature.route),onTap:()=>switchTo(feature.route));},
     )),
+    if(role=='warga'||guest)Padding(padding:const EdgeInsets.only(top:9),child:Wrap(spacing:7,runSpacing:2,children:[
+      ActionChip(avatar:const Icon(Icons.description_outlined,size:16,color:blue),label:const Text('Ahli Waris',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Surat Ahli Waris')),
+      ActionChip(avatar:const Icon(Icons.bug_report_outlined,size:16,color:blue),label:const Text('Jumantik',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Laporan Jumantik')),
+      ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
+    ])),
     Padding(padding:const EdgeInsets.only(top:17,bottom:8),child:Row(children:[
       const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
       TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
@@ -347,19 +366,31 @@ class _HomeState extends State<HomePage> {
        ),
      );
    }
-   return Card(child: InkWell(
-     onTap: detail,
-     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-       if (image.isNotEmpty) ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: photo()),
-       Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-         Text(title, style: Theme.of(context).textTheme.titleMedium),
-         const SizedBox(height: 6),
-         Text(description, maxLines: 3, overflow: TextOverflow.ellipsis),
-         const SizedBox(height: 10),
-         const Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text('Lihat Detail →', style: TextStyle(color: blue, fontWeight: FontWeight.w600, fontSize: 12))]),
-       ])),
-     ]),
-   ));
+   return Card(
+     margin: const EdgeInsets.only(bottom:9),
+     elevation:0,
+     clipBehavior:Clip.antiAlias,
+     shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13),side:const BorderSide(color:Color(0xffe0e8f1))),
+     child:InkWell(onTap:detail,child:Padding(
+       padding:const EdgeInsets.all(9),
+       child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+         ClipRRect(borderRadius:BorderRadius.circular(9),
+           child:image.isEmpty?Container(width:104,height:91,color:const Color(0xffeaf2fc),child:const Icon(Icons.newspaper_outlined,color:blue,size:27)):
+             Image.network(image,width:104,height:91,fit:BoxFit.cover,
+               errorBuilder:(_,__,___)=>Container(width:104,height:91,color:const Color(0xffeaf2fc),child:const Icon(Icons.image_not_supported_outlined,color:blue)))),
+         const SizedBox(width:11),
+         Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           Text('${item['type']??''}'.toUpperCase(),style:const TextStyle(fontSize:9.5,letterSpacing:.65,color:blue,fontWeight:FontWeight.w700)),
+           const SizedBox(height:4),
+           Text(title,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:13.5,height:1.23,fontWeight:FontWeight.w800,color:navy)),
+           const SizedBox(height:5),
+           Text(description,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.8,height:1.22,color:Color(0xff647992))),
+           const SizedBox(height:7),
+           const Text('Baca selengkapnya →',style:TextStyle(fontSize:10.4,fontWeight:FontWeight.w700,color:blue)),
+         ])),
+       ]),
+     )),
+   );
  }
 
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
