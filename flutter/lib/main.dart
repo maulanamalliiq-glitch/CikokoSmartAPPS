@@ -7,8 +7,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'push.dart';
+import 'role_catalog.dart';
+import 'mobile_editor.dart';
+import 'permission_editor.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
+const sky=Color(0xffdceeff), ink=Color(0xff18334f);
 final api=CikokoApi();
 void main(){WidgetsFlutterBinding.ensureInitialized();runApp(const CikokoApp());}
 class CikokoApp extends StatelessWidget {
@@ -34,14 +38,14 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
          child: ConstrainedBox(
            constraints: const BoxConstraints(maxWidth: 430),
            child: Card(
-             elevation: 1,
+             elevation: 0,
              child: Padding(
                padding: const EdgeInsets.all(24),
                child: Column(
                  crossAxisAlignment: CrossAxisAlignment.start,
                  mainAxisSize: MainAxisSize.min,
                  children: [
-                   const Logo(),
+                   Center(child:Container(width:90,height:90,decoration:BoxDecoration(color:const Color(0xffe6f1ff),borderRadius:BorderRadius.circular(30)),alignment:Alignment.center,child:const Logo(size:64))),
                    const SizedBox(height: 16),
                    Text(title, style: Theme.of(context).textTheme.titleLarge),
                    const SizedBox(height: 6),
@@ -99,65 +103,135 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
 }
 void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(text),backgroundColor:error?Colors.red.shade700:navy));}
 class HomePage extends StatefulWidget{final VoidCallback onLogout;const HomePage({super.key,required this.onLogout});@override State<HomePage> createState()=>_HomeState();}
-class _HomeState extends State<HomePage>{String section='Dashboard';List<dynamic> items=[],events=[];bool loading=false;Timer? timer;PushService? push;
- String get role => '${api.profile?['role']??'warga'}';bool get isStaff=>role!='warga';bool get isAdmin=>role=='admin'||role=='admin_kelurahan';
- @override void initState(){super.initState();load();push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}
- @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
- Future<void> refresh() async{try{final v=await api.call('events');if(mounted)setState(()=>events=List<dynamic>.from(v['events']??[]));}catch(_){}}
- Future<void> load() async{setState(()=>loading=true);try{await refresh();final result=await api.call('content',body:null);if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>loading=false);}}
- void switchTo(String s){setState(()=>section=s);Navigator.maybePop(context);}
- List<String> get menus=>['Dashboard','Berita & Kegiatan','Pengumuman','Layanan Online','Galeri','Surat Ahli Waris',if(role=='warga')'Jumantik Warga',if(isStaff)'Laporan Kegiatan','Riwayat',if(isAdmin)'Verifikasi Laporan',if(isAdmin)'Pesan Masuk','Hubungi Kami','Notifikasi','Profil'];
- IconData iconFor(String s)=>switch(s){'Dashboard'=>Icons.dashboard_outlined,'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,'Layanan Online'=>Icons.grid_view_outlined,'Galeri'=>Icons.photo_library_outlined,'Surat Ahli Waris'=>Icons.description_outlined,'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,'Riwayat'=>Icons.history,'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_outlined,'Notifikasi'=>Icons.notifications_outlined,'Profil'=>Icons.person_outline,_=>Icons.assignment_turned_in_outlined};
- @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:Text(section,style:Theme.of(c).textTheme.titleMedium),actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))]),drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:70),const SizedBox(height:8),const Text('Kelurahan Cikoko',style:TextStyle(fontWeight:FontWeight.w800,fontSize:18)),Text('${api.profile?['name']??''} • $role',style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const SizedBox(height:12),const Divider(),Expanded(child:ListView(children:menus.map((m)=>ListTile(dense:true,selected:section==m,selectedTileColor:const Color(0xffe4f0ff),leading:Icon(iconFor(m),size:21),title:Text(m,style:const TextStyle(fontSize:13.5,fontWeight:FontWeight.w600)),onTap:()=>switchTo(m))).toList())),const Divider(),ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:() async {await api.logout();widget.onLogout();})]))),body:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(onRefresh:load,child:_page()),floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),child:const Icon(Icons.chat_bubble_outline)));
- Widget _page(){switch(section){case 'Dashboard':return home();case 'Berita & Kegiatan':return feed('berita');case 'Pengumuman':return feed('pengumuman');case 'Layanan Online':return feed('layanan');case 'Galeri':return feed('galeri');case 'Surat Ahli Waris':return const WarisForm();case 'Jumantik Warga':return const ReportForm(kind:'jumantik');case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');case 'Riwayat':return const HistoryPage();case 'Hubungi Kami':return const ChatPage();case 'Pesan Masuk':return const AdminChatPage();case 'Notifikasi':return eventList();case 'Profil':return profilePage();case 'Verifikasi Laporan':return const AdminReports();default:return home();}}
- Widget home() => ListView(
-   padding: const EdgeInsets.all(14),
-   children: [
-     Container(
-       padding: const EdgeInsets.all(18),
-       decoration: BoxDecoration(
-         borderRadius: BorderRadius.circular(18),
-         gradient: const LinearGradient(colors: [navy, Color(0xff156d81)]),
-       ),
-       child: Row(children: [
-         const Logo(size: 60),
-         const SizedBox(width: 16),
-         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-           Text('Halo, ${api.profile?['name']??'Warga'}', style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold)),
-           const SizedBox(height: 6),
-           const Text('Pelayanan publik dan informasi Kelurahan Cikoko', style: TextStyle(color: Colors.white70)),
-         ])),
-       ]),
-     ),
-     const SizedBox(height: 20),
-     Text('Menu Layanan', style: Theme.of(context).textTheme.titleMedium),
-     const SizedBox(height: 12),
-     LayoutBuilder(builder: (ctx, constraints) => GridView.count(
-       shrinkWrap: true,
-       physics: const NeverScrollableScrollPhysics(),
-       crossAxisCount: constraints.maxWidth > 700 ? 4 : 2,
-       childAspectRatio: 1.4,
-       crossAxisSpacing: 10,
-       mainAxisSpacing: 10,
-       children: menus.where((x) => !['Dashboard','Profil','Notifikasi','Riwayat'].contains(x)).take(10).map((item) =>
-         InkWell(
-           onTap: () => switchTo(item),
-           child: Card(child: Padding(
-             padding: const EdgeInsets.all(10),
-             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-               Icon(iconFor(item), size: 27, color: blue),
-               const SizedBox(height: 8),
-               Text(item, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-             ]),
-           )),
-         )).toList(),
-     )),
-     const SizedBox(height: 14),
-     Text('Informasi Terbaru', style: Theme.of(context).textTheme.titleMedium),
-     ...items.where((x) => x['type'] == 'berita' || x['type'] == 'pengumuman').take(4).map((x) => contentCard(Map<String, dynamic>.from(x))),
-   ],
- );
-
+class _HomeState extends State<HomePage> {
+  String section='Dashboard';
+  int nav=0;
+  List<dynamic> items=[],events=[];
+  Map<String,bool> capabilities={};
+  bool loading=true,permissionsOk=false;
+  Timer? timer;
+  PushService? push;
+  String get role => '${api.profile?['role']??'warga'}';
+  String get roleLabel=>roleNames[role]??role.toUpperCase();
+  bool get isStaff=>role!='warga';
+  bool get isAdmin=>capabilities['reports:view']==true;
+  List<RoleFeature> get modules=>modulesForRole(role,capabilities);
+  @override void initState(){super.initState();load();push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}
+  @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
+  Future<void> refresh() async {
+    try {final v=await api.call('events');if(mounted)setState(()=>events=List<dynamic>.from(v['events']??[]));}
+    catch(_) {}
+  }
+  Future<void> load() async {
+    if(mounted)setState(()=>loading=true);
+    try {
+      final permissionResult=await api.call('permissions');
+      final raw=Map<String,dynamic>.from(permissionResult['capabilities'] as Map);
+      if(mounted)setState((){capabilities=raw.map((key,value)=>MapEntry(key,value==true));permissionsOk=true;});
+    } catch(e){if(mounted){setState(()=>permissionsOk=false);notify(context,'Hak akses belum tersambung: $e',error:true);}}
+    try {
+      await refresh();
+      final result=await api.call('content');
+      if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
+    }catch(e){if(mounted)notify(context,'$e',error:true);}
+    finally {if(mounted)setState(()=>loading=false);}
+  }
+  void switchTo(String s) {
+    setState(() {
+      section=s;
+      if(s=='Dashboard')nav=0;
+      else if(s=='Notifikasi')nav=3;
+      else if(s=='Profil')nav=4;
+      else if(s=='Riwayat'||s=='Verifikasi Laporan')nav=2;
+      else nav=1;
+    });
+  }
+  void selectNav(int value){
+    if(value==0){switchTo('Dashboard');return;}
+    if(value==1){switchTo('Menu Cikoko');return;}
+    if(value==2){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==3){switchTo('Notifikasi');return;}
+    switchTo('Profil');
+  }
+  IconData iconFor(String s)=>switch(s){
+    'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
+    'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
+    'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
+    'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
+    'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
+    'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
+    'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
+    'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
+    'Tambah Berita'=>Icons.post_add_outlined,'Tambah Pengumuman'=>Icons.add_alert_outlined,
+    'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
+    'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Riwayat'=>Icons.history,
+    'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
+    'Notifikasi'=>Icons.notifications_none,'Profil'=>Icons.person_outline,
+    _=>Icons.category_outlined};
+  @override Widget build(BuildContext c)=>Scaffold(
+    appBar:AppBar(
+      title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Cikoko',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,style:const TextStyle(fontSize:11,color:Colors.blueGrey))]),
+      actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
+    ),
+    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Pengguna'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    body:loading?const Center(child:CircularProgressIndicator()):_page(),
+    bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
+      const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
+      NavigationDestination(icon:const Icon(Icons.grid_view_outlined),selectedIcon:const Icon(Icons.grid_view_rounded),label:role=='warga'?'Layanan':'Menu'),
+      NavigationDestination(icon:const Icon(Icons.assignment_outlined),selectedIcon:const Icon(Icons.assignment_turned_in),label:role=='warga'?'Riwayat':'Aktivitas'),
+      const NavigationDestination(icon:Icon(Icons.notifications_none),selectedIcon:Icon(Icons.notifications),label:'Notifikasi'),
+      const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
+    ]),
+    floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),backgroundColor:blue,foregroundColor:Colors.white,child:const Icon(Icons.chat_bubble_outline)),
+  );
+  Widget _page(){switch(section){
+    case 'Dashboard':return home();
+    case 'Menu Cikoko':return menuPage();
+    case 'Berita & Kegiatan':return feed('berita');
+    case 'Pengumuman':return feed('pengumuman');
+    case 'Layanan Online':return feed('layanan');
+    case 'Galeri':return feed('galeri');
+    case 'Surat Ahli Waris':return const WarisForm();
+    case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
+    case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
+    case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
+    case 'Laporan LMK':return const ReportForm(kind:'lmk');
+    case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
+    case 'Laporan Dasawisma':return const ReportForm(kind:'pkk');
+    case 'Laporan Kerja Bakti':return const ReportForm(kind:'kerja_bakti');
+    case 'Laporan PPSU':return const ReportForm(kind:'ppsu');
+    case 'Riwayat':return const HistoryPage();
+    case 'Hubungi Kami':return const ChatPage();
+    case 'Pesan Masuk':return const AdminChatPage();
+    case 'Notifikasi':return eventList();
+    case 'Profil':return profilePage();
+    case 'Verifikasi Laporan':return const AdminReports();
+    case 'Tambah Berita':return MobileEditor(api:api,mode:'berita');
+    case 'Tambah Pengumuman':return MobileEditor(api:api,mode:'pengumuman');
+    case 'Tambah Arsip Ahli Waris':return MobileEditor(api:api,mode:'archive');
+    case 'Arsip Ahli Waris':return ArchiveList(api:api);
+    case 'Hak Akses Role':return RolePermissionPage(api:api);
+    default: return featureUnavailable(section);
+  }}
+  Widget featureUnavailable(String name) => Center(child:Padding(padding:const EdgeInsets.all(22),child:Card(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.construction_outlined,size:44,color:blue),const SizedBox(height:16),Text(name,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:10),const Text('Halaman ini tercantum dalam rancangan role, tetapi modul data dan API belum tersedia. Tidak ada perubahan data yang dilakukan.',textAlign:TextAlign.center),const SizedBox(height:18),FilledButton(onPressed:()=>switchTo('Dashboard'),child:const Text('Kembali ke Beranda'))])))));
+  Widget menuPage()=>ListView(padding:const EdgeInsets.all(14),children:[
+    Text('Menu $roleLabel',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),
+    const Text('Pilih layanan sesuai kewenangan akun.',style:TextStyle(color:Colors.blueGrey)),
+    if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
+    const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
+  ]);
+  Widget home()=>ListView(padding:const EdgeInsets.all(14),children:[
+    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[navy,blue],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Row(children:[const Logo(size:58),const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Selamat datang, ${api.profile?['name']??'Pengguna'}',style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800)),const SizedBox(height:4),Text('Kelurahan Cikoko • $roleLabel',style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:9),const Text('Melayani dengan hati, lebih cepat dan mudah.',style:TextStyle(color:Colors.white,fontSize:12))]))])),
+    const SizedBox(height:18),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Text('Menu Cepat',style:Theme.of(context).textTheme.titleMedium),TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →'))]),
+    LayoutBuilder(builder:(ctx,c)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:c.maxWidth>700?4:2,mainAxisSpacing:8,crossAxisSpacing:8,childAspectRatio:1.62),itemCount:modules.length>6?6:modules.length,itemBuilder:(ctx,i){final f=modules[i];return Card(elevation:0,child:InkWell(borderRadius:BorderRadius.circular(16),onTap:()=>switchTo(f.route),child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[CircleAvatar(radius:17,backgroundColor:sky,child:Icon(iconFor(f.route),color:blue,size:19)),Text(f.title,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:navy,fontSize:12,fontWeight:FontWeight.w700))]))));})),
+    const SizedBox(height:16),Text('Informasi Terbaru',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),
+    for(final x in items.where((x)=>x['type']=='berita'||x['type']=='pengumuman').take(3))contentCard(Map<String,dynamic>.from(x)),
+    if(items.isEmpty)const Card(child:ListTile(title:Text('Belum ada berita atau pengumuman.'))),
+    const SizedBox(height:14),Text('Aktivitas Terkini',style:Theme.of(context).textTheme.titleMedium),
+    for(final e in events.take(3))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}'))),
+    if(events.isEmpty)const Card(child:ListTile(title:Text('Belum ada notifikasi.'))),
+    const SizedBox(height:80),
+  ]);
  Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
  Widget contentCard(Map<String, dynamic> item) {
    final image = api.media('${item['image']??''}');

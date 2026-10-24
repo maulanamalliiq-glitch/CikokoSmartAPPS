@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/lib.php';
-function portal_roles(): array {return ["admin_kelurahan"=>"Admin Kelurahan", "asn"=> "ASN", "pppk"=>"PPPK", "pjlp"=>"PJLP", "pkk"=>"PKK", "fkdm"=>"FKDM", "lmk"=>"LMK", "jumantik_rt"=>"JUMANTIK RT", "jumantik_rw"=>"JUMANTIK RW", "posyandu"=>"POSYANDU", "rw"=>"RW", "rt"=>"RT", "warga"=>"Warga"];}
+function portal_roles(): array {return ["admin_kelurahan"=>"Admin Kelurahan", "lurah"=>"Lurah", "ptsp"=>"PTSP", "dukcapil"=>"Dukcapil", "dasawisma"=>"Dasawisma", "ppsu"=>"PPSU", "asn"=> "ASN", "pppk"=>"PPPK", "pjlp"=>"PJLP", "pkk"=>"PKK", "fkdm"=>"FKDM", "lmk"=>"LMK", "jumantik_rt"=>"JUMANTIK RT", "jumantik_rw"=>"JUMANTIK RW", "posyandu"=>"POSYANDU", "rw"=>"RW", "rt"=>"RT", "warga"=>"Warga"];}
 function portal_role(): string {return (string)($_SESSION['portal_role']??'');}
 function portal_user(): array {return ['id'=>(string)($_SESSION['portal_uid']??''),'name'=>(string)($_SESSION['portal_name']??''),'role'=>portal_role()];}
 function portal_need(): void {if(!portal_role()){header('Location: '.url('login.php'));exit;}}

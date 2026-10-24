@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
+require __DIR__.'/permissions.php';
 header('Content-Type: application/json; charset=utf-8');
 $action=(string)($_GET['action']??'');$method=$_SERVER['REQUEST_METHOD']??'GET';
 if($action==='health')mobile_json(['ok'=>true,'service'=>'Cikoko API','time'=>date('c')]);
@@ -36,6 +37,41 @@ if($action==='device'&&$method==='POST'){
  $b=mobile_body();$token=mobile_text($b['fcm_token']??'',255);if(strlen($token)<40)mobile_error('Token perangkat tidak valid',422);
  $st=$db->prepare('INSERT INTO mobile_devices(user_id,username,fcm_token) VALUES(?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),username=VALUES(username)');$st->execute([$uid,$u['username'],$token]);mobile_json(['ok'=>true]);
 }
+if($action==='permissions'){
+ $grants=[];foreach(mobile_permission_keys() as $key) $grants[$key]=mobile_can($u,$key);
+ mobile_json(['ok'=>true,'role'=>$u['user_role'],'role_label'=>mobile_role_names()[$u['user_role']]??$u['user_role'],'capabilities'=>$grants]);
+}
+if($action==='role_permissions'){
+ mobile_need($u,'role:manage');mobile_permission_schema($db);
+ if($method==='POST'){
+  $b=mobile_body();$role=mobile_text($b['role']??'',50);$key=mobile_text($b['capability']??'',70);$allow=$b['allowed']??null;
+  if(!isset(mobile_role_names()[$role])||$role==='admin'||!in_array($key,mobile_permission_keys(),true)||$key==='role:manage'||!is_bool($allow))mobile_error('Role, fitur, atau status izin tidak valid',422);
+  $s=$db->prepare('INSERT INTO mobile_role_permissions(role,capability,allowed) VALUES(?,?,?) ON DUPLICATE KEY UPDATE allowed=VALUES(allowed)');$s->execute([$role,$key,$allow?1:0]);mobile_json(['ok'=>true]);
+ }
+ $rows=$db->query('SELECT role,capability,allowed FROM mobile_role_permissions ORDER BY role,capability')->fetchAll();
+ mobile_json(['ok'=>true,'roles'=>mobile_role_names(),'keys'=>mobile_permission_keys(),'defaults'=>array_combine(array_keys(mobile_role_names()),array_map('mobile_default_permissions',array_keys(mobile_role_names()))),'overrides'=>$rows]);
+}
+if($action==='content_create'&&$method==='POST'){
+ mobile_need($u,'content:create');$b=mobile_body();$type=mobile_text($b['type']??'',30);$title=mobile_text($b['title']??'',200);$body=mobile_text($b['body']??'',12000);
+ if(!in_array($type,['berita','pengumuman'],true)||mb_strlen($title)<5||mb_strlen($body)<10)mobile_error('Judul (5 karakter) dan isi (10 karakter) wajib',422);
+ $content=db_read('content');$id=bin2hex(random_bytes(12));
+ $content[]=['id'=>$id,'type'=>$type,'title'=>$title,'body'=>nl2br(esc($body)),'image'=>'','created_at'=>date('c')];
+ if(!db_write('content',$content))mobile_error('Konten gagal disimpan',503);
+ mobile_json(['ok'=>true,'id'=>$id]);
+}
+if($action==='archive_create'&&$method==='POST'){
+ mobile_need($u,'archive:create');$b=mobile_body();$year=(int)($b['archive_year']??0);$ref=mobile_text($b['reference_no']??'',100);$app=mobile_text($b['applicant_name']??'',200);$dead=mobile_text($b['deceased_name']??'',200);$notes=mobile_text($b['notes']??'',5000);
+ if($year<1900||$year>(int)date('Y')||$ref===''||$app===''||$dead==='')mobile_error('Tahun, nomor surat, pemohon dan pewaris wajib',422);
+ $db->exec('CREATE TABLE IF NOT EXISTS aw_archives (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, archive_year SMALLINT UNSIGNED NOT NULL, reference_no VARCHAR(100) NOT NULL, applicant_name VARCHAR(200) NOT NULL, deceased_name VARCHAR(200) NOT NULL, notes TEXT, attachment VARCHAR(120) NULL, created_by VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_year(archive_year)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+ $st=$db->prepare('INSERT INTO aw_archives(archive_year,reference_no,applicant_name,deceased_name,notes,created_by) VALUES(?,?,?,?,?,?)');$st->execute([$year,$ref,$app,$dead,$notes,$uid]);
+ mobile_json(['ok'=>true,'id'=>(int)$db->lastInsertId()]);
+}
+if($action==='archives'){
+ mobile_need($u,'archive:view');
+ $db->exec('CREATE TABLE IF NOT EXISTS aw_archives (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, archive_year SMALLINT UNSIGNED NOT NULL, reference_no VARCHAR(100) NOT NULL, applicant_name VARCHAR(200) NOT NULL, deceased_name VARCHAR(200) NOT NULL, notes TEXT, attachment VARCHAR(120) NULL, created_by VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_year(archive_year)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+ $rows=$db->query('SELECT id,archive_year,reference_no,applicant_name,deceased_name,created_at FROM aw_archives ORDER BY archive_year DESC,id DESC LIMIT 100')->fetchAll();
+ mobile_json(['ok'=>true,'items'=>$rows]);
+}
 if($action==='events'){
  $s=$db->prepare('SELECT id,category,title,message,created_at FROM mobile_events WHERE audience="public" OR (audience="admin" AND :admin=1) OR (audience="staff" AND :staff=1) OR (audience="personal" AND recipient=:recipient) ORDER BY id DESC LIMIT 60');
  $s->execute(['admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>$uid]);mobile_json(['ok'=>true,'events'=>$s->fetchAll()]);
@@ -49,22 +85,23 @@ if($action==='chat'){
  $s=$db->prepare('SELECT id,sender,message,created_at FROM mobile_chat WHERE user_id=? ORDER BY id DESC LIMIT 120');$s->execute([$uid]);mobile_json(['ok'=>true,'messages'=>array_reverse($s->fetchAll())]);
 }
 if($action==='chat_threads'){
- mobile_admin($u);$rows=$db->query('SELECT m.user_id,m.name,m.message,m.created_at FROM mobile_chat m INNER JOIN (SELECT user_id,MAX(id) AS last_id FROM mobile_chat GROUP BY user_id) z ON m.id=z.last_id ORDER BY m.id DESC LIMIT 150')->fetchAll();mobile_json(['ok'=>true,'threads'=>$rows]);
+ mobile_need($u,'chat:reply');$rows=$db->query('SELECT m.user_id,m.name,m.message,m.created_at FROM mobile_chat m INNER JOIN (SELECT user_id,MAX(id) AS last_id FROM mobile_chat GROUP BY user_id) z ON m.id=z.last_id ORDER BY m.id DESC LIMIT 150')->fetchAll();mobile_json(['ok'=>true,'threads'=>$rows]);
 }
 if($action==='chat_reply'&&$method==='POST'){
- mobile_admin($u);$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
+ mobile_need($u,'chat:reply');$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
  $chk=$db->prepare('SELECT name FROM mobile_chat WHERE user_id=? LIMIT 1');$chk->execute([$target]);if(!$chk->fetch())mobile_error('Penerima tidak ditemukan',404);
  $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,"admin",?)');$st->execute([$target,'Admin Kelurahan',$msg]);mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json(['ok'=>true]);
 }
 if($action==='report'&&$method==='POST'){
- $kind=mobile_text($_POST['kind']??'',60);if(!in_array($kind,['jumantik','kegiatan','fkdm','lmk','posyandu','pkk'],true))mobile_error('Jenis laporan tidak diizinkan',422);
- $roleKinds=['warga'=>['jumantik'],'jumantik_rt'=>['jumantik'],'jumantik_rw'=>['jumantik'],'fkdm'=>['fkdm','kegiatan'],'lmk'=>['lmk','kegiatan'],'posyandu'=>['posyandu','kegiatan'],'pkk'=>['pkk','kegiatan'],'admin_kelurahan'=>['kegiatan'],'asn'=>['kegiatan'],'pppk'=>['kegiatan'],'pjlp'=>['kegiatan'],'rt'=>['kegiatan'],'rw'=>['kegiatan'],'admin'=>['kegiatan']];
+ $kind=mobile_text($_POST['kind']??'',60);if(!in_array($kind,['jumantik','kegiatan','fkdm','lmk','posyandu','pkk','kerja_bakti','ppsu'],true))mobile_error('Jenis laporan tidak diizinkan',422);
+ $roleKinds=['warga'=>['jumantik'],'jumantik_rt'=>['jumantik'],'jumantik_rw'=>['jumantik'],'fkdm'=>['fkdm','kegiatan'],'lmk'=>['lmk','kegiatan'],'posyandu'=>['posyandu','kegiatan'],'pkk'=>['pkk','kegiatan'],'dasawisma'=>['pkk','kegiatan'],'ppsu'=>['ppsu','kegiatan','kerja_bakti'],'lurah'=>['kegiatan'],'ptsp'=>['kegiatan'],'dukcapil'=>['kegiatan'],'admin_kelurahan'=>['kegiatan'],'asn'=>['kegiatan'],'pppk'=>['kegiatan'],'pjlp'=>['kegiatan'],'rt'=>['kegiatan','kerja_bakti'],'rw'=>['kegiatan','kerja_bakti'],'admin'=>['kegiatan']];
  if(!in_array($kind,$roleKinds[$u['user_role']]??[],true))mobile_error('Jenis laporan tidak sesuai peran akun',403);
+ mobile_need($u,'report:'.$kind);
  $address=mobile_text($_POST['address']??'',500);$phone=mobile_text($_POST['phone']??'',40);$notes=mobile_text($_POST['notes']??'',4000);if(!$address||!$notes)mobile_error('Alamat dan keterangan wajib',422);
  $photo=mobile_file('photo',true);$db->prepare('INSERT INTO mobile_reports(user_id,user_name,user_role,kind,address,phone,notes,photo_name) VALUES(?,?,?,?,?,?,?,?)')->execute([$uid,$u['username'],$u['user_role'],$kind,$address,$phone,$notes,$photo]);$id=(int)$db->lastInsertId();mobile_emit('laporan_masuk','Laporan '.$kind.' baru','Laporan masuk #'.$id,'admin');mobile_emit('laporan_masuk','Laporan berhasil dikirim','Nomor laporan: '.$id,'personal',$uid);mobile_json(['ok'=>true,'id'=>$id]);
 }
 if($action==='waris'&&$method==='POST'){
- if($u['user_role']!=='warga')mobile_error('Hanya warga yang dapat mengajukan',403);
+ mobile_need($u,'waris:create');
  require_once dirname(__DIR__).'/ahli-waris/bootstrap.php';
  aw_prepare_schema($db);
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
@@ -94,12 +131,12 @@ if($action==='history'){
  usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));mobile_json(['ok'=>true,'items'=>array_slice($rows,0,100)]);
 }
 if($action==='admin_reports'){
- mobile_admin($u);$rows=$db->query('SELECT id,kind AS title,user_name AS name,"report" AS kind,status,created_at FROM mobile_reports ORDER BY id DESC LIMIT 100')->fetchAll();
+ mobile_need($u,'reports:view');$rows=$db->query('SELECT id,kind AS title,user_name AS name,"report" AS kind,status,created_at FROM mobile_reports ORDER BY id DESC LIMIT 100')->fetchAll();
  try{$rows=array_merge($rows,$db->query('SELECT id,reference_no AS reference,applicant_name AS name,"waris" AS kind,status,created_at FROM aw_applications ORDER BY id DESC LIMIT 100')->fetchAll());}catch(Throwable $e){}
  mobile_json(['ok'=>true,'items'=>$rows]);
 }
 if($action==='status'&&$method==='POST'){
- mobile_admin($u);$b=mobile_body();$status=mobile_text($b['status']??'',20);$kind=mobile_text($b['kind']??'',20);$id=(int)($b['id']??0);if(!$id||!in_array($status,['masuk','proses','revisi','selesai','ditolak'],true))mobile_error('Status salah',422);
+ mobile_need($u,'reports:verify');$b=mobile_body();$status=mobile_text($b['status']??'',20);$kind=mobile_text($b['kind']??'',20);$id=(int)($b['id']??0);if(!$id||!in_array($status,['masuk','proses','revisi','selesai','ditolak'],true))mobile_error('Status salah',422);
  if($kind==='waris'){
   $st=$db->prepare('SELECT account_id,status FROM aw_applications WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)mobile_error('Permohonan tidak ditemukan',404);
   $db->prepare('UPDATE aw_applications SET status=? WHERE id=?')->execute([$status,$id]);$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,?,?,?,?)')->execute([$id,$row['status'],$status,$uid,'Pembaruan via aplikasi']);$owner=$row['account_id'];
