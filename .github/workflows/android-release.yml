@@ -30,13 +30,16 @@ jobs:
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Flutter widget and role catalog tests
+        working-directory: flutter
+        run: flutter test
       - name: Build debug APK for testing
         working-directory: flutter
         run: flutter build apk --debug
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v204-TEST-APK
+          name: Cikoko-v205-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -60,7 +63,19 @@ jobs:
           KEYSTORE: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
         run: |
           umask 077
-          printf %s "$KEYSTORE" | base64 --decode > android/cikoko_upload.jks
+          python3 - <<'PYCODE'
+          import os, base64, binascii, pathlib, sys
+          raw=''.join(os.environ['KEYSTORE'].split())
+          try:
+              data=base64.b64decode(raw,validate=True)
+          except binascii.Error:
+              print('::error::CIKOKO_KEYSTORE_B64 bukan Base64 valid. Isi hanya hasil encode file .keystore, tanpa nama file/perintah.')
+              sys.exit(1)
+          if len(data)<500:
+              print('::error::Keystore hasil decode terlalu kecil; periksa secret.')
+              sys.exit(1)
+          pathlib.Path('android/cikoko_upload.jks').write_bytes(data)
+          PYCODE
           test -s android/cikoko_upload.jks
       - name: Verify upload certificate
         if: steps.signing.outputs.enabled == 'true'
@@ -86,7 +101,7 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v204-SIGNED-APK-AAB
+          name: Cikoko-v205-SIGNED-APK-AAB
           path: |
             flutter/build/app/outputs/flutter-apk/app-release.apk
             flutter/build/app/outputs/bundle/release/app-release.aab
