@@ -24,14 +24,83 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
  Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
- @override Widget build(BuildContext c)=>Scaffold(body:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(18),child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:430),child:Card(elevation:1,child:Padding(padding:const EdgeInsets.all(24),child:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[const Logo(),const SizedBox(height:16),Text(signup?'Daftar Akun Warga':'Login Cikoko',style:Theme.of(c).textTheme.titleLarge),const SizedBox(height:6),const Text('Layanan Digital Kelurahan Cikoko • Pancoran',style:TextStyle(color:Colors.blueGrey)),const SizedBox(height:22),if(signup)...[
- for(final f in <String,String>{'name':'Nama lengkap','username':'Username','password':'Password','confirm':'Ulangi password','address':'Alamat lengkap','phone':'Nomor telepon','email':'Gmail / Email'}.entries)Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl(f.key),obscureText:f.key=='password'||f.key=='confirm',keyboardType:f.key=='email'?TextInputType.emailAddress:f.key=='phone'?TextInputType.phone:TextInputType.text,decoration:InputDecoration(labelText:f.value)))
- ]else...[TextField(controller:user,decoration:const InputDecoration(labelText:'Username'),textInputAction:TextInputAction.next),const SizedBox(height:12),TextField(controller:pass,obscureText:true,decoration:const InputDecoration(labelText:'Password'))],const SizedBox(height:22),SizedBox(width:double.infinity,child:FilledButton(onPressed:busy?null:submit,child:Padding(padding:const EdgeInsets.all(12),child:busy?const SizedBox(height:17,width:17,child:CircularProgressIndicator(strokeWidth:2)):Text(signup?'Daftar Sekarang':'Masuk ke Akun')))),const SizedBox(height:14),TextButton(onPressed:busy?null:()=>setState(()=>signup=!signup),child:Text(signup?'Sudah punya akun? Login':'Daftar Akun Warga →')),const Divider(),const Text('Data pribadi diproses untuk pelayanan Kelurahan Cikoko.',style:TextStyle(fontSize:12,color:Colors.blueGrey))]))))));}
+ @override
+ Widget build(BuildContext context) {
+   final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
+   return Scaffold(
+     body: Center(
+       child: SingleChildScrollView(
+         padding: const EdgeInsets.all(18),
+         child: ConstrainedBox(
+           constraints: const BoxConstraints(maxWidth: 430),
+           child: Card(
+             elevation: 1,
+             child: Padding(
+               padding: const EdgeInsets.all(24),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                   const Logo(),
+                   const SizedBox(height: 16),
+                   Text(title, style: Theme.of(context).textTheme.titleLarge),
+                   const SizedBox(height: 6),
+                   const Text('Layanan Digital Kelurahan Cikoko • Pancoran', style: TextStyle(color: Colors.blueGrey)),
+                   const SizedBox(height: 22),
+                   if (signup)
+                     for (final entry in <String, String>{
+                       'name': 'Nama lengkap',
+                       'username': 'Username',
+                       'password': 'Password',
+                       'confirm': 'Ulangi password',
+                       'address': 'Alamat lengkap',
+                       'phone': 'Nomor telepon',
+                       'email': 'Email',
+                     }.entries)
+                       Padding(
+                         padding: const EdgeInsets.only(bottom: 12),
+                         child: TextField(
+                           controller: ctrl(entry.key),
+                           obscureText: entry.key == 'password' || entry.key == 'confirm',
+                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : entry.key == 'phone' ? TextInputType.phone : TextInputType.text,
+                           decoration: InputDecoration(labelText: entry.value),
+                         ),
+                       )
+                   else ...[
+                     TextField(controller: user, decoration: const InputDecoration(labelText: 'Username'), textInputAction: TextInputAction.next),
+                     const SizedBox(height: 12),
+                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+                   ],
+                   const SizedBox(height: 22),
+                   SizedBox(
+                     width: double.infinity,
+                     child: FilledButton(
+                       onPressed: busy ? null : submit,
+                       child: Padding(
+                         padding: const EdgeInsets.all(12),
+                         child: busy ? const SizedBox(height: 17, width: 17, child: CircularProgressIndicator(strokeWidth: 2)) : Text(signup ? 'Daftar Sekarang' : 'Masuk ke Akun'),
+                       ),
+                     ),
+                   ),
+                   const SizedBox(height: 14),
+                   TextButton(onPressed: busy ? null : () => setState(() => signup = !signup), child: Text(signup ? 'Sudah punya akun? Login' : 'Daftar Akun Warga →')),
+                   const Divider(),
+                   const Text('Data pribadi diproses untuk pelayanan Kelurahan Cikoko.', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                 ],
+               ),
+             ),
+           ),
+         ),
+       ),
+     ),
+   );
+ }
+
 }
 void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(text),backgroundColor:error?Colors.red.shade700:navy));}
 class HomePage extends StatefulWidget{final VoidCallback onLogout;const HomePage({super.key,required this.onLogout});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage>{String section='Dashboard';List<dynamic> items=[],events=[];bool loading=false;Timer? timer;PushService? push;
- String get role='${api.profile?['role']??'warga'}';bool get isStaff=>role!='warga';bool get isAdmin=>role=='admin'||role=='admin_kelurahan';
+ String get role => '${api.profile?['role']??'warga'}';bool get isStaff=>role!='warga';bool get isAdmin=>role=='admin'||role=='admin_kelurahan';
  @override void initState(){super.initState();load();push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}
  @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
  Future<void> refresh() async{try{final v=await api.call('events');if(mounted)setState(()=>events=List<dynamic>.from(v['events']??[]));}catch(_){}}
@@ -41,9 +110,108 @@ class _HomeState extends State<HomePage>{String section='Dashboard';List<dynamic
  IconData iconFor(String s)=>switch(s){'Dashboard'=>Icons.dashboard_outlined,'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,'Layanan Online'=>Icons.grid_view_outlined,'Galeri'=>Icons.photo_library_outlined,'Surat Ahli Waris'=>Icons.description_outlined,'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,'Riwayat'=>Icons.history,'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_outlined,'Notifikasi'=>Icons.notifications_outlined,'Profil'=>Icons.person_outline,_=>Icons.assignment_turned_in_outlined};
  @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:Text(section,style:Theme.of(c).textTheme.titleMedium),actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))]),drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:70),const SizedBox(height:8),const Text('Kelurahan Cikoko',style:TextStyle(fontWeight:FontWeight.w800,fontSize:18)),Text('${api.profile?['name']??''} • $role',style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const SizedBox(height:12),const Divider(),Expanded(child:ListView(children:menus.map((m)=>ListTile(dense:true,selected:section==m,selectedTileColor:const Color(0xffe4f0ff),leading:Icon(iconFor(m),size:21),title:Text(m,style:const TextStyle(fontSize:13.5,fontWeight:FontWeight.w600)),onTap:()=>switchTo(m))).toList())),const Divider(),ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:() async {await api.logout();widget.onLogout();})]))),body:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(onRefresh:load,child:_page()),floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),child:const Icon(Icons.chat_bubble_outline)));
  Widget _page(){switch(section){case 'Dashboard':return home();case 'Berita & Kegiatan':return feed('berita');case 'Pengumuman':return feed('pengumuman');case 'Layanan Online':return feed('layanan');case 'Galeri':return feed('galeri');case 'Surat Ahli Waris':return const WarisForm();case 'Jumantik Warga':return const ReportForm(kind:'jumantik');case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');case 'Riwayat':return const HistoryPage();case 'Hubungi Kami':return const ChatPage();case 'Pesan Masuk':return const AdminChatPage();case 'Notifikasi':return eventList();case 'Profil':return profilePage();case 'Verifikasi Laporan':return const AdminReports();default:return home();}}
- Widget home()=>ListView(padding:const EdgeInsets.all(14),children:[Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(colors:[navy,Color(0xff156d81)])),child:Row(children:[const Logo(size:60),const SizedBox(width:16),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Halo, ${api.profile?['name']??'Warga'}',style:const TextStyle(fontSize:20,color:Colors.white,fontWeight:FontWeight.bold)),const SizedBox(height:6),const Text('Pelayanan publik dan informasi Kelurahan Cikoko',style:TextStyle(color:Colors.white70))]))])),const SizedBox(height:20),Text('Menu Layanan',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:12),LayoutBuilder(builder:(c,x)=>GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),crossAxisCount:x.maxWidth>700?4:2,childAspectRatio:1.4,crossAxisSpacing:10,mainAxisSpacing:10,children:menus.where((e)=>!['Dashboard','Profil','Notifikasi','Riwayat'].contains(e)).take(10).map((e)=>InkWell(onTap:()=>switchTo(e),child:Card(child:Padding(padding:const EdgeInsets.all(10),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(iconFor(e),size:27,color:blue),const SizedBox(height:8),Text(e,textAlign:TextAlign.center,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700))])))).toList())),const SizedBox(height:14),Text('Informasi Terbaru',style:Theme.of(context).textTheme.titleMedium),...items.where((e)=>e['type']=='berita'||e['type']=='pengumuman').take(4).map((e)=>contentCard(Map<String,dynamic>.from(e))) ]);
+ Widget home() => ListView(
+   padding: const EdgeInsets.all(14),
+   children: [
+     Container(
+       padding: const EdgeInsets.all(18),
+       decoration: BoxDecoration(
+         borderRadius: BorderRadius.circular(18),
+         gradient: const LinearGradient(colors: [navy, Color(0xff156d81)]),
+       ),
+       child: Row(children: [
+         const Logo(size: 60),
+         const SizedBox(width: 16),
+         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+           Text('Halo, ${api.profile?['name']??'Warga'}', style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 6),
+           const Text('Pelayanan publik dan informasi Kelurahan Cikoko', style: TextStyle(color: Colors.white70)),
+         ])),
+       ]),
+     ),
+     const SizedBox(height: 20),
+     Text('Menu Layanan', style: Theme.of(context).textTheme.titleMedium),
+     const SizedBox(height: 12),
+     LayoutBuilder(builder: (ctx, constraints) => GridView.count(
+       shrinkWrap: true,
+       physics: const NeverScrollableScrollPhysics(),
+       crossAxisCount: constraints.maxWidth > 700 ? 4 : 2,
+       childAspectRatio: 1.4,
+       crossAxisSpacing: 10,
+       mainAxisSpacing: 10,
+       children: menus.where((x) => !['Dashboard','Profil','Notifikasi','Riwayat'].contains(x)).take(10).map((item) =>
+         InkWell(
+           onTap: () => switchTo(item),
+           child: Card(child: Padding(
+             padding: const EdgeInsets.all(10),
+             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+               Icon(iconFor(item), size: 27, color: blue),
+               const SizedBox(height: 8),
+               Text(item, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+             ]),
+           )),
+         )).toList(),
+     )),
+     const SizedBox(height: 14),
+     Text('Informasi Terbaru', style: Theme.of(context).textTheme.titleMedium),
+     ...items.where((x) => x['type'] == 'berita' || x['type'] == 'pengumuman').take(4).map((x) => contentCard(Map<String, dynamic>.from(x))),
+   ],
+ );
+
  Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
- Widget contentCard(Map<String,dynamic> x){final img=api.media('${x['image']??''}');return Card(child:InkWell(onTap:()=>showDialog(context:context,builder:(c)=>AlertDialog(title:Text('${x['title']}'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[if(img.isNotEmpty)Image.network(img,height:150,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink()),const SizedBox(height:12),Text('${x['body']??''}'),const SizedBox(height:20),if(x['type']=='berita')Wrap(spacing:8,children:[TextButton.icon(onPressed:()=>share('https://wa.me/?text=${Uri.encodeComponent('${x['title']} https://datawebs.my.id/article.php?id=${x['id']}')}'),icon:const Icon(Icons.share),label:const Text('WhatsApp')),TextButton(onPressed:()=>share('https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent('https://datawebs.my.id/article.php?id=${x['id']}')}'),child:const Text('Facebook')),TextButton(onPressed:() async{await Clipboard.setData(ClipboardData(text:'https://datawebs.my.id/article.php?id=${x['id']}'));if(c.mounted)notify(c,'Tautan disalin untuk Instagram');},child:const Text('Instagram'))])])),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Tutup'))])),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[if(img.isNotEmpty)ClipRRect(borderRadius:const BorderRadius.vertical(top:Radius.circular(16)),child:Image.network(img,height:150,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())),Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${x['title']??''}',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:6),Text('${x['body']??''}',maxLines:3,overflow:TextOverflow.ellipsis),const SizedBox(height:10),const Row(mainAxisAlignment:MainAxisAlignment.end,children:[Text('Lihat Detail →',style:TextStyle(color:blue,fontWeight:FontWeight.w600,fontSize:12))])]))]));}
+ Widget contentCard(Map<String, dynamic> item) {
+   final image = api.media('${item['image']??''}');
+   final title = '${item['title']??''}';
+   final description = '${item['body']??''}';
+   final link = 'https://datawebs.my.id/article.php?id=${item['id']??''}';
+   Widget photo() => image.isEmpty ? const SizedBox.shrink() : Image.network(
+     image, height: 150, width: double.infinity, fit: BoxFit.cover,
+     errorBuilder: (c, e, stack) => const SizedBox.shrink(),
+   );
+   Future<void> detail() async {
+     await showDialog<void>(
+       context: context,
+       builder: (dialogContext) => AlertDialog(
+         title: Text(title),
+         content: SingleChildScrollView(child: Column(
+           mainAxisSize: MainAxisSize.min,
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+             if (image.isNotEmpty) photo(),
+             const SizedBox(height: 12),
+             Text(description),
+             if (item['type'] == 'berita') ...[
+               const SizedBox(height: 16),
+               Wrap(spacing: 8, runSpacing: 6, children: [
+                 TextButton.icon(onPressed: () => share('https://wa.me/?text=${Uri.encodeComponent('$title $link')}'), icon: const Icon(Icons.share), label: const Text('WhatsApp')),
+                 TextButton(onPressed: () => share('https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(link)}'), child: const Text('Facebook')),
+                 TextButton(onPressed: () async {
+                   await Clipboard.setData(ClipboardData(text: link));
+                   if (dialogContext.mounted) notify(dialogContext, 'Tautan disalin untuk Instagram');
+                 }, child: const Text('Salin Tautan')),
+               ]),
+             ],
+           ],
+         )),
+         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tutup'))],
+       ),
+     );
+   }
+   return Card(child: InkWell(
+     onTap: detail,
+     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+       if (image.isNotEmpty) ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: photo()),
+       Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+         Text(title, style: Theme.of(context).textTheme.titleMedium),
+         const SizedBox(height: 6),
+         Text(description, maxLines: 3, overflow: TextOverflow.ellipsis),
+         const SizedBox(height: 10),
+         const Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text('Lihat Detail →', style: TextStyle(color: blue, fontWeight: FontWeight.w600, fontSize: 12))]),
+       ])),
+     ]),
+   ));
+ }
+
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
  Widget eventList()=>ListView(children:[for(final e in events)ListTile(leading:const Icon(Icons.notifications_active_outlined,color:blue),title:Text('${e['title']??''}'),subtitle:Text('${e['created_at']??''}')),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
  Widget profilePage()=>ListView(padding:const EdgeInsets.all(16),children:[for(final e in (api.profile??{}).entries)if(!['id','password_hash','token'].contains(e.key))Card(child:ListTile(title:Text(e.key),subtitle:Text('${e.value}')))]);
@@ -85,7 +253,7 @@ class _ReportState extends State<ReportForm>{final address=TextEditingController
 }
 class HistoryPage extends StatefulWidget{const HistoryPage({super.key});@override State<HistoryPage> createState()=>_HistoryState();}
 class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? future;@override void initState(){super.initState();future=api.call('history');}
- @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:future,builder:(c,s){if(s.hasError)return Center(child:Text('${s.error}'));if(!s.hasData)return const Center(child:CircularProgressIndicator());final rows=List<dynamic>.from(s.data!['items']??[]);return ListView(children:[for(final r in rows)ListTile(title:Text('${r['title']??r['reference']??'Pengajuan'}'),subtitle:Text('${r['status']??''} · ${r['created_at']??''}')),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]);});}
+ @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:future,builder:(c,s){if(s.hasError)return Center(child:Text('${s.error}'));if(!s.hasData)return const Center(child:CircularProgressIndicator());final rows=List<dynamic>.from(s.data!['items']??[]);return ListView(children:[for(final r in rows)ListTile(title:Text('${r['title']??r['reference']??'Pengajuan'}'),subtitle:Text('${r['status']??''} · ${r['created_at']??''}')),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]);});
 }
 class ChatPage extends StatefulWidget{const ChatPage({super.key});@override State<ChatPage> createState()=>_ChatState();}
 class _ChatState extends State<ChatPage>{final ctrl=TextEditingController();List<dynamic> messages=[];bool busy=false;Timer?timer;@override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());} @override void dispose(){timer?.cancel();ctrl.dispose();super.dispose();}
@@ -97,11 +265,11 @@ class AdminChatPage extends StatefulWidget{const AdminChatPage({super.key});@ove
 class _AdminChatState extends State<AdminChatPage>{List<dynamic> threads=[];@override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('chat_threads');if(mounted)setState(()=>threads=List<dynamic>.from(d['threads']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
  Future<void> reply(Map<String,dynamic> t) async {final ctrl=TextEditingController();await showDialog(context:context,builder:(c)=>AlertDialog(title:Text('Balas ${t['name']}'),content:TextField(controller:ctrl,decoration:const InputDecoration(hintText:'Balasan admin')),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Batal')),FilledButton(onPressed:()async{try{await api.call('chat_reply',body:{'user_id':t['user_id'],'message':ctrl.text});if(c.mounted)Navigator.pop(c);load();}catch(e){if(c.mounted)notify(c,'$e',error:true);}},child:const Text('Kirim'))]));ctrl.dispose();}
- @override Widget build(BuildContext c)=>ListView(children:[for(final t in threads)ListTile(leading:const Icon(Icons.person),title:Text('${t['name']}'),subtitle:Text('${t['message']}'),trailing:const Icon(Icons.reply),onTap:()=>reply(Map<String,dynamic>.from(t))),if(threads.isEmpty)const ListTile(title:Text('Belum ada pesan masuk.'))]);}
+ @override Widget build(BuildContext c)=>ListView(children:[for(final t in threads)ListTile(leading:const Icon(Icons.person),title:Text('${t['name']}'),subtitle:Text('${t['message']}'),trailing:const Icon(Icons.reply),onTap:()=>reply(Map<String,dynamic>.from(t))),if(threads.isEmpty)const ListTile(title:Text('Belum ada pesan masuk.'))]);
 }
 class AdminReports extends StatefulWidget{const AdminReports({super.key});@override State<AdminReports> createState()=>_AdminReportsState();}
 class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];@override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
  Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
- @override Widget build(BuildContext c)=>ListView(children:[for(final r in rows)Card(child:ListTile(title:Text('${r['title']??r['reference']}'),subtitle:Text('${r['status']} · ${r['name']??''}'),trailing:PopupMenuButton<String>(onSelected:(s)=>update(Map<String,dynamic>.from(r),s),itemBuilder:(c)=>['masuk','proses','revisi','selesai','ditolak'].map((s)=>PopupMenuItem(value:s,child:Text(s))).toList()))),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]);}
+ @override Widget build(BuildContext c)=>ListView(children:[for(final r in rows)Card(child:ListTile(title:Text('${r['title']??r['reference']}'),subtitle:Text('${r['status']} · ${r['name']??''}'),trailing:PopupMenuButton<String>(onSelected:(s)=>update(Map<String,dynamic>.from(r),s),itemBuilder:(c)=>['masuk','proses','revisi','selesai','ditolak'].map((s)=>PopupMenuItem(value:s,child:Text(s))).toList()))),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]);
 }
