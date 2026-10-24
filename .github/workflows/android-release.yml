@@ -11,7 +11,7 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -25,85 +25,43 @@ jobs:
       - name: Generate Android wrapper files
         working-directory: flutter
         run: flutter create --platforms=android --project-name=cikoko .
-      - name: Resolve dependencies and check source
+      - name: Resolve dependencies and analyze source
         working-directory: flutter
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: Flutter widget and role catalog tests
+      - name: Flutter widget and role tests
         working-directory: flutter
         run: flutter test
-      - name: Build debug APK for testing
+      - name: Build Android debug test APK
         working-directory: flutter
         run: flutter build apk --debug
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v207-TEST-APK
+          name: Cikoko-v209-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
-      - name: Check whether signing is configured
-        id: signing
-        env:
-          STORE: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
-          PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
-          KEYPASS: ${{ secrets.CIKOKO_KEY_PASSWORD }}
-        run: |
-          if [[ -n "$STORE" && -n "$PASSWORD" && -n "$KEYPASS" ]]; then
-            echo 'enabled=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'enabled=false' >> "$GITHUB_OUTPUT"
-            echo 'Signing secrets not configured. Debug APK is available, but no publishable AAB will be produced.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Restore signing keystore
-        if: steps.signing.outputs.enabled == 'true'
+          retention-days: 14
+      - name: Build release AAB and APK for secure offline signing
         working-directory: flutter
-        env:
-          KEYSTORE: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
         run: |
-          umask 077
-          python3 - <<'PYCODE'
-          import os, base64, binascii, pathlib, sys
-          raw=''.join(os.environ['KEYSTORE'].split())
-          try:
-              data=base64.b64decode(raw,validate=True)
-          except binascii.Error:
-              print('::error::CIKOKO_KEYSTORE_B64 bukan Base64 valid. Isi hanya hasil encode file .keystore, tanpa nama file/perintah.')
-              sys.exit(1)
-          if len(data)<500:
-              print('::error::Keystore hasil decode terlalu kecil; periksa secret.')
-              sys.exit(1)
-          pathlib.Path('android/cikoko_upload.jks').write_bytes(data)
-          PYCODE
-          test -s android/cikoko_upload.jks
-      - name: Verify upload certificate
-        if: steps.signing.outputs.enabled == 'true'
-        working-directory: flutter
-        env:
-          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
-        run: |
-          keytool -list -v -keystore android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey | grep -F '39:46:33:E6:A2:F4:C9:1C:15:0D:81:B2:28:90:85:62:D2:30:D7:63:03:1A:0A:0C:20:56:18:B9:D6:69:D4:E5'
-      - name: Build signed release APK and AAB
-        if: steps.signing.outputs.enabled == 'true'
-        working-directory: flutter
-        env:
-          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
-          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
-          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
-          CIKOKO_KEY_ALIAS: androidkey
-        run: |
-          flutter build apk --release
           flutter build appbundle --release
-          test -s build/app/outputs/flutter-apk/app-release.apk
+          flutter build apk --release
           test -s build/app/outputs/bundle/release/app-release.aab
-      - name: Upload signed outputs
-        if: steps.signing.outputs.enabled == 'true'
+          test -s build/app/outputs/flutter-apk/app-release.apk
+      - name: Stage unsigned release outputs and Android signer
+        run: |
+          mkdir -p flutter/build/offline-release
+          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v209-unsigned.aab
+          cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v209-unsigned.apk
+          SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
+          test -n "$SIGNER"
+          cp "$SIGNER" flutter/build/offline-release/apksigner.jar
+      - name: Upload offline signing artifacts (unsigned, not for Play Store)
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v207-SIGNED-APK-AAB
-          path: |
-            flutter/build/app/outputs/flutter-apk/app-release.apk
-            flutter/build/app/outputs/bundle/release/app-release.aab
+          name: Cikoko-v209-OFFLINE-SIGNING-APK-AAB
+          path: flutter/build/offline-release/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7

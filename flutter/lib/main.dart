@@ -11,6 +11,7 @@ import 'role_catalog.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
+import 'home_widgets.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -109,6 +110,7 @@ class _HomeState extends State<HomePage> {
   String section='Dashboard';
   int nav=0;
   List<dynamic> items=[],events=[];
+  Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
   bool loading=true,permissionsOk=false;
   Timer? timer;
@@ -136,6 +138,19 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
+      if(!guest && role=='warga') {
+        try {
+          final history=await api.call('history');
+          final rows=List<dynamic>.from(history['items']??[]);
+          final counts={'masuk':0,'proses':0,'selesai':0};
+          for (final record in rows) {
+            final status='${record['status']??''}'.toLowerCase();
+            final key=status=='masuk'?'masuk':status=='selesai'?'selesai':'proses';
+            counts[key]=counts[key]!+1;
+          }
+          if(mounted)setState(()=>letterCounts=counts);
+        } catch (_) {if(mounted)setState(()=>letterCounts=null);}
+      }
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
@@ -233,18 +248,65 @@ class _HomeState extends State<HomePage> {
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
     const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
-  Widget home()=>ListView(padding:const EdgeInsets.all(14),children:[
-    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[navy,blue],begin:Alignment.topLeft,end:Alignment.bottomRight)),child:Row(children:[const Logo(size:58),const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(guest?'Selamat datang di Cikoko':'Selamat datang, ${api.profile?['name']??'Pengguna'}',style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800)),const SizedBox(height:4),Text('Kelurahan Cikoko • $roleLabel',style:const TextStyle(color:Colors.white70,fontSize:12)),const SizedBox(height:9),const Text('Melayani dengan hati, lebih cepat dan mudah.',style:TextStyle(color:Colors.white,fontSize:12))]))])),
-    if(guest)Card(child:ListTile(leading:const Icon(Icons.lock_open_outlined,color:blue),title:const Text('Akses layanan warga'),subtitle:const Text('Baca berita dan lihat layanan tanpa login. Masuk hanya saat mengajukan surat, membuat laporan, atau melihat riwayat.'),trailing:FilledButton(onPressed:openLogin,child:const Text('Login')))),
-    const SizedBox(height:18),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Text('Menu Cepat',style:Theme.of(context).textTheme.titleMedium),TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →'))]),
-    LayoutBuilder(builder:(ctx,c)=>GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:c.maxWidth>700?4:2,mainAxisSpacing:8,crossAxisSpacing:8,childAspectRatio:1.62),itemCount:modules.length>6?6:modules.length,itemBuilder:(ctx,i){final f=modules[i];return Card(elevation:0,child:InkWell(borderRadius:BorderRadius.circular(16),onTap:()=>switchTo(f.route),child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[CircleAvatar(radius:17,backgroundColor:sky,child:Icon(iconFor(f.route),color:blue,size:19)),Text(f.title,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:navy,fontSize:12,fontWeight:FontWeight.w700))]))));})),
-    const SizedBox(height:16),Text('Informasi Terbaru',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),
+  Future<void> showOfficeProfile() async {
+    await showModalBottomSheet<void>(context:context,isScrollControlled:true,
+      showDragHandle:true,builder:(sheetContext)=>SafeArea(child:Padding(
+        padding:const EdgeInsets.fromLTRB(20,0,20,24),child:Column(mainAxisSize:MainAxisSize.min,
+          crossAxisAlignment:CrossAxisAlignment.start,children:[
+            const Text('Profil Kelurahan Cikoko',style:TextStyle(fontSize:19,color:navy,fontWeight:FontWeight.w800)),
+            const SizedBox(height:8),
+            const Text('Kecamatan Pancoran, Kota Administrasi Jakarta Selatan. Pelayanan publik, informasi, dan pengajuan surat tersedia melalui Cikoko.'),
+            const SizedBox(height:14),
+            FilledButton.icon(onPressed:(){Navigator.pop(sheetContext);switchTo('Layanan Online');},
+              icon:const Icon(Icons.widgets_outlined),label:const Text('Lihat Layanan')),
+          ]))));
+  }
+  List<RoleFeature> get homeShortcuts {
+    if(role=='warga'||guest){
+      final wanted=['Layanan Online','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
+      return wanted.map((route)=>roleFeatures.values.firstWhere((f)=>f.route==route)).toList();
+    }
+    return modules.take(6).toList();
+  }
+  Widget home()=>ListView(padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
+    CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:showOfficeProfile),
+    if(guest)Padding(padding:const EdgeInsets.only(top:8),child:Material(
+      color:const Color(0xffe9f1fa),borderRadius:BorderRadius.circular(11),
+      child:ListTile(dense:true,contentPadding:const EdgeInsets.symmetric(horizontal:10),
+        leading:const Icon(Icons.lock_open_outlined,color:blue,size:20),
+        title:const Text('Layanan publik tanpa login',style:TextStyle(fontSize:11.5,fontWeight:FontWeight.w700)),
+        subtitle:const Text('Login hanya saat mengajukan surat atau laporan.',style:TextStyle(fontSize:10.5)),
+        trailing:TextButton(onPressed:openLogin,child:const Text('Masuk',style:TextStyle(fontSize:11))),
+      ),
+    )),
+    if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
+      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+    Padding(padding:const EdgeInsets.only(top:10,bottom:5),child:Row(
+      mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
+        const Text('Menu Cepat',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
+        TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
+      ])),
+    LayoutBuilder(builder:(ctx,c)=>GridView.builder(
+      shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+      gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount:c.maxWidth>680?3:2,mainAxisSpacing:8,crossAxisSpacing:8,
+        childAspectRatio:c.maxWidth>680?3.6:(c.maxWidth<340?2.2:2.55)),
+      itemCount:homeShortcuts.length,
+      itemBuilder:(ctx,i){final feature=homeShortcuts[i];return CikokoQuickMenu(
+        title:feature.title,icon:iconFor(feature.route),onTap:()=>switchTo(feature.route));},
+    )),
+    Padding(padding:const EdgeInsets.only(top:17,bottom:8),child:Row(children:[
+      const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
+      TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
+    ])),
     for(final x in items.where((x)=>x['type']=='berita'||x['type']=='pengumuman').take(3))contentCard(Map<String,dynamic>.from(x)),
-    if(items.isEmpty)const Card(child:ListTile(title:Text('Belum ada berita atau pengumuman.'))),
-    const SizedBox(height:14),Text('Aktivitas Terkini',style:Theme.of(context).textTheme.titleMedium),
-    for(final e in events.take(3))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}'))),
-    if(events.isEmpty)const Card(child:ListTile(title:Text('Belum ada notifikasi.'))),
-    const SizedBox(height:80),
+    if(items.isEmpty)const Card(child:ListTile(dense:true,title:Text('Belum ada berita atau pengumuman.'))),
+    if(!guest&&events.isNotEmpty)...[
+      const Padding(padding:EdgeInsets.only(top:12,bottom:7),child:Text('Aktivitas Terbaru',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
+      for(final e in events.take(2))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),
+        title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}',style:const TextStyle(fontSize:10)))),
+    ],
+    const SizedBox(height:74),
   ]);
  Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
  Widget contentCard(Map<String, dynamic> item) {
