@@ -51,6 +51,8 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+require_once __DIR__.'/waris_review.php';
+if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
  if($u['user_role']==='admin'){$name='Administrator';$department='Admin Utama';}else{$name=$u['username'];$department='';foreach(db_read('portal_users') as $x)if((string)$x['id']===$uid){$name=$x['name'];$department=$x['department']??'';break;}}
  mobile_json(['ok'=>true,'user'=>['id'=>$uid,'name'=>$name,'username'=>$u['username'],'role'=>$u['user_role'],'department'=>$department]]);
@@ -99,7 +101,8 @@ if($action==='archives'){
  mobile_json(['ok'=>true,'items'=>$rows]);
 }
 if($action==='events'){
- $s=$db->prepare('SELECT id,category,title,message,created_at FROM mobile_events WHERE audience="public" OR (audience="admin" AND :admin=1) OR (audience="staff" AND :staff=1) OR (audience="personal" AND recipient=:recipient) ORDER BY id DESC LIMIT 60');
+ waris_review_schema($db);
+ $s=$db->prepare('SELECT e.id,e.category,e.title,e.message,e.created_at,l.object_type,l.object_id FROM mobile_events e LEFT JOIN mobile_event_links l ON l.event_id=e.id WHERE e.audience="public" OR (e.audience="admin" AND :admin=1) OR (e.audience="staff" AND :staff=1) OR (e.audience="personal" AND e.recipient=:recipient) ORDER BY e.id DESC LIMIT 60');
  $s->execute(['admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>$uid]);mobile_json(['ok'=>true,'events'=>$s->fetchAll()]);
 }
 if($action==='chat_send'&&$method==='POST'){
@@ -149,11 +152,11 @@ if($action==='waris'&&$method==='POST'){
   }
   $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);$db->commit();
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error('Permohonan belum berhasil disimpan. Data tetap berada di formulir. Periksa dokumen atau hubungi admin jika masalah berulang.',503);}
- mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');mobile_emit('progres_surat','Permohonan diterima',$reference,'personal',$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
+ mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Permohonan diterima',$reference,'personal',(string)$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
 }
 if($action==='history'){
- $st=$db->prepare('SELECT id,kind AS title,status,created_at FROM mobile_reports WHERE user_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=$st->fetchAll();
- try{$st=$db->prepare('SELECT id,reference_no AS reference,"Ahli Waris" AS title,status,created_at FROM aw_applications WHERE account_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=array_merge($rows,$st->fetchAll());}catch(Throwable $e){error_log('waris history: '.$e->getMessage());}
+ $st=$db->prepare('SELECT id,kind AS title,"report" AS kind,status,created_at FROM mobile_reports WHERE user_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=$st->fetchAll();
+ try{$st=$db->prepare('SELECT id,reference_no AS reference,"Ahli Waris" AS title,"waris" AS kind,status,created_at FROM aw_applications WHERE account_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=array_merge($rows,$st->fetchAll());}catch(Throwable $e){error_log('waris history: '.$e->getMessage());}
  usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));mobile_json(['ok'=>true,'items'=>array_slice($rows,0,100)]);
 }
 if($action==='admin_reports'){
@@ -170,6 +173,6 @@ if($action==='status'&&$method==='POST'){
   $st=$db->prepare('SELECT user_id FROM mobile_reports WHERE id=?');$st->execute([$id]);$owner=$st->fetchColumn();if(!$owner)mobile_error('Laporan tidak ditemukan',404);
   $db->prepare('UPDATE mobile_reports SET status=? WHERE id=?')->execute([$status,$id]);
  }
- mobile_emit('progres_surat','Status permohonan: '.ucfirst($status),'Periksa rincian permohonan pada aplikasi','personal',$owner);mobile_json(['ok'=>true]);
+ if($kind==='waris'){waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Status Ahli Waris: '.ucfirst($status),'Periksa rincian dan progres surat Anda.','personal',(string)$owner);}else{mobile_emit('progres_surat','Status permohonan: '.ucfirst($status),'Periksa rincian permohonan pada aplikasi','personal',(string)$owner);}mobile_json(['ok'=>true]);
 }
 mobile_error('Endpoint tidak tersedia',404);

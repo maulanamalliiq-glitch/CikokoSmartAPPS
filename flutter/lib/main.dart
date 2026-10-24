@@ -10,6 +10,7 @@ import 'push.dart';
 import 'role_catalog.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
+import 'document_detail.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -300,7 +301,31 @@ class _HomeState extends State<HomePage> {
  }
 
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
- Widget eventList()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(22),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.notifications_outlined,size:40,color:blue),const Text('Notifikasi surat dan laporan memerlukan login.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login'))])))):ListView(children:[for(final e in events)ListTile(leading:const Icon(Icons.notifications_active_outlined,color:blue),title:Text('${e['title']??''}'),subtitle:Text('${e['created_at']??''}')),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
+ Future<void> openNotification(Map<String,dynamic> event)async{
+    final objectType='${event['object_type']??''}';
+    final id=int.tryParse('${event['object_id']??''}')??0;
+    if(id>0&&(objectType=='waris'||objectType=='report')){
+      await showCikokoDocument(context,api,id:id,kind:objectType,onChanged:refresh);
+      if(mounted)await refresh();return;
+    }
+    if(!mounted)return;
+    final category='${event['category']??''}';
+    if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
+    if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
+      switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
+    }
+    await showDialog<void>(context:context,builder:(c)=>AlertDialog(
+      title:Text('${event['title']??'Notifikasi'}'),content:Text('${event['message']??''}'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Tutup'))],
+    ));
+  }
+  Widget eventList()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(22),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.notifications_outlined,size:40,color:blue),const Text('Notifikasi surat dan laporan memerlukan login.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login'))])))):ListView(padding:const EdgeInsets.all(12),children:[
+    for(final e in events)Card(child:ListTile(
+      leading:const CircleAvatar(backgroundColor:Color(0xffeaf3ff),child:Icon(Icons.notifications_active_outlined,color:blue)),
+      title:Text('${e['title']??''}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
+      subtitle:Text('${e['message']??''}\n${e['created_at']??''}',maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11)),
+      trailing:const Icon(Icons.chevron_right),onTap:()=>openNotification(Map<String,dynamic>.from(e)),
+    )),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
  Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const SizedBox(height:10),const Text('Masuk untuk melihat profil Anda.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login / Daftar Warga'))])))):ListView(padding:const EdgeInsets.all(16),children:[for(final e in (api.profile??{}).entries)if(!['id','password_hash','token'].contains(e.key))Card(child:ListTile(title:Text(e.key),subtitle:Text('${e.value}')))]);
 }
 class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
@@ -380,8 +405,21 @@ class _ReportState extends State<ReportForm>{final address=TextEditingController
  @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(14),children:[Field('Alamat / Lokasi',address),Field('Nomor telepon',phone),Field('Keterangan kegiatan / hasil pemantauan',notes,lines:5),PhotoInput(label:'Foto bukti kegiatan',onChanged:(f)=>photo=f),if(sending)...[LinearProgressIndicator(value:progress),Text('${(progress*100).round()}%')],FilledButton(onPressed:sending?null:send,child:const Text('Kirim Laporan'))]);
 }
 class HistoryPage extends StatefulWidget{const HistoryPage({super.key});@override State<HistoryPage> createState()=>_HistoryState();}
-class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? future;@override void initState(){super.initState();future=api.call('history');}
- @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:future,builder:(c,s){if(s.hasError)return Center(child:Text('${s.error}'));if(!s.hasData)return const Center(child:CircularProgressIndicator());final rows=List<dynamic>.from(s.data!['items']??[]);return ListView(children:[for(final r in rows)ListTile(title:Text('${r['title']??r['reference']??'Pengajuan'}'),subtitle:Text('${r['status']??''} · ${r['created_at']??''}')),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]);});
+class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? future;
+ @override void initState(){super.initState();reload();}
+ void reload(){setState(()=>future=api.call('history'));}
+ @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:future,builder:(c,s){
+ if(s.hasError)return Center(child:Text('Riwayat belum tersedia: ${s.error}'));
+ if(!s.hasData)return const Center(child:CircularProgressIndicator());
+ final rows=List<dynamic>.from(s.data!['items']??[]);
+ return RefreshIndicator(onRefresh:()async{reload();},child:ListView(padding:const EdgeInsets.all(12),children:[
+  for(final r in rows)Card(child:ListTile(
+    leading:const CircleAvatar(child:Icon(Icons.description_outlined)),
+    title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
+    subtitle:Text('${r['reference']??''} • ${r['status']??''}\n${r['created_at']??''}',style:const TextStyle(fontSize:11)),
+    trailing:const Icon(Icons.chevron_right),
+    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',onChanged:reload),
+  )),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]));});
 }
 class ChatPage extends StatefulWidget{const ChatPage({super.key});@override State<ChatPage> createState()=>_ChatState();}
 class _ChatState extends State<ChatPage>{final ctrl=TextEditingController();List<dynamic> messages=[];bool busy=false;Timer?timer;@override void initState(){super.initState();refresh();timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());} @override void dispose(){timer?.cancel();ctrl.dispose();super.dispose();}
@@ -427,8 +465,17 @@ class _AdminReplySheetState extends State<AdminReplySheet>{
    ]));
 }
 class AdminReports extends StatefulWidget{const AdminReports({super.key});@override State<AdminReports> createState()=>_AdminReportsState();}
-class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];@override void initState(){super.initState();load();}
+class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
+ @override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
- Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
- @override Widget build(BuildContext c)=>ListView(children:[for(final r in rows)Card(child:ListTile(title:Text('${r['title']??r['reference']}'),subtitle:Text('${r['status']} · ${r['name']??''}'),trailing:PopupMenuButton<String>(onSelected:(s)=>update(Map<String,dynamic>.from(r),s),itemBuilder:(c)=>['masuk','proses','revisi','selesai','ditolak'].map((s)=>PopupMenuItem(value:s,child:Text(s))).toList()))),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]);
+ Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
+ @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
+  const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
+  for(final r in rows)Card(child:ListTile(
+    leading:const Icon(Icons.fact_check_outlined,color:blue),
+    title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
+    subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
+    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??'report'}',onChanged:load),
+    trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
+  )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
