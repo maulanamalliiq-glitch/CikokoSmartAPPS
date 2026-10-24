@@ -12,6 +12,7 @@ import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
+import 'v211_features.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -108,7 +109,7 @@ void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(
 class HomePage extends StatefulWidget{final VoidCallback onLogout,onAuthenticated;const HomePage({super.key,required this.onLogout,required this.onAuthenticated});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage> {
   String section='Dashboard';
-  int nav=0;
+  int nav=2;
   List<dynamic> items=[],events=[];
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
@@ -167,18 +168,19 @@ class _HomeState extends State<HomePage> {
     if(guest&&_needsLogin(s)){openLogin();return;}
     setState(() {
       section=s;
-      if(s=='Dashboard'){nav=0;}
-      else if(s=='Notifikasi'){nav=3;}
+      if(s=='Dashboard'){nav=2;}
+      else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=2;}
-      else {nav=1;}
+      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=1;}
+      else if(s=='Notifikasi'){nav=2;}
+      else {nav=0;}
     });
   }
   void selectNav(int value){
-    if(value==0){switchTo('Dashboard');return;}
-    if(value==1){switchTo('Menu Cikoko');return;}
-    if(value==2){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
-    if(value==3){switchTo('Notifikasi');return;}
+    if(value==0){switchTo('Menu Cikoko');return;}
+    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==2){switchTo('Dashboard');return;}
+    if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
   }
   IconData iconFor(String s)=>switch(s){
@@ -194,9 +196,18 @@ class _HomeState extends State<HomePage> {
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
     'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
-    'Notifikasi'=>Icons.notifications_none,'Profil'=>Icons.person_outline,
+    'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
     _=>Icons.category_outlined};
-  @override Widget build(BuildContext c)=>Scaffold(
+  Future<void> confirmExit() async {
+    final leave=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+      title:const Text('Konfirmasi Keluar'),
+      content:const Text('Apakah Anda ingin keluar dari aplikasi Cikoko?'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Tidak')),
+        FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Ya'))],
+    ));
+    if(leave==true&&mounted){SystemNavigator.pop();}
+  }
+  @override Widget build(BuildContext c)=>PopScope(canPop:false,onPopInvokedWithResult:(didPop,result){if(!didPop)confirmExit();},child:Scaffold(
     appBar:AppBar(
       title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:events.isNotEmpty,label:Text('${events.length}'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
@@ -204,14 +215,14 @@ class _HomeState extends State<HomePage> {
     drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
+      const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
+      const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
-      NavigationDestination(icon:const Icon(Icons.grid_view_outlined),selectedIcon:const Icon(Icons.grid_view_rounded),label:(role=='warga'||role=='guest')?'Layanan':'Menu'),
-      NavigationDestination(icon:const Icon(Icons.assignment_outlined),selectedIcon:const Icon(Icons.assignment_turned_in),label:(role=='warga'||role=='guest')?'Riwayat':'Aktivitas'),
-      const NavigationDestination(icon:Icon(Icons.notifications_none),selectedIcon:Icon(Icons.notifications),label:'Notifikasi'),
+      const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
       const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
     ]),
     floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),backgroundColor:blue,foregroundColor:Colors.white,child:const Icon(Icons.chat_bubble_outline)),
-  );
+  ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
     case 'Menu Cikoko':return menuPage();
@@ -227,16 +238,17 @@ class _HomeState extends State<HomePage> {
     case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
     case 'Laporan Dasawisma':return const ReportForm(kind:'pkk');
     case 'Laporan Kerja Bakti':return const ReportForm(kind:'kerja_bakti');
-    case 'Laporan PPSU':return const ReportForm(kind:'ppsu');
+    case 'Laporan PPSU':return PpsuReportPage(api:api);
     case 'Riwayat':return const HistoryPage();
     case 'Hubungi Kami':return const ChatPage();
     case 'Pesan Masuk':return const AdminChatPage();
     case 'Notifikasi':return eventList();
-    case 'Profil':return profilePage();
+    case 'Inovasi':return InnovationPage(api:api);
+    case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
     case 'Verifikasi Laporan':return const AdminReports();
     case 'Tambah Berita':return MobileEditor(api:api,mode:'berita');
     case 'Tambah Pengumuman':return MobileEditor(api:api,mode:'pengumuman');
-    case 'Tambah Arsip Ahli Waris':return MobileEditor(api:api,mode:'archive');
+    case 'Tambah Arsip Ahli Waris':return ArchiveEditorPage(api:api);
     case 'Arsip Ahli Waris':return ArchiveList(api:api);
     case 'Hak Akses Role':return RolePermissionPage(api:api);
     default: return featureUnavailable(section);
@@ -325,6 +337,7 @@ class _HomeState extends State<HomePage> {
       for(final e in events.take(2))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),
         title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}',style:const TextStyle(fontSize:10)))),
     ],
+    if(!guest && (role=='ppsu'||isAdmin||role=='admin_kelurahan'))PpsuHighlights(api:api),
     const SizedBox(height:74),
   ]);
  Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
@@ -338,33 +351,15 @@ class _HomeState extends State<HomePage> {
      errorBuilder: (c, e, stack) => const SizedBox.shrink(),
    );
    Future<void> detail() async {
-     await showDialog<void>(
-       context: context,
-       builder: (dialogContext) => AlertDialog(
-         title: Text(title),
-         content: SingleChildScrollView(child: Column(
-           mainAxisSize: MainAxisSize.min,
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-             if (image.isNotEmpty) photo(),
-             const SizedBox(height: 12),
-             Text(description),
-             if (item['type'] == 'berita') ...[
-               const SizedBox(height: 16),
-               Wrap(spacing: 8, runSpacing: 6, children: [
-                 TextButton.icon(onPressed: () => share('https://wa.me/?text=${Uri.encodeComponent('$title $link')}'), icon: const Icon(Icons.share), label: const Text('WhatsApp')),
-                 TextButton(onPressed: () => share('https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(link)}'), child: const Text('Facebook')),
-                 TextButton(onPressed: () async {
-                   await Clipboard.setData(ClipboardData(text: link));
-                   if (dialogContext.mounted) notify(dialogContext, 'Tautan disalin untuk Instagram');
-                 }, child: const Text('Salin Tautan')),
-               ]),
-             ],
-           ],
-         )),
-         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tutup'))],
-       ),
-     );
+     if(item['type']=='berita'){
+       await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CivicNewsDetail(api:api,preview:item)));
+     }else{
+       await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,
+         builder:(sheet)=>SafeArea(child:Padding(padding:const EdgeInsets.all(18),child:SingleChildScrollView(
+         child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+           Text(title,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:12),photo(),const SizedBox(height:12),Text(description)
+         ])))));
+     }
    }
    return Card(
      margin: const EdgeInsets.only(bottom:9),

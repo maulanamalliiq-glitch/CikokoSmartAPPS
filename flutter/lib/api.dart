@@ -16,7 +16,7 @@ class CikokoApi {
   Map<String,dynamic>? profile;
   Future<void> restore() async { token = await _storage.read(key:'cikoko_token'); if(token!=null) {try {profile = (await call('me'))['user'] as Map<String,dynamic>?;}catch(_) {await logout();}} }
   Future<Map<String,dynamic>> call(String action, {Map<String,dynamic>? body, bool authorized = false}) async {
-    final u=Uri.parse('$root?action=$action');
+    final u=Uri.parse('${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action');
     try {
       final headers={'Accept':'application/json','Content-Type':'application/json'};
       if(token!=null)headers['Authorization']='Bearer $token';
@@ -29,6 +29,10 @@ class CikokoApi {
     on TimeoutException {throw ApiError('Waktu koneksi habis');}
     on FormatException {throw ApiError('Respons server bukan JSON');}
   }
+  Future<Map<String,dynamic>> callWithQuery(String action,Map<String,String> query) async => call('$action&${Uri(queryParameters:query).query}');
+  String photoUrl(String action,Map<String,String> params) => '${root.replaceFirst('index.php','v211.php')}?action=$action&${Uri(queryParameters:params).query}';
+  Map<String,String> authHeaders() => token==null ? {} : {'Authorization':'Bearer $token'};
+  Future<Map<String,dynamic>> callWithParams(String action,Map<String,String> params)=>callWithQuery(action,params);
   Future<void> login(String username,String password) async {
     final v=await call('login',body:{'username':username,'password':password});
     token = v['token'] as String;
@@ -46,7 +50,7 @@ class CikokoApi {
     return '';
   }
   Future<Map<String,dynamic>> upload(String action,Map<String,String> fields,Map<String,List<String>> files,{void Function(double)? progress}) async {
-    final req=http.MultipartRequest('POST',Uri.parse('$root?action=$action'));
+    final req=http.MultipartRequest('POST',Uri.parse('${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action'));
     req.headers['Accept']='application/json';
     if(token!=null) req.headers['Authorization']='Bearer $token';
     req.fields.addAll(fields);
