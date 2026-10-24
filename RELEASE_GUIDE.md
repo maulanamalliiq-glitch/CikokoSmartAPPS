@@ -12,7 +12,7 @@ Aplikasi Android Flutter **native**, bukan WebView. Nama aplikasi **Cikoko**; pa
 
 Karena keystore dan password signing **tidak boleh disimpan sebagai file repository**, admin repository perlu menambahkan tiga Actions Secrets di Settings → Secrets and variables → Actions:
 
-- `CIKOKO_KEYSTORE_B64` — isi base64 dari file keystore lama, dalam satu baris. Di macOS: `base64 -i "/path/to/android.keystore" | tr -d '\\n'`.
+- `CIKOKO_KEYSTORE_B64` — isi base64 dari file keystore lama, dalam satu baris. Di macOS: `base64 -i "/path/to/android.keystore" | tr -d '\n'`.
 - `CIKOKO_STORE_PASSWORD` — password keystore.
 - `CIKOKO_KEY_PASSWORD` — password private key alias `androidkey`.
 
