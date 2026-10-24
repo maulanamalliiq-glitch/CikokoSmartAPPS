@@ -43,6 +43,18 @@ jobs:
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Build unsigned release AAB for offline signing
+        working-directory: flutter
+        run: |
+          flutter build appbundle --release
+          test -s build/app/outputs/bundle/release/app-release.aab
+      - name: Upload unsigned AAB for secure offline signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v205-UNSIGNED-AAB-FOR-OFFLINE-SIGNING
+          path: flutter/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
       - name: Check whether signing is configured
         id: signing
         env:
