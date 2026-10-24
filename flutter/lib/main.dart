@@ -139,11 +139,11 @@ class _HomeState extends State<HomePage> {
   void switchTo(String s) {
     setState(() {
       section=s;
-      if(s=='Dashboard')nav=0;
-      else if(s=='Notifikasi')nav=3;
-      else if(s=='Profil')nav=4;
-      else if(s=='Riwayat'||s=='Verifikasi Laporan')nav=2;
-      else nav=1;
+      if(s=='Dashboard'){nav=0;}
+      else if(s=='Notifikasi'){nav=3;}
+      else if(s=='Profil'){nav=4;}
+      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=2;}
+      else {nav=1;}
     });
   }
   void selectNav(int value){
