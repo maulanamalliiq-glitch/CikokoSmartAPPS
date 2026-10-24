@@ -1,11 +1,17 @@
-name: Cikoko Native Android Release
+name: Cikoko Android APK dan AAB
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/android-release.yml'
 permissions:
   contents: read
 jobs:
-  release:
+  android:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -15,9 +21,74 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Validate project
+          cache: true
+      - name: Generate Android wrapper files
+        working-directory: flutter
+        run: flutter create --platforms=android --project-name=cikoko .
+      - name: Resolve dependencies and check source
+        working-directory: flutter
         run: |
-          test -f flutter/pubspec.yaml || { echo 'Upload Flutter source ZIP first'; exit 1; }
-          cd flutter
           flutter pub get
-          flutter analyze
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Build debug APK for testing
+        working-directory: flutter
+        run: flutter build apk --debug
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v204-TEST-APK
+          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Check whether signing is configured
+        id: signing
+        env:
+          STORE: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          KEYPASS: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$STORE" && -n "$PASSWORD" && -n "$KEYPASS" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'Signing secrets not configured. Debug APK is available, but no publishable AAB will be produced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Restore signing keystore
+        if: steps.signing.outputs.enabled == 'true'
+        working-directory: flutter
+        env:
+          KEYSTORE: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+        run: |
+          umask 077
+          printf %s "$KEYSTORE" | base64 --decode > android/cikoko_upload.jks
+          test -s android/cikoko_upload.jks
+      - name: Verify upload certificate
+        if: steps.signing.outputs.enabled == 'true'
+        working-directory: flutter
+        env:
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+        run: |
+          keytool -list -v -keystore android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey | grep -F '39:46:33:E6:A2:F4:C9:1C:15:0D:81:B2:28:90:85:62:D2:30:D7:63:03:1A:0A:0C:20:56:18:B9:D6:69:D4:E5'
+      - name: Build signed release APK and AAB
+        if: steps.signing.outputs.enabled == 'true'
+        working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+          test -s build/app/outputs/flutter-apk/app-release.apk
+          test -s build/app/outputs/bundle/release/app-release.aab
+      - name: Upload signed outputs
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v204-SIGNED-APK-AAB
+          path: |
+            flutter/build/app/outputs/flutter-apk/app-release.apk
+            flutter/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30

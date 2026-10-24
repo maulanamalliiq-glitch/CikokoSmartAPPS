@@ -1,0 +1,25 @@
+name: cikoko
+version: 1.0.204+204
+description: Aplikasi native Kelurahan Cikoko untuk warga dan petugas.
+publish_to: none
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.5.0
+  flutter_secure_storage: ^9.2.4
+  firebase_core: ^4.2.0
+  firebase_messaging: ^16.0.3
+  image_picker: ^1.2.0
+  flutter_image_compress: ^2.4.0
+  flutter_local_notifications: ^19.4.2
+  url_launcher: ^6.3.2
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png

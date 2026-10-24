@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "166946807393",
+    "project_id": "cikoko-smartapp",
+    "storage_bucket": "cikoko-smartapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:166946807393:android:ff8a443446da77968dd420",
+        "android_client_info": {
+          "package_name": "com.KelurahanCikoko.malik"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvlRb4euz2heNVWIhIVMsPlB7d8sc_mIg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

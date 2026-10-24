@@ -1,7 +1,12 @@
+# Never commit signing keys, secrets, accounts, or production uploads
 *.keystore
 *.jks
+**/key.properties
+**/local.properties
 **/config.php
 **/private/
 **/data/
-**/build/
 **/.dart_tool/
+**/build/
+**/.gradle/
+**/android/cikoko_upload.jks

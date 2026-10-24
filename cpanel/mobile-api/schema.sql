@@ -1,0 +1,3 @@
+-- Dijalankan otomatis saat API pertama kali diakses (jika izin CREATE TABLE tersedia).
+-- Definisi tabel disimpan pada bootstrap.php untuk menjaga satu sumber skema.
+-- Sisa tabel Ahli Waris menggunakan database/ahli_waris.sql website.

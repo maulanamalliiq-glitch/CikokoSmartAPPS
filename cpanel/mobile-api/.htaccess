@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "^(bootstrap|cron_dispatch|schema|config\.local)\." >
+Require all denied
+</FilesMatch>
