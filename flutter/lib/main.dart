@@ -134,8 +134,27 @@ class _HomeState extends State<HomePage> {
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
         final pushId=int.tryParse('${message.data['event_id']??''}')??0;
-        if(pushId>0)api.call('event_read',body:{'id':pushId}).then((_)=>refresh()).catchError((_){});
-        switchTo(destinationForPushCategory('${message.data['category']??''}',isStaff:isStaff));
+        final category='${message.data['category']??''}';
+        if(category=='chat'){
+          if(pushId>0){api.call('event_read',body:{'id':pushId}).then((_)=>refresh()).catchError((_){ });}
+          switchTo(capabilities['chat:reply']==true?'Pesan Masuk':'Hubungi Kami');
+          return;
+        }
+        if(pushId>0){
+          refresh().then((_){
+            if(!mounted)return;
+            final matches=events.where((e)=>'${e['id']??''}'=='$pushId').toList();
+            if(matches.isNotEmpty){
+              openNotification(Map<String,dynamic>.from(matches.first as Map));
+            }else{
+              switchTo(destinationForPushCategory(category,isStaff:isStaff));
+            }
+          }).catchError((_){
+            if(mounted)switchTo(destinationForPushCategory(category,isStaff:isStaff));
+          });
+        }else{
+          switchTo(destinationForPushCategory(category,isStaff:isStaff));
+        }
       });
     });timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
@@ -180,7 +199,7 @@ class _HomeState extends State<HomePage> {
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Aktivitas'||route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -193,23 +212,24 @@ class _HomeState extends State<HomePage> {
     setState(() {
       section=s;
       if(s=='Dashboard'){nav=2;}
+      else if(s=='Berita & Kegiatan'){nav=1;}
       else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=1;}
+      else if(s=='Riwayat'||s=='Verifikasi Laporan'||s=='Aktivitas'){nav=0;}
       else if(s=='Notifikasi'){nav=2;}
       else {nav=0;}
     });
   }
   void selectNav(int value){
     if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==1){switchTo('Berita & Kegiatan');return;}
     if(value==2){switchTo('Dashboard');return;}
     if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
   }
   IconData iconFor(String s)=>switch(s){
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
-    'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
+    'Berita & Kegiatan'=>Icons.newspaper_outlined,'Aktivitas'=>Icons.assignment_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
@@ -237,7 +257,7 @@ class _HomeState extends State<HomePage> {
       title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
-    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.article_outlined),title:const Text('Pusat Informasi'),onTap:(){Navigator.pop(context);switchTo('Pusat Informasi');}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[ListTile(dense:true,leading:const Icon(Icons.assignment_outlined),title:const Text('Aktivitas'),onTap:(){Navigator.pop(context);switchTo('Aktivitas');}),for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.article_outlined),title:const Text('Pusat Informasi'),onTap:(){Navigator.pop(context);switchTo('Pusat Informasi');}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
     body:loading?const Center(child:CircularProgressIndicator()):
       LayoutBuilder(builder:(ctx,constraints){
         if(constraints.maxWidth<760)return _page();
@@ -246,7 +266,7 @@ class _HomeState extends State<HomePage> {
             selectedIndex:nav,labelType:NavigationRailLabelType.all,onDestinationSelected:selectNav,
             destinations:const [
               NavigationRailDestination(icon:Icon(Icons.grid_view_outlined),label:Text('Menu')),
-              NavigationRailDestination(icon:Icon(Icons.assignment_outlined),label:Text('Aktivitas')),
+              NavigationRailDestination(icon:Icon(Icons.newspaper_outlined),label:Text('Berita')),
               NavigationRailDestination(icon:Icon(Icons.home_outlined),label:Text('Beranda')),
               NavigationRailDestination(icon:Icon(Icons.auto_awesome_outlined),label:Text('Inovasi')),
               NavigationRailDestination(icon:Icon(Icons.person_outline),label:Text('Profil')),
@@ -258,7 +278,7 @@ class _HomeState extends State<HomePage> {
       }),
     bottomNavigationBar:MediaQuery.sizeOf(c).width>=760?null:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
-      const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
+      const NavigationDestination(icon:Icon(Icons.newspaper_outlined),selectedIcon:Icon(Icons.article),label:'Berita'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
       const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
       const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
@@ -270,6 +290,7 @@ class _HomeState extends State<HomePage> {
     case 'Kelola Pelayanan Beranda':return HomeServicesAdminPage(api:api,onSaved:load);
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
+    case 'Aktivitas':return isStaff&&capabilities['reports:view']==true?const AdminReports():const HistoryPage();
     case 'Pusat Informasi':return CikokoInformationPage(api:api,onOpenNews:(item)=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CivicNewsDetail(api:api,preview:item))));
     case 'Pengumuman':return feed('pengumuman');
     case 'Layanan Online':return feed('layanan');
@@ -457,43 +478,134 @@ class _HomeState extends State<HomePage> {
  }
 
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
+ Future<void> _markNotificationRead(Map<String,dynamic> event)async{
+   final id=int.tryParse('${event['id']??''}')??0;
+   if(id<1||event['is_read']==true||'${event['is_read']??0}'=='1')return;
+   try{
+     await api.call('event_read',body:{'id':id});
+     if(mounted)setState(()=>events=events.map((e)=>
+       '${e['id']??''}'=='$id'
+        ?{...Map<String,dynamic>.from(e as Map),'is_read':1}
+        :e).toList());
+   }catch(e){if(mounted)notify(context,'Gagal menandai notifikasi dibaca: $e',error:true);}
+ }
+ Future<bool> _deleteNotification(Map<String,dynamic> event)async{
+   final id=int.tryParse('${event['id']??''}')??0;
+   if(id<1)return false;
+   final approved=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+     title:const Text('Hapus notifikasi permanen?'),
+     content:const Text('Notifikasi akan dihapus dari akun Anda, termasuk angka pemberitahuannya. Berita, surat, laporan, dan percakapan asli tidak ikut dihapus.'),
+     actions:[
+       TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Batal')),
+       FilledButton(onPressed:()=>Navigator.pop(ctx,true),style:FilledButton.styleFrom(backgroundColor:Colors.red.shade700),child:const Text('Hapus Permanen')),
+     ],
+   ));
+   if(approved!=true||!mounted)return false;
+   try{
+     await api.call('event_delete',body:{'id':id});
+     if(mounted)setState(()=>events=events.where((e)=>'${e['id']??''}'!='$id').toList());
+     if(mounted)notify(context,'Notifikasi telah dihapus dari akun.');
+     return true;
+   }catch(e){if(mounted)notify(context,'Gagal menghapus notifikasi: $e',error:true);return false;}
+ }
+ Future<void> _openNotificationSource(Map<String,dynamic> event)async{
+   final objectType='${event['object_type']??''}';
+   final objectId=int.tryParse('${event['object_id']??''}')??0;
+   if(objectId>0&&(objectType=='waris'||objectType=='report')){
+     await showCikokoDocument(context,api,id:objectId,kind:objectType,onChanged:refresh);
+     return;
+   }
+   if(!mounted)return;
+   final category='${event['category']??''}';
+   switch(category){
+     case 'berita':switchTo('Berita & Kegiatan');return;
+     case 'pengumuman':switchTo('Pengumuman');return;
+     case 'inovasi':switchTo('Inovasi');return;
+     case 'surat':case 'progres_surat':case 'laporan_masuk':
+       switchTo(isStaff&&capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat');
+       return;
+     default:switchTo('Pusat Informasi');
+   }
+ }
  Future<void> openNotification(Map<String,dynamic> event)async{
-     final eventId=int.tryParse('${event['id']??''}')??0;
-     if(eventId>0 && event['is_read']!=true && '${event['is_read']??0}'!='1'){
-       try{
-         await api.call('event_read',body:{'id':eventId});
-         if(mounted)setState((){
-           events=events.map((e)=>'${e['id']??''}'=='$eventId'?{...Map<String,dynamic>.from(e as Map),'is_read':1}:e).toList();
-         });
-       }catch(_){if(mounted)notify(context,'Belum berhasil menandai notifikasi sebagai dibaca.',error:true);}
-     }
-    final objectType='${event['object_type']??''}';
-    final id=int.tryParse('${event['object_id']??''}')??0;
-    if(id>0&&(objectType=='waris'||objectType=='report')){
-      await showCikokoDocument(context,api,id:id,kind:objectType,onChanged:refresh);
-      if(mounted)await refresh();return;
-    }
-    if(!mounted)return;
-    final category='${event['category']??''}';
-    if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
-    if(category=='berita'){switchTo('Berita & Kegiatan');return;}
-    if(category=='pengumuman'){switchTo('Pengumuman');return;}
-    if(category=='inovasi'){switchTo('Inovasi');return;}
-    if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
-      switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
-    }
-    await showDialog<void>(context:context,builder:(c)=>AlertDialog(
-      title:Text('${event['title']??'Notifikasi'}'),content:Text('${event['message']??''}'),
-      actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('Tutup'))],
-    ));
-  }
-  Widget eventList()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(22),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.notifications_outlined,size:40,color:blue),const Text('Notifikasi surat dan laporan memerlukan login.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login'))])))):ListView(padding:const EdgeInsets.all(12),children:[
-    for(final e in events)Card(child:ListTile(
-      leading:CircleAvatar(backgroundColor:const Color(0xffeaf3ff),child:Icon('${e['is_read']??0}'=='1'?Icons.notifications_none:Icons.notifications_active_outlined,color:blue)),
-      title:Text('${e['title']??''}',style:TextStyle(fontWeight:'${e['is_read']??0}'=='1'?FontWeight.w400:FontWeight.w700,fontSize:13)),
-      subtitle:Text('${e['message']??''}\n${e['created_at']??''}',maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11)),
-      trailing:const Icon(Icons.chevron_right),onTap:()=>openNotification(Map<String,dynamic>.from(e)),
-    )),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
+   await _markNotificationRead(event);
+   if(!mounted)return;
+   if('${event['category']??''}'=='chat'){
+     switchTo(capabilities['chat:reply']==true?'Pesan Masuk':'Hubungi Kami');
+     return;
+   }
+   await showModalBottomSheet<void>(
+     context:context,isScrollControlled:true,useSafeArea:true,showDragHandle:true,
+     backgroundColor:Colors.white,
+     builder:(sheet)=>Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:650),
+       child:FractionallySizedBox(heightFactor:.64,child:Padding(
+         padding:const EdgeInsets.fromLTRB(20,6,20,20),
+         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           Row(children:[
+             const Icon(Icons.notifications_active_outlined,color:blue,size:24),
+             const SizedBox(width:10),
+             Expanded(child:Text('${event['title']??'Notifikasi'}',
+               maxLines:3,overflow:TextOverflow.ellipsis,
+               style:const TextStyle(color:navy,fontWeight:FontWeight.w800,fontSize:18))),
+           ]),
+           const SizedBox(height:6),
+           Text('${event['created_at']??''}',
+             style:const TextStyle(color:Colors.blueGrey,fontSize:12)),
+           const Divider(height:23),
+           Expanded(child:SingleChildScrollView(
+             child:SelectableText('${event['message']??''}',style:const TextStyle(height:1.55,fontSize:15)))),
+           const SizedBox(height:10),
+           SizedBox(width:double.infinity,child:FilledButton.icon(
+             onPressed:(){Navigator.pop(sheet);_openNotificationSource(event);},
+             icon:const Icon(Icons.open_in_new),label:const Text('Lihat Halaman Terkait'))),
+           SizedBox(width:double.infinity,child:TextButton.icon(
+             onPressed:()async{
+               final removed=await _deleteNotification(event);
+               if(removed&&sheet.mounted)Navigator.pop(sheet);
+             },
+             icon:const Icon(Icons.delete_outline),label:const Text('Hapus Permanen'),
+             style:TextButton.styleFrom(foregroundColor:Colors.red.shade700))),
+         ]),
+       )))),
+   );
+ }
+ Widget eventList()=>guest
+   ?Center(child:Card(child:Padding(padding:const EdgeInsets.all(22),
+     child:Column(mainAxisSize:MainAxisSize.min,children:[
+       const Icon(Icons.notifications_outlined,size:40,color:blue),
+       const Text('Notifikasi memerlukan login.'),
+       const SizedBox(height:12),
+       FilledButton(onPressed:openLogin,child:const Text('Login')),
+     ]))))
+   :RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(12),children:[
+     const Padding(padding:EdgeInsets.symmetric(vertical:8),
+       child:Text('Ketuk notifikasi untuk melihat detail. Pesan akan langsung membuka Chat.',
+         style:TextStyle(color:Colors.blueGrey,fontSize:12))),
+     for(final raw in events)
+       Card(child:ListTile(
+         leading:CircleAvatar(backgroundColor:const Color(0xffeaf3ff),
+           child:Icon('${raw['is_read']??0}'=='1'?Icons.notifications_none:Icons.notifications_active_outlined,color:blue)),
+         title:Text('${raw['title']??''}',style:TextStyle(
+           fontWeight:'${raw['is_read']??0}'=='1'?FontWeight.w400:FontWeight.w700,fontSize:13)),
+         subtitle:Text('${raw['message']??''}\n${raw['created_at']??''}',
+           maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11)),
+         trailing:PopupMenuButton<String>(
+           tooltip:'Opsi notifikasi',onSelected:(action){
+             final event=Map<String,dynamic>.from(raw as Map);
+             if(action=='delete'){_deleteNotification(event);}else{openNotification(event);}
+           },
+           itemBuilder:(ctx)=>[
+             const PopupMenuItem(value:'open',child:Text('Lihat Detail')),
+             const PopupMenuItem(value:'delete',child:Row(children:[
+               Icon(Icons.delete_outline,color:Colors.red,size:19),
+               SizedBox(width:8),Text('Hapus Permanen',style:TextStyle(color:Colors.red)),
+             ])),
+           ]),
+         onTap:()=>openNotification(Map<String,dynamic>.from(raw as Map)),
+       )),
+     if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.')),
+     const SizedBox(height:48),
+   ]));
  Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const Text('Silakan masuk untuk mengelola profil.'),FilledButton(onPressed:openLogin,child:const Text('Masuk'))])))):CikokoProfileEditor(api:api);
 }
 class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
