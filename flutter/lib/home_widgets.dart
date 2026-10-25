@@ -128,13 +128,14 @@ class CikokoQuickMenu extends StatelessWidget {
 class CikokoLetterCounters extends StatelessWidget {
   final Map<String,int>? counts;
   final bool guest;
+  final String title;
   final VoidCallback onTap;
-  const CikokoLetterCounters({super.key,required this.counts,required this.guest,required this.onTap});
+  const CikokoLetterCounters({super.key,required this.counts,required this.guest,required this.onTap,this.title='Status Pelayanan Surat'});
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start, children: [
     Row(children: [
-      const Expanded(child: Text('Status Pelayanan Surat',
-        style: TextStyle(fontWeight: FontWeight.w800, color: homeNavy, fontSize: 13.5))),
+      Expanded(child: Text(title,
+        style: const TextStyle(fontWeight: FontWeight.w800, color: homeNavy, fontSize: 13.5))),
       TextButton(onPressed:onTap, child:Text(guest?'Login →':'Riwayat →',
         style:const TextStyle(fontSize:11.2,fontWeight:FontWeight.w700))),
     ]),

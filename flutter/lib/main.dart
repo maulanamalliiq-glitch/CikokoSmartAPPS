@@ -14,6 +14,7 @@ import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
+import 'home_customization.dart';
 import 'fkdm_reports.dart';
 import 'public_information.dart';
 
@@ -114,6 +115,8 @@ class _HomeState extends State<HomePage> {
   String section='Dashboard';
   int nav=2;
   List<dynamic> items=[],events=[];
+  List<Map<String,dynamic>> homeCards=List<Map<String,dynamic>>.from(defaultHomeServices);
+  Map<String,dynamic> homeLabels={'services':'Layanan Masyarakat','news':'Berita & Informasi','status':'Status Pelayanan Surat'};
   bool showingCachedContent=false;
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
@@ -149,6 +152,14 @@ class _HomeState extends State<HomePage> {
     } catch(e){if(mounted){setState(()=>permissionsOk=false);notify(context,'Hak akses belum tersambung: $e',error:true);}}
     try {
       await refresh();
+      try{
+        final settings=await api.call('v211_home_config');
+        final entries=List<dynamic>.from(settings['items']??[]);
+        if(mounted)setState((){homeCards=entries.whereType<Map>()
+          .map((e)=>Map<String,dynamic>.from(e)).toList();
+          if(settings['labels'] is Map)homeLabels=Map<String,dynamic>.from(settings['labels']);
+        });
+      }catch(_){ /* Simpan layanan default ketika konfigurasi cPanel belum terpasang. */ }
       final result=await api.callCachedPublic('content');
       if(mounted)setState((){items=List<dynamic>.from(result['items']??[]);showingCachedContent=result['offline']==true;});
       if(!guest && role=='warga') {
@@ -311,6 +322,17 @@ class _HomeState extends State<HomePage> {
     }
     return modules.take(6).toList();
   }
+  Future<void> openHomeService(Map<String,dynamic> card)async{
+    final target=(card['target']??'').toString();
+    if(target.startsWith('route:')){
+      switchTo(target.substring(6));
+      return;
+    }
+    final dest=Uri.tryParse(target);
+    if(dest==null||dest.scheme!='https'||dest.host.isEmpty)return;
+    try{await launchUrl(dest,mode:LaunchMode.externalApplication);}
+    catch(_){if(mounted)notify(context,'Tautan layanan tidak dapat dibuka.',error:true);}
+  }
   Widget home()=>ListView(padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
     CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:showOfficeProfile),
     if(guest)Padding(padding:const EdgeInsets.only(top:8),child:Material(
@@ -323,25 +345,30 @@ class _HomeState extends State<HomePage> {
       ),
     )),
     if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+      counts:letterCounts,guest:guest,title:(homeLabels['status']??'Status Pelayanan Surat').toString(),onTap:()=>guest?openLogin():switchTo('Riwayat'))),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
-        Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
+        Text(role=='warga'||guest?(homeLabels['services']??'Layanan Masyarakat').toString():'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
         TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
     if(role=='warga'||guest)
-      LayoutBuilder(builder:(ctx,c)=>GridView.count(
-        crossAxisCount:c.maxWidth>700?3:2,
-        crossAxisSpacing:8,mainAxisSpacing:8,
-        childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-        children:[
-          CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Surat Keterangan',description:'Ahli waris dan lainnya',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Ahli Waris')),
-          CikokoServiceTile(title:'Layanan PBB',description:'Informasi pajak daerah',icon:Icons.receipt_long_outlined,accent:const Color(0xff386bd9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Pengaduan',description:'Kirim pesan ke petugas',icon:Icons.support_agent_outlined,accent:const Color(0xffe88a25),onTap:()=>switchTo('Hubungi Kami')),
-          CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
-          CikokoServiceTile(title:'Layanan Lainnya',description:'Jelajahi semua layanan',icon:Icons.apps_outlined,accent:const Color(0xff54738d),onTap:()=>switchTo('Menu Cikoko')),
-        ],
+      LayoutBuilder(builder:(ctx,c)=>GridView.builder(
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount:c.maxWidth>700?3:2,crossAxisSpacing:8,mainAxisSpacing:8,
+          mainAxisExtent:110,
+        ),
+        itemCount:homeCards.length,
+        itemBuilder:(ctx,i){
+          final item=homeCards[i];
+          final icon=homeIcons[(item['icon']??'').toString()]??Icons.apps_outlined;
+          return CikokoServiceTile(
+            title:(item['title']??'Layanan').toString(),
+            description:(item['subtitle']??'').toString(),
+            icon:icon,accent:homeColor(item['color']),
+            onTap:()=>openHomeService(item),
+          );
+        },
       ))
     else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
       shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
@@ -358,7 +385,7 @@ class _HomeState extends State<HomePage> {
       ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
     ])),
     Padding(padding:const EdgeInsets.only(top:17,bottom:8),child:Row(children:[
-      const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
+      Expanded(child:Text((homeLabels['news']??'Berita & Informasi').toString(),style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
       TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
     ])),
     if(showingCachedContent)const Padding(padding:EdgeInsets.only(bottom:7),child:Text('Menampilkan berita terakhir yang tersimpan. Tarik untuk memuat ulang saat internet tersedia.',style:TextStyle(fontSize:11,color:Colors.blueGrey))),
