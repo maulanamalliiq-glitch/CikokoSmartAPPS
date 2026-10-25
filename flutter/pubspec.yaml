@@ -15,7 +15,7 @@ dependencies:
   flutter_image_compress: ^2.4.0
   flutter_local_notifications: ^19.4.2
   url_launcher: ^6.3.2
-  font_awesome_flutter: ^10.10.0
+  flutter_svg: ^2.2.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -25,3 +25,6 @@ flutter:
   assets:
     - assets/logo.png
     - assets/kantor-cikoko.jpg
+    - assets/icons/whatsapp.svg
+    - assets/icons/facebook.svg
+    - assets/icons/instagram.svg
