@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'api.dart';
+import 'innovation_detail.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
 
@@ -33,14 +34,11 @@ class _InnovationPageState extends State<InnovationPage>{
  }
  void reload(){pending=fetchInnovations();}
  Future<void> openInnovationDetail(Map<String,dynamic> item)async{
-   final slug=Uri.encodeComponent('${item['slug']??''}');
-   final link='${item['detail_url']??'https://datawebs.my.id/inovasi/$slug'}';
-   try{
-     final target=Uri.tryParse(link);
-     if(target==null||target.scheme!='https'||target.host!='datawebs.my.id')throw const FormatException('Tautan tidak valid.');
-     final opened=await launchUrl(target,mode:LaunchMode.externalApplication);
-     if(!opened&&mounted)civicMessage(context,'Halaman detail inovasi tidak dapat dibuka.');
-   }catch(_){if(mounted)civicMessage(context,'Tautan inovasi belum tersedia.');}
+   final slug=(item['slug']??'').toString();
+   if(slug.isEmpty)return;
+   await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CikokoInnovationDetailPage(
+     api:widget.api,slug:slug,title:(item['title']??'Detail Inovasi').toString(),
+   )));
  }
  Future<void> edit(Map<String,dynamic> item)async{
   final ctrls={for(final k in ['title','summary','body','image'])k:TextEditingController(text:'${item[k]??''}')};
