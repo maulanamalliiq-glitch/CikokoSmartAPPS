@@ -1,5 +1,5 @@
 Options -Indexes
-<FilesMatch "^(bootstrap|cron_dispatch|schema|config\.local)\." >
+<FilesMatch "^(bootstrap|cron_dispatch|diagnose_cli|schema|config\.local)\." >
 Require all denied
 </FilesMatch>
 
