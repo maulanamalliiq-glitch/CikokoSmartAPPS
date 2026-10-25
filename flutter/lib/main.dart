@@ -116,6 +116,7 @@ class _HomeState extends State<HomePage> {
   int nav=2;
   List<dynamic> items=[],events=[];
   List<Map<String,dynamic>> homeCards=List<Map<String,dynamic>>.from(defaultHomeServices);
+  Map<String,dynamic> homeLabels={'services':'Layanan Masyarakat','news':'Berita & Informasi','status':'Status Pelayanan Surat'};
   bool showingCachedContent=false;
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
@@ -154,8 +155,10 @@ class _HomeState extends State<HomePage> {
       try{
         final settings=await api.call('v211_home_config');
         final entries=List<dynamic>.from(settings['items']??[]);
-        if(mounted)setState(()=>homeCards=entries.whereType<Map>()
-          .map((e)=>Map<String,dynamic>.from(e)).toList());
+        if(mounted)setState((){homeCards=entries.whereType<Map>()
+          .map((e)=>Map<String,dynamic>.from(e)).toList();
+          if(settings['labels'] is Map)homeLabels=Map<String,dynamic>.from(settings['labels']);
+        });
       }catch(_){ /* Simpan layanan default ketika konfigurasi cPanel belum terpasang. */ }
       final result=await api.callCachedPublic('content');
       if(mounted)setState((){items=List<dynamic>.from(result['items']??[]);showingCachedContent=result['offline']==true;});
@@ -342,10 +345,10 @@ class _HomeState extends State<HomePage> {
       ),
     )),
     if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+      counts:letterCounts,guest:guest,title:(homeLabels['status']??'Status Pelayanan Surat').toString(),onTap:()=>guest?openLogin():switchTo('Riwayat'))),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
-        Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
+        Text(role=='warga'||guest?(homeLabels['services']??'Layanan Masyarakat').toString():'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
         TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
     if(role=='warga'||guest)
@@ -382,7 +385,7 @@ class _HomeState extends State<HomePage> {
       ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
     ])),
     Padding(padding:const EdgeInsets.only(top:17,bottom:8),child:Row(children:[
-      const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
+      Expanded(child:Text((homeLabels['news']??'Berita & Informasi').toString(),style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
       TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
     ])),
     if(showingCachedContent)const Padding(padding:EdgeInsets.only(bottom:7),child:Text('Menampilkan berita terakhir yang tersimpan. Tarik untuk memuat ulang saat internet tersedia.',style:TextStyle(fontSize:11,color:Colors.blueGrey))),
