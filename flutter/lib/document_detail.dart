@@ -9,8 +9,10 @@ Future<void> showCikokoDocument(BuildContext context, CikokoApi api, {required i
   return showModalBottomSheet<void>(
     context:context,isScrollControlled:true,useSafeArea:true,backgroundColor:Colors.white,
     shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(22))),
-    builder:(ctx)=>SizedBox(height:MediaQuery.sizeOf(ctx).height*.86,
-      child:DocumentDetailSheet(api:api,id:id,kind:kind,onChanged:onChanged)),
+    builder:(ctx)=>Center(child:ConstrainedBox(
+      constraints:const BoxConstraints(maxWidth:760),
+      child:SizedBox(height:MediaQuery.sizeOf(ctx).height*.94,
+        child:DocumentDetailSheet(api:api,id:id,kind:kind,onChanged:onChanged)))),
   );
 }
 class DocumentDetailSheet extends StatefulWidget {
@@ -57,7 +59,16 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
     Padding(padding:const EdgeInsets.fromLTRB(18,12,12,6),child:Row(children:[const Icon(Icons.description_outlined,color:Color(0xff226fda)),const SizedBox(width:8),const Expanded(child:Text('Detail & Progres Pengajuan',style:TextStyle(fontWeight:FontWeight.w800,fontSize:18))),IconButton(icon:const Icon(Icons.close),onPressed:()=>Navigator.pop(context))])),
     const Divider(height:2),
     Expanded(child:FutureBuilder<Map<String,dynamic>>(future:request,builder:(ctx,s){
-      if(s.hasError)return Center(child:Padding(padding:const EdgeInsets.all(16),child:Text('Detail belum bisa dibuka: ${s.error}',textAlign:TextAlign.center)));
+      if(s.hasError)return Center(child:Padding(padding:const EdgeInsets.all(20),child:
+        Column(mainAxisSize:MainAxisSize.min,children:[
+          const Icon(Icons.cloud_off_outlined,size:42,color:Colors.blueGrey),
+          const SizedBox(height:12),
+          const Text('Detail belum dapat ditampilkan',style:TextStyle(fontWeight:FontWeight.w700,fontSize:16),textAlign:TextAlign.center),
+          const SizedBox(height:8),
+          Text('${s.error}',textAlign:TextAlign.center,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),
+          const SizedBox(height:14),
+          OutlinedButton.icon(onPressed:reload,icon:const Icon(Icons.refresh),label:const Text('Coba lagi')),
+        ])));
       if(!s.hasData)return const Center(child:CircularProgressIndicator());
       final data=s.data!, detail=Map<String,dynamic>.from(data['detail'] as Map);
       final timeline=List<dynamic>.from(data['timeline']??[]), docs=List<dynamic>.from(data['documents']??[]);
