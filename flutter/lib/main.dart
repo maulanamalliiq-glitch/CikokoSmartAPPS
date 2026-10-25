@@ -134,8 +134,27 @@ class _HomeState extends State<HomePage> {
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
         final pushId=int.tryParse('${message.data['event_id']??''}')??0;
-        if(pushId>0)api.call('event_read',body:{'id':pushId}).then((_)=>refresh()).catchError((_){});
-        switchTo(destinationForPushCategory('${message.data['category']??''}',isStaff:isStaff));
+        final category='${message.data['category']??''}';
+        if(category=='chat'){
+          if(pushId>0){api.call('event_read',body:{'id':pushId}).then((_)=>refresh()).catchError((_){ });}
+          switchTo(capabilities['chat:reply']==true?'Pesan Masuk':'Hubungi Kami');
+          return;
+        }
+        if(pushId>0){
+          refresh().then((_){
+            if(!mounted)return;
+            final matches=events.where((e)=>'${e['id']??''}'=='$pushId').toList();
+            if(matches.isNotEmpty){
+              openNotification(Map<String,dynamic>.from(matches.first as Map));
+            }else{
+              switchTo(destinationForPushCategory(category,isStaff:isStaff));
+            }
+          }).catchError((_){
+            if(mounted)switchTo(destinationForPushCategory(category,isStaff:isStaff));
+          });
+        }else{
+          switchTo(destinationForPushCategory(category,isStaff:isStaff));
+        }
       });
     });timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
@@ -512,7 +531,7 @@ class _HomeState extends State<HomePage> {
    await _markNotificationRead(event);
    if(!mounted)return;
    if('${event['category']??''}'=='chat'){
-     switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');
+     switchTo(capabilities['chat:reply']==true?'Pesan Masuk':'Hubungi Kami');
      return;
    }
    await showModalBottomSheet<void>(
