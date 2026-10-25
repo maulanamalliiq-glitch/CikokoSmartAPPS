@@ -27,7 +27,7 @@ class _InnovationPageState extends State<InnovationPage>{
  {'slug':'kampung-inggris','title':'KAMPUNG INGGRIS','summary':'Pengembangan bahasa Inggris untuk masyarakat','body':'Rincian program akan tersinkronisasi dari website Kelurahan Cikoko.'},
 ];
  Future<Map<String,dynamic>> fetchInnovations()async{
-  try{return await widget.api.call('v211_innovations');}
+  try{return await widget.api.callCachedPublic('v211_innovations');}
   catch(_){return {'ok':true,'offline':true,'items':defaults};}
  }
  void reload(){pending=fetchInnovations();}

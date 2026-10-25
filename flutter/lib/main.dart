@@ -112,6 +112,7 @@ class _HomeState extends State<HomePage> {
   String section='Dashboard';
   int nav=2;
   List<dynamic> items=[],events=[];
+  bool showingCachedContent=false;
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
@@ -146,8 +147,8 @@ class _HomeState extends State<HomePage> {
     } catch(e){if(mounted){setState(()=>permissionsOk=false);notify(context,'Hak akses belum tersambung: $e',error:true);}}
     try {
       await refresh();
-      final result=await api.call('content');
-      if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
+      final result=await api.callCachedPublic('content');
+      if(mounted)setState((){items=List<dynamic>.from(result['items']??[]);showingCachedContent=result['offline']==true;});
       if(!guest && role=='warga') {
         try {
           final history=await api.call('history');
@@ -339,17 +340,22 @@ class _HomeState extends State<HomePage> {
       const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
       TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
     ])),
+    if(showingCachedContent)const Padding(padding:EdgeInsets.only(bottom:7),child:Text('Menampilkan berita terakhir yang tersimpan. Tarik untuk memuat ulang saat internet tersedia.',style:TextStyle(fontSize:11,color:Colors.blueGrey))),
     for(final x in items.where((x)=>x['type']=='berita'||x['type']=='pengumuman').take(3))contentCard(Map<String,dynamic>.from(x)),
     if(items.isEmpty)const Card(child:ListTile(dense:true,title:Text('Belum ada berita atau pengumuman.'))),
     if(!guest&&events.isNotEmpty)...[
       const Padding(padding:EdgeInsets.only(top:12,bottom:7),child:Text('Aktivitas Terbaru',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
-      for(final e in events.take(2))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),
-        title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}',style:const TextStyle(fontSize:10)))),
+      for(final e in events.take(2))Card(child:ListTile(dense:true,
+        leading:Icon('${e['is_read']??0}'=='1'?Icons.notifications_none:Icons.notifications_active_outlined,color:blue),
+        title:Text('${e['title']??''}',maxLines:1,style:TextStyle(fontWeight:'${e['is_read']??0}'=='1'?FontWeight.w400:FontWeight.w700)),
+        subtitle:Text('${e['created_at']??''}',style:const TextStyle(fontSize:10)),
+        trailing:const Icon(Icons.chevron_right,size:17),
+        onTap:()=>openNotification(Map<String,dynamic>.from(e)))),
     ],
     if(!guest && (role=='ppsu'||isAdmin||role=='admin_kelurahan'))PpsuHighlights(api:api),
     const SizedBox(height:74),
   ]);
- Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
+ Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[if(showingCachedContent)const Padding(padding:EdgeInsets.only(bottom:10),child:Text('Data tersimpan (offline). Hubungkan internet dan tekan Muat ulang untuk memperbarui.',style:TextStyle(color:Colors.blueGrey,fontSize:12))),for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
  Widget contentCard(Map<String, dynamic> item) {
    final image = api.media('${item['image']??''}');
    final title = '${item['title']??''}';
@@ -416,6 +422,9 @@ class _HomeState extends State<HomePage> {
     if(!mounted)return;
     final category='${event['category']??''}';
     if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
+    if(category=='berita'){switchTo('Berita & Kegiatan');return;}
+    if(category=='pengumuman'){switchTo('Pengumuman');return;}
+    if(category=='inovasi'){switchTo('Inovasi');return;}
     if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
       switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
     }
