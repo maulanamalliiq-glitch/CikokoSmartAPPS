@@ -15,6 +15,7 @@ import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
 import 'home_customization.dart';
+import 'home_services_admin.dart';
 import 'fkdm_reports.dart';
 import 'public_information.dart';
 
@@ -214,6 +215,7 @@ class _HomeState extends State<HomePage> {
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Kelola Laporan Lapangan'=>Icons.manage_search_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
+    'Kelola Pelayanan Beranda'=>Icons.add_box_outlined,
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
     'Tambah Berita'=>Icons.post_add_outlined,'Tambah Pengumuman'=>Icons.add_alert_outlined,
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
@@ -265,6 +267,7 @@ class _HomeState extends State<HomePage> {
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
+    case 'Kelola Pelayanan Beranda':return HomeServicesAdminPage(api:api,onSaved:load);
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
     case 'Pusat Informasi':return CikokoInformationPage(api:api,onOpenNews:(item)=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CivicNewsDetail(api:api,preview:item))));
@@ -351,6 +354,9 @@ class _HomeState extends State<HomePage> {
         Text(role=='warga'||guest?(homeLabels['services']??'Layanan Masyarakat').toString():'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
         TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
+    if(role=='admin')Padding(padding:const EdgeInsets.only(bottom:10),child:Align(alignment:Alignment.centerLeft,
+      child:FilledButton.tonalIcon(onPressed:()=>switchTo('Kelola Pelayanan Beranda'),
+        icon:const Icon(Icons.add_box_outlined),label:const Text('Tambah Pelayanan')))),
     if(role=='warga'||guest)
       LayoutBuilder(builder:(ctx,c)=>GridView.builder(
         shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
