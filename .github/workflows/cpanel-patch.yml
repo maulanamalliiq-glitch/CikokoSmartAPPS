@@ -1,0 +1,50 @@
+name: Cikoko Web Integration and Patch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cpanel/**'
+      - 'qa/**'
+      - '.github/workflows/cpanel-patch.yml'
+permissions:
+  contents: read
+jobs:
+  php-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax hardcheck
+        run: |
+          find cpanel qa -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Server-to-Flutter static integration contracts
+        run: php qa/v212_contract_test.php
+      - name: Prepare production-safe cPanel overlay
+        run: |
+          mkdir -p build/cpanel-v212/mobile-api build/cpanel-v212/assets
+          for p in index.php v211.php v211_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
+            cp "cpanel/mobile-api/$p" "build/cpanel-v212/mobile-api/$p"
+          done
+          for p in inovasi.php kelola-inovasi.php berita-galeri.php kelola-berita-galeri.php kelola-arsip-waris-v211.php; do
+            cp "cpanel/$p" "build/cpanel-v212/$p"
+          done
+          cat > build/cpanel-v212/BACA_DULU_PATCH_V212.txt <<'NOTE'
+CIKOKO V212 — OVERLAY CPANEL
+1. Backup seluruh public_html, folder data, foto private, dan database MySQL.
+2. Ekstrak isi ZIP ini ke akar situs, SEJAJAR dengan admin.php.
+3. Jangan hapus direktori lama atau menimpa config.php.
+4. Jika tabel baru belum tersedia dan CREATE TABLE dibatasi,
+   jalankan mobile-api/v211_migration.sql melalui phpMyAdmin.
+5. Uji login, formulir arsip, 5 foto berita, komentar, 3 inovasi,
+   PPSU 3 foto, profil, chat, serta izin akses.
+6. Notifikasi push saat aplikasi tertutup perlu service account Firebase
+   dan cron cPanel aktif. Tidak disertakan rahasia dalam patch.
+NOTE
+          cd build/cpanel-v212 && zip -r -q ../CIKOKO_V212_CPANEL_PATCH.zip .
+      - name: Publish cPanel patch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIKOKO-V212-CPANEL-WEBSITE-AND-SQL
+          path: build/CIKOKO_V212_CPANEL_PATCH.zip
+          retention-days: 14
+          if-no-files-found: error
