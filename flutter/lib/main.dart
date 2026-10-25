@@ -14,6 +14,7 @@ import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
+import 'fkdm_reports.dart';
 import 'public_information.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
@@ -200,7 +201,7 @@ class _HomeState extends State<HomePage> {
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
-    'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
+    'Laporan FKDM'=>Icons.shield_outlined,'Kelola Laporan Lapangan'=>Icons.manage_search_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
     'Tambah Berita'=>Icons.post_add_outlined,'Tambah Pengumuman'=>Icons.add_alert_outlined,
@@ -262,7 +263,8 @@ class _HomeState extends State<HomePage> {
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
-    case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
+    case 'Laporan FKDM':return FkdmReportPage(api:api);
+    case 'Kelola Laporan Lapangan':return FieldReportsAdminPage(api:api);
     case 'Laporan LMK':return const ReportForm(kind:'lmk');
     case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
     case 'Laporan Dasawisma':return const ReportForm(kind:'pkk');
