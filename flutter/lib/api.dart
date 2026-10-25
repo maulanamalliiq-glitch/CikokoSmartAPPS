@@ -23,11 +23,11 @@ class CikokoApi {
       final http.Response r= body==null ? await http.get(u,headers:headers).timeout(const Duration(seconds:25)) : await http.post(u, headers:headers,body:jsonEncode(body)).timeout(const Duration(seconds:40));
       final d=jsonDecode(utf8.decode(r.bodyBytes));
       if(d is! Map<String,dynamic>)throw ApiError('Balasan server tidak valid');
-      if(r.statusCode>=400 || d['ok']==false)throw ApiError('${d['error']??'Gagal terhubung ke server'}');
+      if(r.statusCode>=400 || d['ok']==false){final msg='${d['error']??'Layanan belum tersedia.'}';throw ApiError(RegExp(r'SQLSTATE|database|INSERT INTO|PDO|Fatal error',caseSensitive:false).hasMatch(msg)?'Layanan Cikoko sedang mengalami kendala. Silakan mencoba kembali.':msg);}
       return d;
     } on SocketException {throw ApiError('Tidak ada koneksi internet');}
     on TimeoutException {throw ApiError('Waktu koneksi habis');}
-    on FormatException {throw ApiError('Respons server bukan JSON');}
+    on FormatException {throw ApiError('Layanan Cikoko sedang mengalami kendala. Silakan mencoba kembali.');}
   }
   Future<Map<String,dynamic>> callWithQuery(String action,Map<String,String> query) async => call('$action&${Uri(queryParameters:query).query}');
   String photoUrl(String action,Map<String,String> params) => '${root.replaceFirst('index.php','v211.php')}?action=$action&${Uri(queryParameters:params).query}';
