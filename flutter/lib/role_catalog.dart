@@ -16,6 +16,7 @@ const roleNames = <String,String>{
 const roleFeatures = <String,RoleFeature>{
   'news': RoleFeature('Berita & Kegiatan','Informasi dan kegiatan kelurahan','Berita & Kegiatan'),
   'announcements': RoleFeature('Pengumuman','Informasi resmi pelayanan dan warga','Pengumuman'),
+  'home_services_admin': RoleFeature('Kelola Pelayanan Beranda','Tambah dan atur layanan melalui aplikasi Admin','Kelola Pelayanan Beranda'),
   'services': RoleFeature('Layanan Masyarakat','Pilih pelayanan yang dibutuhkan','Layanan Online'),
   'gallery': RoleFeature('Galeri','Dokumentasi kegiatan Cikoko','Galeri'),
   'waris': RoleFeature('Surat Ahli Waris','Ajukan surat secara daring','Surat Ahli Waris',capability:'waris:create'),
@@ -48,7 +49,7 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['field_manage','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['home_services_admin','field_manage','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['field_manage','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
