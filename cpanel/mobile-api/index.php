@@ -54,8 +54,37 @@ $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_rol
 require_once __DIR__.'/waris_review.php';
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
- if($u['user_role']==='admin'){$name='Administrator';$department='Admin Utama';}else{$name=$u['username'];$department='';foreach(db_read('portal_users') as $x)if((string)$x['id']===$uid){$name=$x['name'];$department=$x['department']??'';break;}}
- mobile_json(['ok'=>true,'user'=>['id'=>$uid,'name'=>$name,'username'=>$u['username'],'role'=>$u['user_role'],'department'=>$department]]);
+  $profile=['id'=>$uid,'name'=>'Administrator','username'=>$u['username'],'role'=>$u['user_role']];
+  if($u['user_role']!=='admin'){
+    foreach(db_read('portal_users') as $entry){
+      if((string)($entry['id']??'')===(string)$uid){
+        $profile=['id'=>$uid,'name'=>(string)($entry['name']??''),'username'=>(string)($entry['username']??''),'role'=>$u['user_role'],
+          'phone'=>(string)($entry['phone']??''),'email'=>(string)($entry['email']??''),'address'=>(string)($entry['address']??''),'nik'=>(string)($entry['nik']??'')];
+        break;
+      }
+    }
+  }
+  mobile_json(['ok'=>true,'user'=>$profile]);
+}
+if($action==='profile_update'&&$method==='POST'){
+  if($u['user_role']==='admin')mobile_error('Perubahan profil administrator dilakukan melalui panel resmi.',403);
+  $b=mobile_body();$name=mobile_text($b['name']??'',120);$phone=mobile_text($b['phone']??'',30);
+  $email=mobile_text($b['email']??'',160);$address=mobile_text($b['address']??'',600);
+  if(mobile_strlen($name)<3||!preg_match('/^[0-9+ ()-]{8,25}$/',$phone)||!filter_var($email,FILTER_VALIDATE_EMAIL)||mobile_strlen($address)<4)
+    mobile_error('Periksa kembali nama, nomor telepon, alamat, dan email.',422);
+  $users=db_read('portal_users');$updated=false;$result=null;
+  foreach($users as &$entry){
+    if((string)($entry['id']??'')!==(string)$uid)continue;
+    if(!($entry['active']??false))mobile_error('Akun tidak aktif. Hubungi pengelola.',403);
+    $entry['name']=$name;$entry['phone']=$phone;$entry['email']=$email;$entry['address']=$address;
+    $result=['id'=>$uid,'name'=>$name,'username'=>(string)$entry['username'],'role'=>$u['user_role'],
+      'phone'=>$phone,'email'=>$email,'address'=>$address,'nik'=>(string)($entry['nik']??'')];
+    $updated=true;break;
+  }
+  unset($entry);
+  if(!$updated)mobile_error('Profil akun tidak ditemukan. Silakan masuk kembali.',404);
+  if(!db_write('portal_users',$users))mobile_error('Perubahan profil belum dapat disimpan. Silakan coba lagi.',503);
+  mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui.','user'=>$result]);
 }
 if($action==='logout'&&$method==='POST'){
  $h=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'';if(preg_match('/^Bearer\s+(.+)$/',$h,$m)){$s=$db->prepare('DELETE FROM mobile_tokens WHERE token_hash=?');$s->execute([hash('sha256',$m[1])]);}mobile_json(['ok'=>true]);
