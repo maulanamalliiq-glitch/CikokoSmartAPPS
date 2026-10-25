@@ -1,4 +1,22 @@
 (function(){
+  // Add a public Innovation link without replacing the website session/header.
+  const addInnovationNav=()=>{
+    const nav=document.querySelector('.navlinks');
+    if(nav && !nav.querySelector('a[href*="inovasi.php"]')){
+      const link=document.createElement('a');
+      link.href='/inovasi.php';
+      link.textContent='Inovasi';
+      link.setAttribute('aria-label','Tiga inovasi Kelurahan Cikoko');
+      const login=nav.querySelector('.login-link');
+      if(login)nav.insertBefore(link,login);else nav.appendChild(link);
+    }
+    const quick=document.querySelector('.footer .footer-brand')?.parentElement?.parentElement?.querySelector('div:nth-child(2)');
+    if(quick && !quick.querySelector('a[href*="inovasi.php"]')){
+      const link=document.createElement('a');link.href='/inovasi.php';link.textContent='Inovasi';quick.appendChild(link);
+    }
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',addInnovationNav,{once:true});else addInnovationNav();
+
   if(document.getElementById('cikoko-chat-float'))return;
   const div=document.createElement('div');div.id='cikoko-chat-float';
   div.innerHTML='<button class="ck-chat-toggle" aria-label="Hubungi Admin">💬 Hubungi Kami</button><section class="ck-chat-box" hidden><header><b>Hubungi Kelurahan Cikoko</b><button class="ck-chat-close" aria-label="Tutup">×</button></header><p>Pesan ditindaklanjuti pada jam kerja: Senin–Kamis 07.30–16.00; Jumat 07.30–16.30 WIB.</p><div class="ck-chat-history"></div><form class="ck-chat-form"><input name="name" placeholder="Nama pengirim" required maxlength="120"><input name="contact" placeholder="Nomor HP / Email (opsional)" maxlength="120"><textarea name="message" required minlength="5" rows="3" placeholder="Tulis pesan untuk admin..."></textarea><input name="website" tabindex="-1" autocomplete="off" style="display:none"><button>Kirim Pesan</button></form><small class="ck-chat-status"></small></section>';
