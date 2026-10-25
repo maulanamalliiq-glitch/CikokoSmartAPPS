@@ -107,7 +107,7 @@ class _PhotoSliderState extends State<_PhotoSlider> {
     final images=List<dynamic>.from(widget.item['images']??[]);
     final first='${widget.item['image']??''}';
     if(first.isNotEmpty&&!images.contains(first))images.insert(0,first);
-    final urls=images.map((v)=>widget.api.media('$'+'{v}')).where((v)=>v.isNotEmpty).take(5).toList();
+    final urls=images.map((v)=>widget.api.media(v.toString())).where((v)=>v.isNotEmpty).take(5).toList();
     return SizedBox(height:widget.height,width:double.infinity,child:Stack(children:[
       if(urls.isNotEmpty)PageView.builder(
         itemCount:urls.length,onPageChanged:(v)=>setState(()=>page=v),
