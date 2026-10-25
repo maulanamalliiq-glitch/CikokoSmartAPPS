@@ -43,7 +43,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2501-TEST-APK
+          name: Cikoko-v2502-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -57,15 +57,15 @@ jobs:
       - name: Stage unsigned release outputs and Android signer
         run: |
           mkdir -p flutter/build/offline-release
-          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2501-unsigned.aab
-          cp flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk flutter/build/offline-release/Cikoko-v2501-arm64-unsigned.apk
+          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2502-unsigned.aab
+          cp flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk flutter/build/offline-release/Cikoko-v2502-arm64-unsigned.apk
           SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
           test -n "$SIGNER"
           cp "$SIGNER" flutter/build/offline-release/apksigner.jar
       - name: Upload offline signing artifacts (unsigned, not for Play Store)
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2501-OFFLINE-SIGNING-APK-AAB
+          name: Cikoko-v2502-OFFLINE-SIGNING-APK-AAB
           path: flutter/build/offline-release/
           if-no-files-found: error
           retention-days: 7
