@@ -131,8 +131,19 @@ if($action==='archives'){
 }
 if($action==='events'){
  waris_review_schema($db);
- $s=$db->prepare('SELECT e.id,e.category,e.title,e.message,e.created_at,l.object_type,l.object_id FROM mobile_events e LEFT JOIN mobile_event_links l ON l.event_id=e.id WHERE e.audience="public" OR (e.audience="admin" AND :admin=1) OR (e.audience="staff" AND :staff=1) OR (e.audience="personal" AND e.recipient=:recipient) ORDER BY e.id DESC LIMIT 60');
- $s->execute(['admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>$uid]);mobile_json(['ok'=>true,'events'=>$s->fetchAll()]);
+ $sql='SELECT e.id,e.category,e.title,e.message,e.created_at,l.object_type,l.object_id,IF(r.event_id IS NULL,0,1) AS is_read FROM mobile_events e LEFT JOIN mobile_event_links l ON l.event_id=e.id LEFT JOIN mobile_event_reads r ON r.event_id=e.id AND r.user_id=:viewer WHERE e.audience="public" OR (e.audience="admin" AND :admin=1) OR (e.audience="staff" AND :staff=1) OR (e.audience="personal" AND e.recipient=:recipient) ORDER BY e.id DESC LIMIT 60';
+ $q=$db->prepare($sql);$q->execute(['viewer'=>(string)$uid,'admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>(string)$uid]);
+ $rows=$q->fetchAll();
+ mobile_json(['ok'=>true,'events'=>$rows,'unread_count'=>count(array_filter($rows,static fn($r)=>(int)$r['is_read']===0))]);
+}
+if($action==='event_read'&&$method==='POST'){
+ $b=mobile_body();$id=(int)($b['id']??0);
+ if($id<1)mobile_error('Pilih notifikasi yang ingin dibaca.',422);
+ $q=$db->prepare('SELECT id FROM mobile_events WHERE id=? AND (audience="public" OR (audience="admin" AND ?=1) OR (audience="staff" AND ?=1) OR (audience="personal" AND recipient=?))');
+ $q->execute([$id,$admin?1:0,$u['user_role']!=='warga'?1:0,(string)$uid]);
+ if(!$q->fetchColumn())mobile_error('Notifikasi tidak tersedia.',404);
+ $db->prepare('INSERT IGNORE INTO mobile_event_reads(user_id,event_id) VALUES(?,?)')->execute([(string)$uid,$id]);
+ mobile_json(['ok'=>true,'message'=>'Notifikasi telah dibaca.']);
 }
 if($action==='chat_send'&&$method==='POST'){
  $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mobile_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
