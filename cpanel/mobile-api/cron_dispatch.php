@@ -31,8 +31,17 @@ foreach($events as $e){
  if($e['audience']==='personal'){$sql.=' WHERE user_id=?';$params=[$e['recipient']];}
  if($e['audience']==='admin'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role="admin_kelurahan" AND expires_at>NOW())';}
  if($e['audience']==='staff'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role<>"warga" AND expires_at>NOW())';}
- $q=$db->prepare($sql);$q->execute($params);$tokens=array_unique($q->fetchAll(PDO::FETCH_COLUMN));$sent=true;
- foreach($tokens as $token){if(!send_fcm($project,$oauth,$token,$e))$sent=false;}
+ $sql=str_replace('SELECT fcm_token','SELECT user_id,fcm_token',$sql);
+ $q=$db->prepare($sql);$q->execute($params);$devices=$q->fetchAll(PDO::FETCH_ASSOC);$sent=true;
+ $seen=[];$read=$db->prepare('SELECT 1 FROM mobile_event_reads WHERE user_id=? AND event_id=? LIMIT 1');
+ foreach($devices as $device){
+   $userId=(string)$device['user_id'];$token=(string)$device['fcm_token'];
+   if($token===''||isset($seen[$token]))continue;
+   $seen[$token]=true;
+   $read->execute([$userId,(int)$e['id']]);
+   if($read->fetchColumn())continue; // Already read: do not play a late push notification.
+   if(!send_fcm($project,$oauth,$token,$e))$sent=false;
+ }
  if($sent){$db->prepare('UPDATE mobile_events SET dispatched_at=NOW() WHERE id=?')->execute([$e['id']]);$ok++;}else{$fail++;}
 }
 echo "Events dispatched: $ok; need retry: $fail\n";
