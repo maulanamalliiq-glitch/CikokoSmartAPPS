@@ -1,6 +1,11 @@
 name: Cikoko Web Integration and Patch
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cpanel/**'
+      - 'qa/**'
+      - '.github/workflows/cpanel-patch.yml'
   push:
     branches: [main]
     paths:
@@ -21,27 +26,27 @@ jobs:
         run: php qa/v212_contract_test.php
       - name: Prepare production-safe cPanel overlay
         run: |
-          mkdir -p build/cpanel-v2500/mobile-api build/cpanel-v2500/assets
-          for p in index.php v211.php v211_migration.sql v2500_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
-            cp "cpanel/mobile-api/$p" "build/cpanel-v2500/mobile-api/$p"
+          mkdir -p build/cpanel-v2501/mobile-api build/cpanel-v2501/assets
+          for p in index.php v211.php v211_migration.sql v2501_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
+            cp "cpanel/mobile-api/$p" "build/cpanel-v2501/mobile-api/$p"
           done
-          cp cpanel/assets/mobile-chat.js build/cpanel-v2500/assets/mobile-chat.js
+          cp cpanel/assets/mobile-chat.js build/cpanel-v2501/assets/mobile-chat.js
           for p in inovasi.php kelola-inovasi.php berita-galeri.php kelola-berita-galeri.php kelola-arsip-waris-v211.php; do
-            cp "cpanel/$p" "build/cpanel-v2500/$p"
+            cp "cpanel/$p" "build/cpanel-v2501/$p"
           done
           printf '%s\n' \
-            'CIKOKO BUILD 2500 - PATCH CPANEL' \
+            'CIKOKO BUILD 2501 - PATCH CPANEL' \
             '1. Backup public_html, folder data, foto private, dan database MySQL.' \
             '2. Ekstrak ke root website sejajar admin.php; jangan hapus file lama.' \
-            '3. Jika perlu, impor v211_migration.sql dan v2500_migration.sql lewat phpMyAdmin.' \
+            '3. Jika perlu, impor v211_migration.sql dan v2501_migration.sql lewat phpMyAdmin.' \
             '4. Uji arsip, inovasi, berita, komentar, profil, chat, dan PPSU.' \
             '5. Push saat aplikasi ditutup memerlukan Firebase service account dan cron aktif.' \
-            > build/cpanel-v2500/BACA_DULU_PATCH_V2500.txt
-          cd build/cpanel-v2500 && zip -r -q ../CIKOKO_V2500_CPANEL_PATCH.zip .
+            > build/cpanel-v2501/BACA_DULU_PATCH_V2501.txt
+          cd build/cpanel-v2501 && zip -r -q ../CIKOKO_V2501_CPANEL_PATCH.zip .
       - name: Publish cPanel patch artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CIKOKO-V2500-CPANEL-WEBSITE-AND-SQL
-          path: build/CIKOKO_V2500_CPANEL_PATCH.zip
+          name: CIKOKO-V2501-CPANEL-WEBSITE-AND-SQL
+          path: build/CIKOKO_V2501_CPANEL_PATCH.zip
           retention-days: 14
           if-no-files-found: error
