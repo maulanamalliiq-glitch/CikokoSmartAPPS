@@ -25,6 +25,7 @@ jobs:
           for p in index.php v211.php v211_migration.sql v2500_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
             cp "cpanel/mobile-api/$p" "build/cpanel-v2500/mobile-api/$p"
           done
+          cp cpanel/assets/mobile-chat.js build/cpanel-v2500/assets/mobile-chat.js
           for p in inovasi.php kelola-inovasi.php berita-galeri.php kelola-berita-galeri.php kelola-arsip-waris-v211.php; do
             cp "cpanel/$p" "build/cpanel-v2500/$p"
           done
