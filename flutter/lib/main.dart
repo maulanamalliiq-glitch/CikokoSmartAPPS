@@ -1,3 +1,4 @@
+import 'profile_editor.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -413,7 +414,7 @@ class _HomeState extends State<HomePage> {
       subtitle:Text('${e['message']??''}\n${e['created_at']??''}',maxLines:3,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11)),
       trailing:const Icon(Icons.chevron_right),onTap:()=>openNotification(Map<String,dynamic>.from(e)),
     )),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
- Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const SizedBox(height:10),const Text('Masuk untuk melihat profil Anda.'),const SizedBox(height:12),FilledButton(onPressed:openLogin,child:const Text('Login / Daftar Warga'))])))):ListView(padding:const EdgeInsets.all(16),children:[for(final e in (api.profile??{}).entries)if(!['id','password_hash','token'].contains(e.key))Card(child:ListTile(title:Text(e.key),subtitle:Text('${e.value}')))]);
+ Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const Text('Silakan masuk untuk mengelola profil.'),FilledButton(onPressed:openLogin,child:const Text('Masuk'))])))):CikokoProfileEditor(api:api);
 }
 class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
 class PhotoInput extends StatefulWidget {
