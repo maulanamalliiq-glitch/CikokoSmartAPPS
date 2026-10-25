@@ -21,12 +21,12 @@ jobs:
         run: php qa/v212_contract_test.php
       - name: Prepare production-safe cPanel overlay
         run: |
-          mkdir -p build/cpanel-v2500/mobile-api build/cpanel-v212/assets
+          mkdir -p build/cpanel-v2500/mobile-api build/cpanel-v2500/assets
           for p in index.php v211.php v211_migration.sql v2500_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
-            cp "cpanel/mobile-api/$p" "build/cpanel-v212/mobile-api/$p"
+            cp "cpanel/mobile-api/$p" "build/cpanel-v2500/mobile-api/$p"
           done
           for p in inovasi.php kelola-inovasi.php berita-galeri.php kelola-berita-galeri.php kelola-arsip-waris-v211.php; do
-            cp "cpanel/$p" "build/cpanel-v212/$p"
+            cp "cpanel/$p" "build/cpanel-v2500/$p"
           done
           printf '%s\n' \
             'CIKOKO BUILD 2500 - PATCH CPANEL' \
@@ -35,12 +35,12 @@ jobs:
             '3. Jika perlu, impor v211_migration.sql dan v2500_migration.sql lewat phpMyAdmin.' \
             '4. Uji arsip, inovasi, berita, komentar, profil, chat, dan PPSU.' \
             '5. Push saat aplikasi ditutup memerlukan Firebase service account dan cron aktif.' \
-            > build/cpanel-v212/BACA_DULU_PATCH_V2500.txt
-          cd build/cpanel-v212 && zip -r -q ../CIKOKO_V2500_CPANEL_PATCH.zip .
+            > build/cpanel-v2500/BACA_DULU_PATCH_V2500.txt
+          cd build/cpanel-v2500 && zip -r -q ../CIKOKO_V2500_CPANEL_PATCH.zip .
       - name: Publish cPanel patch artifact
         uses: actions/upload-artifact@v4
         with:
           name: CIKOKO-V2500-CPANEL-WEBSITE-AND-SQL
-          path: build/CIKOKO_V212_CPANEL_PATCH.zip
+          path: build/CIKOKO_V2500_CPANEL_PATCH.zip
           retention-days: 14
           if-no-files-found: error
