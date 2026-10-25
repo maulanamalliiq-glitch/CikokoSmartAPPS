@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'api.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
@@ -31,6 +32,16 @@ class _InnovationPageState extends State<InnovationPage>{
   catch(_){return {'ok':true,'offline':true,'items':defaults};}
  }
  void reload(){pending=fetchInnovations();}
+ Future<void> openInnovationDetail(Map<String,dynamic> item)async{
+   final slug=Uri.encodeComponent('${item['slug']??''}');
+   final link='${item['detail_url']??'https://datawebs.my.id/inovasi/$slug'}';
+   try{
+     final target=Uri.tryParse(link);
+     if(target==null||target.scheme!='https'||target.host!='datawebs.my.id')throw const FormatException('Tautan tidak valid.');
+     final opened=await launchUrl(target,mode:LaunchMode.externalApplication);
+     if(!opened&&mounted)civicMessage(context,'Halaman detail inovasi tidak dapat dibuka.');
+   }catch(_){if(mounted)civicMessage(context,'Tautan inovasi belum tersedia.');}
+ }
  Future<void> edit(Map<String,dynamic> item)async{
   final ctrls={for(final k in ['title','summary','body','image'])k:TextEditingController(text:'${item[k]??''}')};
   try{
@@ -51,12 +62,15 @@ class _InnovationPageState extends State<InnovationPage>{
    const Text('Inovasi Kelurahan Cikoko',style:TextStyle(fontSize:20,color:civicNavy,fontWeight:FontWeight.w800)),
    const SizedBox(height:4),const Text('Program unggulan bagi masyarakat dan lingkungan Kelurahan Cikoko.',style:TextStyle(color:Colors.blueGrey,fontSize:12)),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
    for(final raw in items)...[Builder(builder:(context){final item=Map<String,dynamic>.from(raw);return Card(clipBehavior:Clip.antiAlias,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    if('${item['image']??''}'.startsWith('https://'))Image.network('${item['image']}',height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
+    if(widget.api.media('${item['image_url']??item['image']??''}').isNotEmpty)
+      Image.network(widget.api.media('${item['image_url']??item['image']??''}'),height:152,width:double.infinity,fit:BoxFit.cover,
+        errorBuilder:(_,__,___)=>Container(height:92,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:34)))
     else Container(height:72,width:double.infinity,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:32)),
     Padding(padding:const EdgeInsets.all(13),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('${item['title']}',style:const TextStyle(fontWeight:FontWeight.w800,color:civicNavy,fontSize:15)),const SizedBox(height:5),
       Text('${item['summary']??''}',style:const TextStyle(fontSize:12)),const SizedBox(height:10),
-      Row(children:[Expanded(child:OutlinedButton.icon(onPressed:()=>showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheet)=>SafeArea(child:Padding(padding:const EdgeInsets.all(18),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${item['title']}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.bold)),const SizedBox(height:14),Text('${item['body']??item['summary']??''}')]))))),icon:const Icon(Icons.arrow_forward_outlined,size:16),label:const Text('Lihat Selengkapnya'))),
+      Row(children:[Expanded(child:OutlinedButton.icon(onPressed:()=>openInnovationDetail(item),
+        icon:const Icon(Icons.arrow_forward_outlined,size:16),label:const Text('Lihat Selengkapnya'))),
       if(widget.api.profile?['role']=='admin')IconButton(tooltip:'Sunting inovasi',onPressed:()=>edit(item),icon:const Icon(Icons.edit_outlined,color:civicBlue))]),
     ])),
    ]));}),const SizedBox(height:8)],
@@ -146,8 +160,24 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
  @override void dispose(){comment.dispose();super.dispose();}
  void reload(){comments=widget.api.callWithQuery('v211_comments',{'id':id});}
  Future<void> send()async{if(widget.api.token==null){civicMessage(context,'Silakan masuk ke akun Anda untuk memberikan komentar.');return;}if(comment.text.trim().isEmpty)return;try{await widget.api.call('v211_comment_add',body:{'news_id':id,'body':comment.text.trim(),'parent_id':replyTo??0});if(mounted){comment.clear();setState((){replyTo=null;reload();});civicMessage(context,'Komentar telah dikirim.');}}catch(e){if(mounted)civicMessage(context,'Komentar belum dapat diterima. Mohon gunakan bahasa yang santun.');}}
- Future<void> share(String service)async{final url='https://datawebs.my.id/berita-galeri.php?id=$id';if(service=='copy'||service=='instagram'){await Clipboard.setData(ClipboardData(text:url));if(mounted)civicMessage(context,'Tautan berita berhasil disalin.');return;}
- final u=service=='wa'?'https://wa.me/?text=${Uri.encodeComponent(url)}':'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';await launchUrl(Uri.parse(u),mode:LaunchMode.externalApplication);}
+ Future<void> share(String service)async{
+   final url='https://datawebs.my.id/berita/${Uri.encodeComponent(id)}';
+   final title='${widget.preview['title']??'Berita Kelurahan Cikoko'}';
+   if(service=='copy'||service=='instagram'){
+     await Clipboard.setData(ClipboardData(text:url));
+     if(mounted)civicMessage(context,service=='instagram'
+       ?'Tautan disalin. Tempelkan di DM atau Story Instagram.'
+       :'Tautan berita berhasil disalin.');
+     return;
+   }
+   final link=service=='wa'
+     ?'https://wa.me/?text=${Uri.encodeComponent('$title\\n$url')}'
+     :'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';
+   try{
+     final opened=await launchUrl(Uri.parse(link),mode:LaunchMode.externalApplication);
+     if(!opened&&mounted)civicMessage(context,'Aplikasi berbagi tidak tersedia.');
+   }catch(_){if(mounted)civicMessage(context,'Tidak dapat membagikan berita.');}
+ }
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
   if(photos.isNotEmpty)...[
     SizedBox(
@@ -167,15 +197,16 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
   ],
   const SizedBox(height:14),Text('${x['title']??''}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:civicNavy)),const SizedBox(height:10),Text('${x['body']??''}'),const SizedBox(height:12),
   Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[
-   _shareIcon(Icons.chat_outlined,'WhatsApp',Colors.green,()=>share('wa')),
-   _shareIcon(Icons.facebook,'Facebook',Colors.blue,()=>share('fb')),
-   _shareIcon(Icons.camera_alt_outlined,'Instagram',Colors.deepPurple,()=>share('instagram')),
+   _shareBrandIcon(FontAwesomeIcons.whatsapp,'WhatsApp',Colors.green,()=>share('wa')),
+   _shareBrandIcon(FontAwesomeIcons.facebookF,'Facebook',Colors.blue,()=>share('fb')),
+   _shareBrandIcon(FontAwesomeIcons.instagram,'Instagram',Colors.deepPurple,()=>share('instagram')),
    _shareIcon(Icons.link,'Salin tautan',Colors.blueGrey,()=>share('copy')),
   ]),const Divider(height:26),const Text('Komentar dan Tanggapan',style:TextStyle(fontWeight:FontWeight.w800,fontSize:15,color:civicNavy)),const SizedBox(height:8),
   if(replyTo!=null)Row(children:[Expanded(child:Text('Membalas komentar #$replyTo',style:const TextStyle(fontSize:11))),TextButton(onPressed:()=>setState(()=>replyTo=null),child:const Text('Batal'))]),
   Row(children:[Expanded(child:TextField(controller:comment,maxLines:3,minLines:1,decoration:const InputDecoration(hintText:'Tulis komentar yang santun…'))),IconButton(onPressed:send,tooltip:'Kirim komentar',icon:const Icon(Icons.send_rounded,color:civicBlue))]),const SizedBox(height:8),
-  FutureBuilder<Map<String,dynamic>>(future:comments,builder:(ctx,s){if(!s.hasData)return const Padding(padding:EdgeInsets.all(12),child:Text('Memuat komentar…'));final rows=List<dynamic>.from(s.data?['items']??[]);return Column(children:[for(final r in rows)Card(child:ListTile(dense:true,leading:const CircleAvatar(radius:17,child:Icon(Icons.person_outline,size:18)),title:Text('${r['display_name']??'Pengguna'}',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${r['body']??''}'),const SizedBox(height:5),TextButton(onPressed:()=>setState(()=>replyTo=int.tryParse('${r['id']}')),child:const Text('Balas',style:TextStyle(fontSize:11)))]),trailing:widget.api.profile?['role']=='admin'||widget.api.profile?['role']=='admin_kelurahan'?IconButton(tooltip:'Sembunyikan komentar',icon:const Icon(Icons.visibility_off_outlined,size:18),onPressed:()async{await widget.api.call('v211_comment_moderate',body:{'id':r['id']});if(mounted)setState(reload);}):null)),if(rows.isEmpty)const Text('Belum ada komentar.',style:TextStyle(color:Colors.blueGrey,fontSize:12))]);}),
+  FutureBuilder<Map<String,dynamic>>(future:comments,builder:(ctx,s){if(!s.hasData)return const Padding(padding:EdgeInsets.all(12),child:Text('Memuat komentar…'));final rows=List<dynamic>.from(s.data?['items']??[]);return Column(children:[for(final r in rows)Card(child:ListTile(dense:true,leading:const CircleAvatar(radius:17,child:Icon(Icons.person_outline,size:18)),title:Text('${r['display_name']??'Pengguna'}',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${r['body']??''}'),const SizedBox(height:5),TextButton(onPressed:()=>setState(()=>replyTo=int.tryParse('${r['id']}')),child:const Text('Balas',style:TextStyle(fontSize:11)))]),trailing:widget.api.profile?['role']=='admin'||widget.api.profile?['role']=='admin_kelurahan'?IconButton(tooltip:'Sembunyikan komentar',icon:const Icon(Icons.visibility_off_outlined,size:18),onPressed:()async{await widget.api.call('v211_comment_hide',body:{'id':r['id']});if(mounted)setState(reload);}):null)),if(rows.isEmpty)const Text('Belum ada komentar.',style:TextStyle(color:Colors.blueGrey,fontSize:12))]);}),
  ]);}),);
+ Widget _shareBrandIcon(IconData icon,String tooltip,Color color,VoidCallback action)=>IconButton.filledTonal(tooltip:tooltip,onPressed:action,style:IconButton.styleFrom(foregroundColor:color),icon:FaIcon(icon,size:21));
  Widget _shareIcon(IconData icon,String tooltip,Color color,VoidCallback action)=>IconButton.filledTonal(tooltip:tooltip,onPressed:action,style:IconButton.styleFrom(foregroundColor:color),icon:Icon(icon));
 }
 
