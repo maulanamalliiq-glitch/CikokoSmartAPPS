@@ -27,10 +27,13 @@ jobs:
       - name: Prepare production-safe cPanel overlay
         run: |
           mkdir -p build/cpanel-v2501/mobile-api build/cpanel-v2501/assets
-          for p in index.php v211.php v211_migration.sql v2501_migration.sql permissions.php bootstrap.php cron_dispatch.php; do
+          for p in index.php v211.php v211_migration.sql v2500_migration.sql permissions.php bootstrap.php cron_dispatch.php diagnose_cli.php .htaccess; do
             cp "cpanel/mobile-api/$p" "build/cpanel-v2501/mobile-api/$p"
           done
+          mkdir -p build/cpanel-v2501/mobile-api/private
+          cp cpanel/mobile-api/private/.htaccess build/cpanel-v2501/mobile-api/private/.htaccess
           cp cpanel/assets/mobile-chat.js build/cpanel-v2501/assets/mobile-chat.js
+          cp cpanel/README_INTEGRASI_V2501.md build/cpanel-v2501/README_INTEGRASI_V2501.md
           for p in inovasi.php kelola-inovasi.php berita-galeri.php kelola-berita-galeri.php kelola-arsip-waris-v211.php; do
             cp "cpanel/$p" "build/cpanel-v2501/$p"
           done
@@ -38,9 +41,11 @@ jobs:
             'CIKOKO BUILD 2501 - PATCH CPANEL' \
             '1. Backup public_html, folder data, foto private, dan database MySQL.' \
             '2. Ekstrak ke root website sejajar admin.php; jangan hapus file lama.' \
-            '3. Jika perlu, impor v211_migration.sql dan v2501_migration.sql lewat phpMyAdmin.' \
+            '3. Jika perlu, impor v211_migration.sql dan v2500_migration.sql lewat phpMyAdmin.' \
             '4. Uji arsip, inovasi, berita, komentar, profil, chat, dan PPSU.' \
             '5. Push saat aplikasi ditutup memerlukan Firebase service account dan cron aktif.' \
+            '6. JANGAN hapus data/, config.php, ahli-waris/private/, atau mobile-api/private/.' \
+            '7. Baca README_INTEGRASI_V2501.md untuk tahapan validasi layanan produksi.' \
             > build/cpanel-v2501/BACA_DULU_PATCH_V2501.txt
           cd build/cpanel-v2501 && zip -r -q ../CIKOKO_V2501_CPANEL_PATCH.zip .
       - name: Publish cPanel patch artifact
