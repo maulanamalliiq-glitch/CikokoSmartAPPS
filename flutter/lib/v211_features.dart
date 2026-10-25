@@ -21,7 +21,16 @@ class InnovationPage extends StatefulWidget{
 class _InnovationPageState extends State<InnovationPage>{
  late Future<Map<String,dynamic>> pending;
  @override void initState(){super.initState();reload();}
- void reload(){pending=widget.api.call('v211_innovations');}
+ static const defaults=[
+ {'slug':'eco-edu-wisata-ciliwung','title':'ECO EDU WISATA CILIWUNG','summary':'Edukasi lingkungan dan wisata Sungai Ciliwung','body':'Rincian program akan tersinkronisasi dari website Kelurahan Cikoko.'},
+ {'slug':'cikoko-bio-farm-education','title':'CIKOKO BIO FARM EDUCATION','summary':'Edukasi pertanian dan lingkungan perkotaan','body':'Rincian program akan tersinkronisasi dari website Kelurahan Cikoko.'},
+ {'slug':'kampung-inggris','title':'KAMPUNG INGGRIS','summary':'Pengembangan bahasa Inggris untuk masyarakat','body':'Rincian program akan tersinkronisasi dari website Kelurahan Cikoko.'},
+];
+ Future<Map<String,dynamic>> fetchInnovations()async{
+  try{return await widget.api.call('v211_innovations');}
+  catch(_){return {'ok':true,'offline':true,'items':defaults};}
+ }
+ void reload(){pending=fetchInnovations();}
  Future<void> edit(Map<String,dynamic> item)async{
   final ctrls={for(final k in ['title','summary','body','image'])k:TextEditingController(text:'${item[k]??''}')};
   try{
@@ -35,12 +44,12 @@ class _InnovationPageState extends State<InnovationPage>{
   } finally {for(final c in ctrls.values){c.dispose();}}
  }
  @override Widget build(BuildContext context)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){
-  if(s.hasError)return Center(child:Text('Informasi inovasi belum dapat dimuat. Silakan coba kembali.\n${s.error}',textAlign:TextAlign.center));
+  if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.refresh),label:const Text('Coba muat inovasi kembali')));
   if(!s.hasData)return const Center(child:CircularProgressIndicator());
   final items=List<dynamic>.from(s.data?['items']??[]);
   return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},child:ListView(padding:const EdgeInsets.all(14),children:[
    const Text('Inovasi Kelurahan Cikoko',style:TextStyle(fontSize:20,color:civicNavy,fontWeight:FontWeight.w800)),
-   const SizedBox(height:4),const Text('Program unggulan bagi masyarakat dan lingkungan Kelurahan Cikoko.',style:TextStyle(color:Colors.blueGrey,fontSize:12)),const SizedBox(height:12),
+   const SizedBox(height:4),const Text('Program unggulan bagi masyarakat dan lingkungan Kelurahan Cikoko.',style:TextStyle(color:Colors.blueGrey,fontSize:12)),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
    for(final raw in items)...[Builder(builder:(context){final item=Map<String,dynamic>.from(raw);return Card(clipBehavior:Clip.antiAlias,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     if('${item['image']??''}'.startsWith('https://'))Image.network('${item['image']}',height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
     else Container(height:72,width:double.infinity,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:32)),
@@ -57,7 +66,11 @@ class _InnovationPageState extends State<InnovationPage>{
 class CivicProfilePage extends StatefulWidget{final CikokoApi api;const CivicProfilePage({super.key,required this.api});@override State<CivicProfilePage> createState()=>_CivicProfileState();}
 class _CivicProfileState extends State<CivicProfilePage>{
  late Future<Map<String,dynamic>> pending;final fields={for(final k in ['name','username','phone','email','address','nik'])k:TextEditingController()};bool editing=false,saving=false,avatarReady=false;int imageVersion=0;
- @override void initState(){super.initState();pending=widget.api.call('v211_profile');}
+ Future<Map<String,dynamic>> loadProfile()async{
+  try{return await widget.api.call('v211_profile');}
+  catch(_){return {'ok':true,'offline':true,'user':widget.api.profile??<String,dynamic>{}};}
+ }
+ @override void initState(){super.initState();pending=loadProfile();}
  @override void dispose(){for(final c in fields.values){c.dispose();}super.dispose();}
  void fill(Map<String,dynamic> row){for(final k in fields.keys){fields[k]!.text='${row[k]??''}';}}
  Future<void> save()async{if(saving)return;setState(()=>saving=true);try{
@@ -66,7 +79,7 @@ class _CivicProfileState extends State<CivicProfilePage>{
  }catch(_){if(mounted)civicMessage(context,'Perubahan profil belum berhasil disimpan. Silakan periksa kembali isian Anda.');}finally{if(mounted)setState(()=>saving=false);}}
  Future<void> uploadAvatar()async{final f=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:80,maxWidth:1400);if(f==null)return;
   try{await widget.api.upload('v211_profile_upload',{}, {'photo':[f.path]});if(mounted){setState((){imageVersion++;avatarReady=true;});civicMessage(context,'Foto profil berhasil diperbarui.');}}catch(_){if(mounted)civicMessage(context,'Foto profil belum berhasil diperbarui.');}}
- @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){if(s.hasError)return const Center(child:Text('Profil belum dapat dimuat. Silakan muat ulang.'));if(!s.hasData)return const Center(child:CircularProgressIndicator());
+ @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>pending=loadProfile()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang profil')));if(!s.hasData)return const Center(child:CircularProgressIndicator());
  final row=Map<String,dynamic>.from(s.data?['user']??{});if(!editing && fields['name']!.text.isEmpty)fill(row);
  final photoUrl='${CikokoApi.root.replaceFirst('index.php','v211.php')}?action=v211_profile_photo&v=$imageVersion';
  return ListView(padding:const EdgeInsets.all(16),children:[
@@ -118,13 +131,24 @@ class PpsuDetailPage extends StatelessWidget{final CikokoApi api;final int id;co
 class CivicNewsDetail extends StatefulWidget{final CikokoApi api;final Map<String,dynamic> preview;const CivicNewsDetail({super.key,required this.api,required this.preview});@override State<CivicNewsDetail> createState()=>_CivicNewsState();}
 class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dynamic>> article,comments;final comment=TextEditingController();int page=0;int? replyTo;
  String get id=>'${widget.preview['id']??''}';
- @override void initState(){super.initState();article=widget.api.callWithQuery('v211_news_detail',{'id':id});reload();}
+ Future<Map<String,dynamic>> loadArticle()async{
+  try{return await widget.api.callWithQuery('v211_news_detail',{'id':id});}
+  catch(_){
+    final cover='${widget.preview['image']??''}';
+    return {'ok':true,'offline':true,'item':{
+      'id':id,'title':widget.preview['title']??'Berita Kelurahan Cikoko',
+      'body':widget.preview['body']??'',
+      'images':widget.preview['images']??(cover.isEmpty?<String>[]:<String>[cover]),
+    }};
+  }
+ }
+ @override void initState(){super.initState();article=loadArticle();reload();}
  @override void dispose(){comment.dispose();super.dispose();}
  void reload(){comments=widget.api.callWithQuery('v211_comments',{'id':id});}
  Future<void> send()async{if(widget.api.token==null){civicMessage(context,'Silakan masuk ke akun Anda untuk memberikan komentar.');return;}if(comment.text.trim().isEmpty)return;try{await widget.api.call('v211_comment_add',body:{'news_id':id,'body':comment.text.trim(),'parent_id':replyTo??0});if(mounted){comment.clear();setState((){replyTo=null;reload();});civicMessage(context,'Komentar telah dikirim.');}}catch(e){if(mounted)civicMessage(context,'Komentar belum dapat diterima. Mohon gunakan bahasa yang santun.');}}
  Future<void> share(String service)async{final url='https://datawebs.my.id/berita-galeri.php?id=$id';if(service=='copy'||service=='instagram'){await Clipboard.setData(ClipboardData(text:url));if(mounted)civicMessage(context,'Tautan berita berhasil disalin.');return;}
  final u=service=='wa'?'https://wa.me/?text=${Uri.encodeComponent(url)}':'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';await launchUrl(Uri.parse(u),mode:LaunchMode.externalApplication);}
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return const Center(child:Text('Berita belum dapat ditampilkan.'));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
+ @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
   if(photos.isNotEmpty)...[
     SizedBox(
       height:215,
