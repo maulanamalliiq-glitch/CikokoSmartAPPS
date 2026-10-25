@@ -16,8 +16,8 @@ android {
         applicationId = "com.KelurahanCikoko.malik"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2508
-        versionName = "2.5.8"
+        versionCode = 2509
+        versionName = "2.5.9"
         multiDexEnabled = true
     }
     signingConfigs {
@@ -33,8 +33,13 @@ android {
     buildTypes {
         getByName("release") {
             if (!signingFile.isNullOrBlank()) signingConfig = signingConfigs.getByName("upload")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8: shrink, optimize and obfuscate Android DEX code in production.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
