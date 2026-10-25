@@ -43,7 +43,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2504-TEST-APK
+          name: Cikoko-v2505-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14

@@ -28,6 +28,7 @@ const roleFeatures = <String,RoleFeature>{
   'dasawisma': RoleFeature('Laporan Dasawisma','Kegiatan dan pendataan keluarga','Laporan Dasawisma',capability:'report:pkk'),
   'ppsu': RoleFeature('Laporan PPSU','Foto kegiatan kebersihan dan pekerjaan','Laporan PPSU',capability:'report:ppsu'),
   'bakti': RoleFeature('Kerja Bakti','Dokumentasi kerja bakti wilayah','Laporan Kerja Bakti',capability:'report:kerja_bakti'),
+  'field_manage': RoleFeature('Kelola Laporan Lapangan','PPSU dan FKDM otomatis publik; admin dapat menghapus','Kelola Laporan Lapangan',capability:'reports:view'),
   'verify': RoleFeature('Verifikasi Laporan','Tinjau dan ubah status permohonan','Verifikasi Laporan',capability:'reports:view'),
   'chat_admin': RoleFeature('Pesan Masuk','Balas percakapan warga','Pesan Masuk',capability:'chat:reply'),
   'news_add': RoleFeature('Tambah Berita','Publikasikan berita dari aplikasi','Tambah Berita',capability:'content:create'),
@@ -47,8 +48,8 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
- 'admin_kelurahan':['verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
+ 'admin':['field_manage','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin_kelurahan':['field_manage','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
  'pppk':['kegiatan','attendance','roster','performance','leave','history','news'],
