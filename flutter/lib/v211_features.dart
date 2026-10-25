@@ -190,7 +190,7 @@ class PpsuHighlights extends StatelessWidget {
    if(rows.isEmpty)return const SizedBox.shrink();
    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Padding(padding:EdgeInsets.symmetric(vertical:10),child:Text('Kegiatan PPSU',style:TextStyle(fontSize:15,color:civicNavy,fontWeight:FontWeight.w800))),
-    for(final r in rows)Card(child:ListTile(dense:true,leading:const Icon(Icons.cleaning_services_outlined,color:civicBlue),title:Text('${r['team']} · ${r['work_date']}',style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w700)),subtitle:Text('${r['activity']}',maxLines:2,overflow:TextOverflow.ellipsis),trailing:const Icon(Icons.chevron_right,size:19),onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>PpsuDetailPage(api:api,id:int.parse('${r['id']}')))))),
+    for(final r in rows)Card(child:ListTile(dense:true,leading:ClipRRect(borderRadius:BorderRadius.circular(7),child:Image.network(api.photoUrl('v211_ppsu_photo',{'id':'${r['id']}','index':'0'}),headers:api.authHeaders(),width:52,height:52,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const Icon(Icons.cleaning_services_outlined,color:civicBlue))),title:Text('${r['team']} · ${r['work_date']}',style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w700)),subtitle:Text('${r['activity']}',maxLines:2,overflow:TextOverflow.ellipsis),trailing:const Icon(Icons.chevron_right,size:19),onTap:()=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>PpsuDetailPage(api:api,id:int.parse('${r['id']}')))))),
    ]);
   });
 }
