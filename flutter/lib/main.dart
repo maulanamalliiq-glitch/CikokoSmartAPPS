@@ -122,7 +122,12 @@ class _HomeState extends State<HomePage> {
   bool get isStaff=>role!='warga'&&role!='guest';
   bool get isAdmin=>capabilities['reports:view']==true;
   List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
-  @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh);timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
+  @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh,onOpen:(message){
+      WidgetsBinding.instance.addPostFrameCallback((_){
+        if(!mounted)return;
+        switchTo(destinationForPushCategory('${message.data['category']??''}',isStaff:isStaff));
+      });
+    });timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
   Future<void> refresh() async {
     try {if(api.token==null)return;final v=await api.call('events');final incoming=List<dynamic>.from(v['events']??[]);await push?.onEvents(incoming);if(mounted)setState(()=>events=incoming);}

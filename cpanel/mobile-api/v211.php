@@ -109,7 +109,7 @@ try {
  }
  if($action==='v211_ppsu_submit'){
   v211_mustpost($method);if($u['user_role']!=='ppsu'&&!mobile_can($u,'role:manage'))mobile_error('Pengajuan laporan PPSU hanya untuk petugas berwenang.',403);
-  $team=mobile_text($_POST['team']??'',30);$date=mobile_text($_POST['work_date']??'',10);$activity=mobile_text($_POST['activity']??'',3500);$name=mobile_text($_POST['name']??'',180);
+  $team=mobile_text($_POST['team']??'',30);$date=mobile_text($_POST['work_date']??'',10);$activity=mobile_text($_POST['activity']??'',3500);$name=mobile_text((v211_userrow($uid)['name']??$u['username']),180);
   if(!in_array($team,['Jalur','Hilux','Penataan','Taman'],true)||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4))||mobile_strlen($activity)<5||$name==='')mobile_error('Mohon lengkapi tanggal, nama, tim, dan kegiatan.',422);
   v211_ppsu_table($db);$photos=[];
   try {foreach(['photo1','photo2','photo3'] as $key)$photos[] = mobile_file($key,true);

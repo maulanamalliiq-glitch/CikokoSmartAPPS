@@ -4,6 +4,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api.dart';
 
+String destinationForPushCategory(String category,{required bool isStaff}) {
+  if(category=='chat')return isStaff?'Pesan Masuk':'Hubungi Kami';
+  if(category=='surat'||category=='progres_surat'||category=='laporan_masuk')return isStaff?'Verifikasi Laporan':'Riwayat';
+  return 'Notifikasi';
+}
+
 @pragma('vm:entry-point')
 Future<void> backgroundMessage(RemoteMessage message) async {await Firebase.initializeApp();}
 class PushService {
@@ -15,7 +21,7 @@ class PushService {
   final Set<String> _seenEventIds={};
   bool _seeded=false;
   bool _initialized=false;
-  Future<void> start(void Function() onRefresh) async {
+  Future<void> start(void Function() onRefresh,{void Function(RemoteMessage)? onOpen}) async {
     // Notifications while the app is open work even when FCM configuration
     // is temporarily unavailable. Android notification channels are immutable,
     // hence a new channel ID for a user-visible default sound.
@@ -47,7 +53,9 @@ class PushService {
         }
         onRefresh();
       });
-      FirebaseMessaging.onMessageOpenedApp.listen((_){onRefresh();});
+      FirebaseMessaging.onMessageOpenedApp.listen((message){onOpen?.call(message);onRefresh();});
+      final initial=await FirebaseMessaging.instance.getInitialMessage();
+      if(initial!=null)onOpen?.call(initial);
     }catch(_){ /* Server polling still works while application is open. */ }
   }
   // Cadangan saat aplikasi aktif: notifikasi baru dari polling API tetap tampil.
