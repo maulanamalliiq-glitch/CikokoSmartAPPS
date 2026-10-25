@@ -14,6 +14,7 @@ import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
+import 'public_information.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -206,7 +207,7 @@ class _HomeState extends State<HomePage> {
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
     'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
-    'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
+    'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,'Pusat Informasi'=>Icons.article_outlined,
     _=>Icons.category_outlined};
   Future<void> confirmExit() async {
     final leave=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
@@ -222,9 +223,26 @@ class _HomeState extends State<HomePage> {
       title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
-    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
-    body:loading?const Center(child:CircularProgressIndicator()):_page(),
-    bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
+    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.article_outlined),title:const Text('Pusat Informasi'),onTap:(){Navigator.pop(context);switchTo('Pusat Informasi');}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    body:loading?const Center(child:CircularProgressIndicator()):
+      LayoutBuilder(builder:(ctx,constraints){
+        if(constraints.maxWidth<760)return _page();
+        return Row(children:[
+          SafeArea(child:NavigationRail(
+            selectedIndex:nav,labelType:NavigationRailLabelType.all,onDestinationSelected:selectNav,
+            destinations:const [
+              NavigationRailDestination(icon:Icon(Icons.grid_view_outlined),label:Text('Menu')),
+              NavigationRailDestination(icon:Icon(Icons.assignment_outlined),label:Text('Aktivitas')),
+              NavigationRailDestination(icon:Icon(Icons.home_outlined),label:Text('Beranda')),
+              NavigationRailDestination(icon:Icon(Icons.auto_awesome_outlined),label:Text('Inovasi')),
+              NavigationRailDestination(icon:Icon(Icons.person_outline),label:Text('Profil')),
+            ],
+          )),
+          const VerticalDivider(width:1),
+          Expanded(child:_page()),
+        ]);
+      }),
+    bottomNavigationBar:MediaQuery.sizeOf(c).width>=760?null:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
       const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
@@ -237,6 +255,7 @@ class _HomeState extends State<HomePage> {
     case 'Dashboard':return home();
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
+    case 'Pusat Informasi':return CikokoInformationPage(api:api,onOpenNews:(item)=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CivicNewsDetail(api:api,preview:item))));
     case 'Pengumuman':return feed('pengumuman');
     case 'Layanan Online':return feed('layanan');
     case 'Galeri':return feed('galeri');
@@ -268,7 +287,7 @@ class _HomeState extends State<HomePage> {
     Text('Menu $roleLabel',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),
     const Text('Pilih layanan sesuai kewenangan akun.',style:TextStyle(color:Colors.blueGrey)),
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
-    const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
+    const SizedBox(height:12),Card(child:ListTile(onTap:()=>switchTo('Pusat Informasi'),leading:const CircleAvatar(backgroundColor:sky,child:Icon(Icons.article_outlined,color:blue)),title:const Text('Pusat Informasi',style:TextStyle(fontWeight:FontWeight.w700)),subtitle:const Text('Berita, pengumuman, dan laporan publik'),trailing:const Icon(Icons.chevron_right))),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
   Future<void> showOfficeProfile() async {
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,
