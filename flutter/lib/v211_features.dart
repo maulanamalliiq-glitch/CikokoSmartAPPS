@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'api.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
@@ -197,16 +197,19 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
   ],
   const SizedBox(height:14),Text('${x['title']??''}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:civicNavy)),const SizedBox(height:10),Text('${x['body']??''}'),const SizedBox(height:12),
   Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[
-   _shareBrandIcon(FontAwesomeIcons.whatsapp,'WhatsApp',Colors.green,()=>share('wa')),
-   _shareBrandIcon(FontAwesomeIcons.facebookF,'Facebook',Colors.blue,()=>share('fb')),
-   _shareBrandIcon(FontAwesomeIcons.instagram,'Instagram',Colors.deepPurple,()=>share('instagram')),
+   _shareBrandIcon('whatsapp','WhatsApp',Colors.green,()=>share('wa')),
+   _shareBrandIcon('facebook','Facebook',Colors.blue,()=>share('fb')),
+   _shareBrandIcon('instagram','Instagram',Colors.deepPurple,()=>share('instagram')),
    _shareIcon(Icons.link,'Salin tautan',Colors.blueGrey,()=>share('copy')),
   ]),const Divider(height:26),const Text('Komentar dan Tanggapan',style:TextStyle(fontWeight:FontWeight.w800,fontSize:15,color:civicNavy)),const SizedBox(height:8),
   if(replyTo!=null)Row(children:[Expanded(child:Text('Membalas komentar #$replyTo',style:const TextStyle(fontSize:11))),TextButton(onPressed:()=>setState(()=>replyTo=null),child:const Text('Batal'))]),
   Row(children:[Expanded(child:TextField(controller:comment,maxLines:3,minLines:1,decoration:const InputDecoration(hintText:'Tulis komentar yang santun…'))),IconButton(onPressed:send,tooltip:'Kirim komentar',icon:const Icon(Icons.send_rounded,color:civicBlue))]),const SizedBox(height:8),
   FutureBuilder<Map<String,dynamic>>(future:comments,builder:(ctx,s){if(!s.hasData)return const Padding(padding:EdgeInsets.all(12),child:Text('Memuat komentar…'));final rows=List<dynamic>.from(s.data?['items']??[]);return Column(children:[for(final r in rows)Card(child:ListTile(dense:true,leading:const CircleAvatar(radius:17,child:Icon(Icons.person_outline,size:18)),title:Text('${r['display_name']??'Pengguna'}',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${r['body']??''}'),const SizedBox(height:5),TextButton(onPressed:()=>setState(()=>replyTo=int.tryParse('${r['id']}')),child:const Text('Balas',style:TextStyle(fontSize:11)))]),trailing:widget.api.profile?['role']=='admin'||widget.api.profile?['role']=='admin_kelurahan'?IconButton(tooltip:'Sembunyikan komentar',icon:const Icon(Icons.visibility_off_outlined,size:18),onPressed:()async{await widget.api.call('v211_comment_hide',body:{'id':r['id']});if(mounted)setState(reload);}):null)),if(rows.isEmpty)const Text('Belum ada komentar.',style:TextStyle(color:Colors.blueGrey,fontSize:12))]);}),
  ]);}),);
- Widget _shareBrandIcon(IconData icon,String tooltip,Color color,VoidCallback action)=>IconButton.filledTonal(tooltip:tooltip,onPressed:action,style:IconButton.styleFrom(foregroundColor:color),icon:FaIcon(icon,size:21));
+ Widget _shareBrandIcon(String brand,String tooltip,Color color,VoidCallback action)=>IconButton.filledTonal(
+   tooltip:tooltip,onPressed:action,style:IconButton.styleFrom(foregroundColor:color),
+   icon:SvgPicture.asset('assets/icons/$brand.svg',height:21,width:21,
+     semanticsLabel:tooltip,colorFilter:ColorFilter.mode(color,BlendMode.srcIn)));
  Widget _shareIcon(IconData icon,String tooltip,Color color,VoidCallback action)=>IconButton.filledTonal(tooltip:tooltip,onPressed:action,style:IconButton.styleFrom(foregroundColor:color),icon:Icon(icon));
 }
 
