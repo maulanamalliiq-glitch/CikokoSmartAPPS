@@ -29,6 +29,31 @@ class CikokoApi {
     on TimeoutException {throw ApiError('Waktu koneksi habis');}
     on FormatException {throw ApiError('Layanan Cikoko sedang mengalami kendala. Silakan mencoba kembali.');}
   }
+  // Cache hanya untuk konten publik. Penyimpanan tidak dihapus ketika versi aplikasi diperbarui.
+  // Jika jaringan/API belum siap, berita dan inovasi terakhir masih dapat dibaca.
+  Future<Map<String,dynamic>> callCachedPublic(String action) async {
+    if (action != 'content' && action != 'v211_innovations') {
+      throw ArgumentError.value(action, 'action', 'Cache hanya untuk konten publik');
+    }
+    final key = 'cikoko_public_cache_v1_$action';
+    try {
+      final fresh = await call(action);
+      try { await _storage.write(key: key, value: jsonEncode(fresh)); }
+      catch (_) { /* Kegagalan cache tidak boleh menghalangi data online. */ }
+      return fresh;
+    } catch (_) {
+      try {
+        final saved = await _storage.read(key: key);
+        if (saved != null) {
+          final parsed = jsonDecode(saved);
+          if (parsed is Map<String, dynamic> && parsed['ok'] == true) {
+            return {...parsed, 'offline': true};
+          }
+        }
+      } catch (_) { /* Cache rusak: gunakan penanganan kegagalan bawaan. */ }
+      rethrow;
+    }
+  }
   Future<Map<String,dynamic>> callWithQuery(String action,Map<String,String> query) async => call('$action&${Uri(queryParameters:query).query}');
   String photoUrl(String action,Map<String,String> params) => '${root.replaceFirst('index.php','v211.php')}?action=$action&${Uri(queryParameters:params).query}';
   Map<String,String> authHeaders() => token==null ? {} : {'Authorization':'Bearer $token'};
