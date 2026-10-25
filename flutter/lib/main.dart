@@ -180,7 +180,7 @@ class _HomeState extends State<HomePage> {
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Aktivitas'||route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -193,23 +193,24 @@ class _HomeState extends State<HomePage> {
     setState(() {
       section=s;
       if(s=='Dashboard'){nav=2;}
+      else if(s=='Berita & Kegiatan'){nav=1;}
       else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=1;}
+      else if(s=='Riwayat'||s=='Verifikasi Laporan'||s=='Aktivitas'){nav=0;}
       else if(s=='Notifikasi'){nav=2;}
       else {nav=0;}
     });
   }
   void selectNav(int value){
     if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==1){switchTo('Berita & Kegiatan');return;}
     if(value==2){switchTo('Dashboard');return;}
     if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
   }
   IconData iconFor(String s)=>switch(s){
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
-    'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
+    'Berita & Kegiatan'=>Icons.newspaper_outlined,'Aktivitas'=>Icons.assignment_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
@@ -237,7 +238,7 @@ class _HomeState extends State<HomePage> {
       title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
-    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.article_outlined),title:const Text('Pusat Informasi'),onTap:(){Navigator.pop(context);switchTo('Pusat Informasi');}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[ListTile(dense:true,leading:const Icon(Icons.assignment_outlined),title:const Text('Aktivitas'),onTap:(){Navigator.pop(context);switchTo('Aktivitas');}),for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.article_outlined),title:const Text('Pusat Informasi'),onTap:(){Navigator.pop(context);switchTo('Pusat Informasi');}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
     body:loading?const Center(child:CircularProgressIndicator()):
       LayoutBuilder(builder:(ctx,constraints){
         if(constraints.maxWidth<760)return _page();
@@ -246,7 +247,7 @@ class _HomeState extends State<HomePage> {
             selectedIndex:nav,labelType:NavigationRailLabelType.all,onDestinationSelected:selectNav,
             destinations:const [
               NavigationRailDestination(icon:Icon(Icons.grid_view_outlined),label:Text('Menu')),
-              NavigationRailDestination(icon:Icon(Icons.assignment_outlined),label:Text('Aktivitas')),
+              NavigationRailDestination(icon:Icon(Icons.newspaper_outlined),label:Text('Berita')),
               NavigationRailDestination(icon:Icon(Icons.home_outlined),label:Text('Beranda')),
               NavigationRailDestination(icon:Icon(Icons.auto_awesome_outlined),label:Text('Inovasi')),
               NavigationRailDestination(icon:Icon(Icons.person_outline),label:Text('Profil')),
@@ -258,7 +259,7 @@ class _HomeState extends State<HomePage> {
       }),
     bottomNavigationBar:MediaQuery.sizeOf(c).width>=760?null:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
-      const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
+      const NavigationDestination(icon:Icon(Icons.newspaper_outlined),selectedIcon:Icon(Icons.article),label:'Berita'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
       const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
       const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
@@ -270,6 +271,7 @@ class _HomeState extends State<HomePage> {
     case 'Kelola Pelayanan Beranda':return HomeServicesAdminPage(api:api,onSaved:load);
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
+    case 'Aktivitas':return isStaff&&capabilities['reports:view']==true?const AdminReportsPage():const HistoryPage();
     case 'Pusat Informasi':return CikokoInformationPage(api:api,onOpenNews:(item)=>Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>CivicNewsDetail(api:api,preview:item))));
     case 'Pengumuman':return feed('pengumuman');
     case 'Layanan Online':return feed('layanan');
