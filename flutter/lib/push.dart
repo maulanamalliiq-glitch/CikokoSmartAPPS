@@ -6,6 +6,9 @@ import 'api.dart';
 
 String destinationForPushCategory(String category,{required bool isStaff}) {
   if(category=='chat')return isStaff?'Pesan Masuk':'Hubungi Kami';
+  if(category=='berita')return 'Berita & Kegiatan';
+  if(category=='inovasi')return 'Inovasi';
+  if(category=='pengumuman')return 'Pengumuman';
   if(category=='surat'||category=='progres_surat'||category=='laporan_masuk')return isStaff?'Verifikasi Laporan':'Riwayat';
   return 'Notifikasi';
 }
