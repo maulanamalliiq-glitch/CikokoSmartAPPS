@@ -14,7 +14,7 @@ class CikokoApi {
   final _storage = const FlutterSecureStorage();
   String? token;
   Map<String,dynamic>? profile;
-  Future<void> restore() async { token = await _storage.read(key:'cikoko_token'); if(token!=null) {try {profile = (await call('me'))['user'] as Map<String,dynamic>?;}catch(_) {await logout();}} }
+  Future<void> restore() async { token = await _storage.read(key:'cikoko_token'); if(token!=null) {try {profile = (await call('me'))['user'] as Map<String,dynamic>?;}catch(_) {/* Saat server sementara tidak tersedia, jangan hapus sesi tersimpan. */}} }
   Future<Map<String,dynamic>> call(String action, {Map<String,dynamic>? body, bool authorized = false}) async {
     final u=Uri.parse('${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action');
     try {

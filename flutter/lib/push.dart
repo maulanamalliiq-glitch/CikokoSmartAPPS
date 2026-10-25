@@ -64,7 +64,7 @@ class PushService {
     if(events.isEmpty)return;
     final nowIds=events.map((e)=>'${e['id']??''}').where((id)=>id.isNotEmpty).toSet();
     if(!_seeded){_seenEventIds.addAll(nowIds);_seeded=true;return;}
-    final newer=events.where((e)=>!_seenEventIds.contains('${e['id']??''}')).take(3).toList();
+    final newer=events.where((e)=>!_seenEventIds.contains('${e['id']??''}') && '${e['is_read']??0}'!='1' && e['is_read']!=true).take(3).toList();
     _seenEventIds.addAll(nowIds);
     if(_seenEventIds.length>350){_seenEventIds.clear();_seenEventIds.addAll(nowIds);}
     if(!_initialized)return;
