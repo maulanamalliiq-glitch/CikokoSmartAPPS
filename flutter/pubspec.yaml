@@ -18,6 +18,8 @@ dependencies:
   flutter_svg: ^2.2.1
   webview_flutter: ^4.10.0
   printing: ^5.14.2
+  # Image 4.11.0 had an overly loose archive constraint; 4.11.1 corrects it.
+  image: ^4.11.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
