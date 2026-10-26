@@ -25,7 +25,7 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
   late String category;
   late Future<Map<String,dynamic>> request;
   @override void initState(){super.initState();category=widget.initialCategory;reload();}
-  void reload(){request=widget.api.call('public_letters');if(mounted)setState((){});}
+  void reload(){request=widget.api.call('public_letter_status');if(mounted)setState((){});}
   static const tabs={
     'all':'Semua',
     'masuk':'Surat Masuk',
@@ -88,7 +88,15 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
             label:const Text('Coba lagi')),
         ])));
       if(!s.hasData)return const Center(child:CircularProgressIndicator());
-      final rows=List<dynamic>.from(s.data!['items']??[]);
+      final rows=List<dynamic>.from(s.data!['items']??[]).map((raw){
+        final data=Map<String,dynamic>.from(raw as Map);
+        return <String,dynamic>{
+          'reference':data['reference_no']??data['reference']??'-',
+          'bucket':data['category']??data['bucket']??'proses',
+          'status':data['status']??'Belum diketahui',
+          'title':'Surat Pengantar RT/RW',
+        };
+      }).toList();
       final filtered=rows.where((e)=>category=='all'||e['bucket']==category).toList();
       if(filtered.isEmpty)return const Center(child:Text('Belum ada pengajuan dalam kategori ini.'));
       return RefreshIndicator(onRefresh:()async{reload();await request;},
@@ -97,7 +105,7 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
           itemBuilder:(ctx,i){
             if(i==filtered.length)return const Padding(
               padding:EdgeInsets.all(14),
-              child:Text('Menampilkan hingga 80 nomor pengajuan terbaru. Identitas dan dokumen tidak ditampilkan.',
+              child:Text('Menampilkan hingga 200 nomor pengajuan terbaru. Identitas dan dokumen tidak ditampilkan.',
                 style:TextStyle(color:Colors.blueGrey,fontSize:11)));
             final data=Map<String,dynamic>.from(filtered[i] as Map);
             return Card(child:ListTile(
