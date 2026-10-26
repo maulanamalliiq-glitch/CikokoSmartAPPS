@@ -20,6 +20,7 @@ function cikoko_letters_schema(PDO $db):void {
             rw_officer_id VARCHAR(80) NOT NULL,
             subject VARCHAR(180) NOT NULL,
             notes TEXT NOT NULL,
+            form_json LONGTEXT NULL,
             status VARCHAR(25) NOT NULL DEFAULT "menunggu_rt",
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -27,6 +28,9 @@ function cikoko_letters_schema(PDO $db):void {
             INDEX idx_rt_officer(rt_officer_id,status),
             INDEX idx_rw_officer(rw_officer_id,status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        // Additive migration for existing V2513 data. Never remove previous requests.
+        $column=$db->query("SHOW COLUMNS FROM mobile_rt_rw_letters LIKE 'form_json'")->fetch();
+        if(!$column)$db->exec('ALTER TABLE mobile_rt_rw_letters ADD COLUMN form_json LONGTEXT NULL AFTER notes');
         $db->exec('CREATE TABLE IF NOT EXISTS mobile_rt_rw_letter_history (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             letter_id BIGINT UNSIGNED NOT NULL,
@@ -106,24 +110,41 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
         // Nomor wilayah dari profil tersimpan, tidak menerima RT/RW buatan klien.
         $officerRt=cikoko_officer_for('rt',$rt,$rw);
         $officerRw=cikoko_officer_for('rw',$rt,$rw);
-        $b=mobile_body();$subject=mobile_text($b['subject']??'',180);
-        $notes=mobile_text($b['notes']??'',1200);
-        if(mobile_strlen($subject)<5||mobile_strlen($notes)<10)
-            mobile_error('Isi keperluan (minimal 5 karakter) dan uraian (minimal 10 karakter).',422);
+        $b=mobile_body();
+        if(!isset($b['form'])||!is_array($b['form']))mobile_error('Formulir surat versi baru wajib diisi. Perbarui aplikasi Cikoko.',422);
+        $raw=$b['form'];$form=[];
+        $max=['nama'=>160,'tempat_lahir'=>120,'tanggal_lahir'=>10,'no_ktp_kk'=>40,
+            'agama'=>70,'kewarganegaraan'=>70,'pendidikan'=>120,'jenis_kelamin'=>40,
+            'status'=>100,'pekerjaan'=>160,'alamat'=>600,'maksud_keperluan'=>600];
+        foreach($max as $key=>$maxLen){
+            if(!array_key_exists($key,$raw)||!is_string($raw[$key]))
+                mobile_error('Kolom formulir surat wajib dilengkapi: '.$key,422);
+            $form[$key]=mobile_text($raw[$key],$maxLen);
+            if($form[$key]==='')mobile_error('Kolom formulir surat wajib dilengkapi: '.$key,422);
+        }
+        if(!preg_match('/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/D',$form['tanggal_lahir'],$d)
+            || !checkdate((int)$d[2],(int)$d[3],(int)$d[1])
+            || $form['tanggal_lahir']>date('Y-m-d'))
+            mobile_error('Tanggal lahir harus tanggal yang valid.',422);
+        if(mobile_strlen($form['no_ktp_kk'])<8)mobile_error('No. KTP/KK tidak valid.',422);
+        if(!in_array($form['jenis_kelamin'],['Laki-laki','Perempuan'],true))
+            mobile_error('Jenis kelamin tidak valid.',422);
+        $subject=$form['maksud_keperluan'];$notes='';
+        $formJson=json_encode($form,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         $last=$db->prepare('SELECT created_at FROM mobile_rt_rw_letters WHERE applicant_id=? ORDER BY id DESC LIMIT 1');
         $last->execute([$uid]);$at=$last->fetchColumn();
         if($at!==false && strtotime((string)$at)>time()-120)mobile_error('Mohon beri jeda sebelum mengirim permohonan baru.',429);
-        $st=$db->prepare('INSERT INTO mobile_rt_rw_letters(applicant_id,applicant_name,applicant_address,rt,rw,rt_officer_id,rw_officer_id,subject,notes,status)
-             VALUES(?,?,?,?,?,?,?,?,?,"menunggu_rt")');
-        $st->execute([$uid,mobile_text($profile['name']??'',160),$address,$rt,$rw,
-            (string)$officerRt['id'],(string)$officerRw['id'],$subject,$notes]);
+        $st=$db->prepare('INSERT INTO mobile_rt_rw_letters(applicant_id,applicant_name,applicant_address,rt,rw,rt_officer_id,rw_officer_id,subject,notes,form_json,status)
+             VALUES(?,?,?,?,?,?,?,?,?,?,"menunggu_rt")');
+        $st->execute([$uid,$form['nama'],$form['alamat'],$rt,$rw,
+            (string)$officerRt['id'],(string)$officerRw['id'],$subject,$notes,$formJson]);
         $id=(int)$db->lastInsertId();
         mobile_emit('rt_rw_surat','Permohonan pengantar baru','Ada permohonan pengantar RT/RW untuk wilayah tugas Anda.','personal',(string)$officerRt['id']);
         mobile_json(['ok'=>true,'id'=>$id,'status'=>'menunggu_rt','rt'=>$rt,'rw'=>$rw]);
     }
     if($action==='rt_rw_list'){
         if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
-        $sql='SELECT id,applicant_name,applicant_address,rt,rw,subject,notes,status,created_at,updated_at FROM mobile_rt_rw_letters';
+        $sql='SELECT id,applicant_name,applicant_address,rt,rw,subject,notes,form_json,status,created_at,updated_at FROM mobile_rt_rw_letters';
         $args=[];
         if($role==='warga'){$sql.=' WHERE applicant_id=?';$args=[$uid];}
         elseif($role==='rt'){$sql.=' WHERE rt_officer_id=?';$args=[$uid];}
@@ -131,7 +152,15 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
         elseif(!in_array($role,['admin','admin_kelurahan'],true))mobile_error('Anda tidak memiliki akses ke daftar surat.',403);
         $sql.=' ORDER BY id DESC LIMIT 100';
         $st=$db->prepare($sql);$st->execute($args);
-        mobile_json(['ok'=>true,'items'=>$st->fetchAll()]);
+        $items=$st->fetchAll(PDO::FETCH_ASSOC);
+        foreach($items as &$item){
+            $form=json_decode((string)($item['form_json']??''),true);
+            $item['form']=is_array($form)?$form:null;
+            unset($item['form_json']);
+            $item['rt']=cikoko_area($item['rt']??'','RT');
+            $item['rw']=cikoko_area($item['rw']??'','RW');
+        }unset($item);
+        mobile_json(['ok'=>true,'items'=>$items]);
     }
     if($action==='rt_rw_decide'){
         if($method!=='POST')mobile_error('Metode tidak diperbolehkan.',405);
@@ -151,8 +180,8 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
             if(!$letter)mobile_error('Permohonan tidak ditemukan.',404);
             $expected=$role==='rt'?'menunggu_rt':'menunggu_rw';
             $key=$role==='rt'?'rt_officer_id':'rw_officer_id';
-            if(cikoko_area($officer['rw']??'','RW',false)!==(string)$letter['rw']
-                || ($role==='rt' && cikoko_area($officer['rt']??'','RT',false)!==(string)$letter['rt']))
+            if(cikoko_area($officer['rw']??'','RW',false)!==cikoko_area($letter['rw']??'','RW',false)
+                || ($role==='rt' && cikoko_area($officer['rt']??'','RT',false)!==cikoko_area($letter['rt']??'','RT',false)))
                 mobile_error('Wilayah tugas Anda telah berubah. Hubungi Admin Kelurahan untuk tindak lanjut.',403);
             if((string)$letter[$key]!==$uid || $letter['status']!==$expected)
                 mobile_error('Permohonan bukan pada tahap atau wilayah tugas Anda.',403);
