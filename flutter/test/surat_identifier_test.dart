@@ -14,5 +14,10 @@ void main() {
         'AW-20261026-E4C39D56');
     expect(cikokoWarisReference({'kind': 'report', 'reference': 'AW-20261026-E4C39D56'}), isNull);
     expect(cikokoWarisReference({'kind': 'waris', 'reference': 'not-valid'}), isNull);
+    expect(cikokoWarisReference({'kind': 'report', 'title': 'AW-20261027-6EAD7D63'}),
+        'AW-20261027-6EAD7D63');
+    expect(cikokoDocumentKind({'kind': 'report', 'title': 'AW-20261026-E4C39D56'}), 'waris');
+    expect(cikokoDocumentKind({'kind': 'report', 'title': 'jumantik'}), 'report');
+    expect(cikokoPositiveId({'id': null, 'request_id': '54'}), 54);
   });
 }
