@@ -14,6 +14,7 @@ import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
+import 'rt_rw_letters.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -31,7 +32,7 @@ class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPag
 class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
- Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
+ Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
  @override
  Widget build(BuildContext context) {
    final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
@@ -63,6 +64,8 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                        'password': 'Password',
                        'confirm': 'Ulangi password',
                        'address': 'Alamat lengkap',
+                       'rt': 'Nomor RT (contoh: 003)',
+                       'rw': 'Nomor RW (contoh: 010)',
                        'phone': 'Nomor telepon',
                        'email': 'Email',
                      }.entries)
@@ -71,7 +74,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                          child: TextField(
                            controller: ctrl(entry.key),
                            obscureText: entry.key == 'password' || entry.key == 'confirm',
-                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : entry.key == 'phone' ? TextInputType.phone : TextInputType.text,
+                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : (entry.key == 'phone' || entry.key == 'rt' || entry.key == 'rw') ? TextInputType.number : TextInputType.text,
                            decoration: InputDecoration(labelText: entry.value),
                          ),
                        )
@@ -165,7 +168,7 @@ class _HomeState extends State<HomePage> {
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route=='Surat Pengantar RT/RW'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -196,7 +199,8 @@ class _HomeState extends State<HomePage> {
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
-    'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
+    'Surat Ahli Waris'=>Icons.description_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
+    'Surat Wilayah'=>Icons.fact_check_outlined,'Wilayah Ketua RT/RW'=>Icons.location_city_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
@@ -240,6 +244,9 @@ class _HomeState extends State<HomePage> {
     case 'Layanan Online':return feed('layanan');
     case 'Galeri':return feed('galeri');
     case 'Surat Ahli Waris':return const WarisForm();
+    case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
+    case 'Surat Wilayah':return RtRwLettersPage(api:api);
+    case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
     case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
@@ -284,7 +291,7 @@ class _HomeState extends State<HomePage> {
   }
   List<RoleFeature> get homeShortcuts {
     if(role=='warga'||guest){
-      final wanted=['Layanan Online','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
+      final wanted=['Layanan Online','Surat Pengantar RT/RW','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
       return wanted.map((route)=>roleFeatures.values.firstWhere((f)=>f.route==route)).toList();
     }
     return modules.take(6).toList();
@@ -314,7 +321,7 @@ class _HomeState extends State<HomePage> {
         childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
         children:[
           CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Surat Keterangan',description:'Ahli waris dan lainnya',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Ahli Waris')),
+          CikokoServiceTile(title:'Surat Pengantar RT/RW',description:'Dikirim sesuai alamat warga',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Pengantar RT/RW')),
           CikokoServiceTile(title:'Layanan PBB',description:'Informasi pajak daerah',icon:Icons.receipt_long_outlined,accent:const Color(0xff386bd9),onTap:()=>switchTo('Layanan Online')),
           CikokoServiceTile(title:'Pengaduan',description:'Kirim pesan ke petugas',icon:Icons.support_agent_outlined,accent:const Color(0xffe88a25),onTap:()=>switchTo('Hubungi Kami')),
           CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
