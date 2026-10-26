@@ -22,6 +22,7 @@ jobs:
           find cpanel/mobile-api -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php qa/test_v2513_territory.php
           php qa/test_v2516_waris_documents.php
+          php qa/test_v2519_waris_stage.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -41,27 +42,27 @@ jobs:
       - name: Flutter widget and role tests
         working-directory: flutter
         run: flutter test
-      - name: Build V2518 release bundle and universal APK
+      - name: Build V2519 release bundle and universal APK
         working-directory: flutter
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/out-v2518"
+          mkdir -p "$GITHUB_WORKSPACE/out-v2519"
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-unsigned.aab"
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2519/Cikoko-v2519-unsigned.aab"
           flutter build apk --release
           test -s build/app/outputs/flutter-apk/app-release.apk
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-universal-unsigned.apk"
-          test -s "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-unsigned.aab"
-          test -s "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-universal-unsigned.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2519/Cikoko-v2519-universal-unsigned.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2519/Cikoko-v2519-unsigned.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2519/Cikoko-v2519-universal-unsigned.apk"
           # Keep official SDK signing utilities as internal CI artifact for signing offline.
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           APKSIGNER_JAR=$(find "$SDK_ROOT/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)
           test -s "$APKSIGNER_JAR"
-          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2518/apksigner.jar"
-      - name: Upload V2518 release for local signing
+          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2519/apksigner.jar"
+      - name: Upload V2519 release for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2518-ANDROID-RELEASE-UNSIGNED
-          path: out-v2518/
+          name: Cikoko-v2519-ANDROID-RELEASE-UNSIGNED
+          path: out-v2519/
           if-no-files-found: error
           retention-days: 14
