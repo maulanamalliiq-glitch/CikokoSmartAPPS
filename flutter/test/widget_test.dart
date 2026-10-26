@@ -7,8 +7,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: LoginPage(onLogin: () {})));
     await tester.tap(find.text('Daftar Akun Warga →'));
     await tester.pump();
-    expect(find.text('Nomor RT (contoh: 003)'), findsOneWidget);
-    expect(find.text('Nomor RW (contoh: 010)'), findsOneWidget);
+    expect(find.text('RT (contoh: 02)'), findsOneWidget);
+    expect(find.text('RW (contoh: 05)'), findsOneWidget);
   });
   testWidgets('Login page is native Flutter', (tester) async {
     await tester.pumpWidget(MaterialApp(home: LoginPage(onLogin: () {})));
