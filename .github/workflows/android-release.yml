@@ -77,8 +77,8 @@ jobs:
           flutter build apk --release
           test -s build/app/outputs/flutter-apk/app-release.apk
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
-          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-unsigned.aab"
-          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-unsigned.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-release.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
           # Keep official SDK signing utilities as internal CI artifact for signing offline.
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           APKSIGNER_JAR=$(find "$SDK_ROOT/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)
