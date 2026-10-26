@@ -18,7 +18,7 @@ class _CivicAdministrationState extends State<CivicAdministrationPage> {
   catalog.then((v){if(mounted)setState(()=>scope=v['scope'] is Map?Map<String,dynamic>.from(v['scope']):null);}).catchError((_){});
  }
  Future<void> refresh()async{setState(reload);try{await Future.wait([data,catalog]);}catch(_){}}
- String get role=(widget.api.profile?['role']??'warga').toString();
+ String get role=>(widget.api.profile?['role']??'warga').toString();
  Future<void> create(String kind)async{
   final changed=await Navigator.of(context).push<bool>(MaterialPageRoute(builder:(_)=>CivicNewDocument(api:widget.api,kind:kind)));
   if(changed==true)await refresh();
