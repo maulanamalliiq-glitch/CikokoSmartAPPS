@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
+import 'surat_identifier.dart';
 import 'rt_rw_pdf_page.dart';
 import 'rt_rw_signer_page.dart';
 
@@ -99,6 +100,8 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
   }
 
   Future<void> decide(Map<String, dynamic> letter) async {
+    final id=cikokoPositiveId(letter);
+    if(id==null){flash('ID surat RT/RW belum tersedia. Muat ulang daftar.');if(mounted)setState(refresh);return;}
     final reason = TextEditingController(), password = TextEditingController();
     String decision = 'approve';
     try {
@@ -150,7 +153,7 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
       );
       if (approved != true) return;
       await widget.api.call('rt_rw_decide', body: {
-        'id': letter['id'], 'decision': decision,
+        'id': id, 'decision': decision,
         'note': reason.text.trim(), 'current_password': password.text,
       });
       if (mounted) setState(refresh);
@@ -160,6 +163,8 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
   }
 
   Future<void> reaffirmLegacy(Map<String,dynamic> letter) async {
+    final id=cikokoPositiveId(letter);
+    if(id==null){flash('ID surat RT/RW belum tersedia. Muat ulang daftar.');if(mounted)setState(refresh);return;}
     final password=TextEditingController();
     try{
       final submit=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(
@@ -178,7 +183,7 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
       ));
       if(submit!=true)return;
       await widget.api.call('rt_rw_reaffirm',body:{
-        'id':letter['id'],'decision':'approve','current_password':password.text,
+        'id':id,'decision':'approve','current_password':password.text,
       });
       if(mounted)setState(refresh);
       flash('TTD untuk persetujuan lama berhasil direkam.');
@@ -268,18 +273,18 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
                    TextButton.icon(icon:const Icon(Icons.draw_outlined),
                      label:const Text('Lengkapi TTD Surat Lama'),
                      onPressed:()=>reaffirmLegacy(letter)),
-                 if (letter['status']=='terverifikasi')
+                 if (letter['status']=='terverifikasi' && cikokoPositiveId(letter)!=null)
                    Wrap(spacing:8,children:[
                      TextButton.icon(icon:const Icon(Icons.picture_as_pdf_outlined),
                        label:const Text('Lihat PDF'),
                        onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(
                          builder:(_)=>RtRwPdfPage(api:widget.api,
-                           id:int.parse('${letter['id']}'))))),
+                           id:cikokoPositiveId(letter)!)))),
                      OutlinedButton.icon(icon:const Icon(Icons.download_outlined),
                        label:const Text('Unduh PDF'),
                        onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(
                          builder:(_)=>RtRwPdfPage(api:widget.api,
-                           id:int.parse('${letter['id']}'))))),
+                           id:cikokoPositiveId(letter)!)))),
                    ]),
                 if (canVerify && ((role == 'rt' && letter['status'] == 'menunggu_rt') ||
                     (role == 'rw' && letter['status'] == 'menunggu_rw')))
