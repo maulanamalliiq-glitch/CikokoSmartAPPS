@@ -24,6 +24,7 @@ class DocumentDetailSheet extends StatefulWidget {
 }
 class _DocumentDetailState extends State<DocumentDetailSheet> {
   late Future<Map<String,dynamic>> request;
+  int? resolvedApplicationId;
   final reason=TextEditingController();
   final Set<String> selected={};
   final Map<String,String> replacementPhotos={};
@@ -39,6 +40,14 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
         if(widget.id>0)'id':widget.id.toString(),
         'kind':widget.kind,
         if(widget.reference.trim().isNotEmpty)'reference':widget.reference.trim(),
+      }).then((result) {
+        final rawDetail=result['detail'];
+        if(rawDetail is Map) {
+          final rawId=rawDetail['id'];
+          final id=rawId is int ? rawId : int.tryParse('${rawId ?? ''}');
+          if(id!=null && id>0)resolvedApplicationId=id;
+        }
+        return result;
       });
     }
     if(mounted)setState((){});
@@ -46,17 +55,21 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
   String v(dynamic x)=>x==null||'$x'.trim().isEmpty?'—':'$x';
   Future<void> askCorrections()async{
     if(selected.isEmpty||reason.text.trim().isEmpty){message('Pilih dokumen yang kurang dan tulis catatan.',error:true);return;}
+    final id=resolvedApplicationId??widget.id;
+    if(id<=0){message('ID pengajuan resmi belum diterima. Buka ulang detail surat.',error:true);return;}
     setState(()=>submitting=true);
     try{
-      await widget.api.call('waris_request_correction',body:{'id':widget.id,'codes':selected.toList(),'notes':reason.text.trim()});
+      await widget.api.call('waris_request_correction',body:{'id':id,'codes':selected.toList(),'notes':reason.text.trim()});
       selected.clear();reason.clear();widget.onChanged?.call();reload();message('Permintaan perbaikan dikirim ke warga.');
     }catch(e){message('$e',error:true);}finally{if(mounted)setState(()=>submitting=false);}
   }
   Future<void> uploadCorrections()async{
     if(replacementPhotos.isEmpty){message('Pilih dokumen yang akan diunggah ulang.',error:true);return;}
+    final id=resolvedApplicationId??widget.id;
+    if(id<=0){message('ID pengajuan resmi belum diterima. Buka ulang detail surat.',error:true);return;}
     setState((){submitting=true;progress=0;});
     try {
-      await widget.api.upload('waris_resubmit',{'application_id':'${widget.id}'},
+      await widget.api.upload('waris_resubmit',{'application_id':'$id'},
         {for(final entry in replacementPhotos.entries) entry.key:[entry.value]},
         progress:(p){if(mounted)setState(()=>progress=p);});
       replacementPhotos.clear();widget.onChanged?.call();reload();message('Dokumen berhasil dikirim. Petugas akan memeriksa ulang.');
