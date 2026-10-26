@@ -423,6 +423,7 @@ class _HomeState extends State<HomePage> {
     if(!mounted)return;
     final category='${event['category']??''}';
     if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
+    if(category=='rt_rw_surat'||category=='rt_rw_status'){switchTo(isStaff?'Surat Wilayah':'Surat Pengantar RT/RW');return;}
     if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
       switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
     }
