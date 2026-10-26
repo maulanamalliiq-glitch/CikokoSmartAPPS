@@ -56,7 +56,7 @@ if($action==='register'&&$method==='POST'){
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
-if($action==='public_letters'&&$method==='GET'){
+if(in_array($action,['public_letters','public_letter_status'],true)&&$method==='GET'){
  require_once __DIR__.'/public_letters.php';
  cikoko_public_letters(mobile_db());
 }
