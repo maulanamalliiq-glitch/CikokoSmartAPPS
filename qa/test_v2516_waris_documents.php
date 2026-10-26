@@ -33,4 +33,21 @@ check(str_contains($dart,"date:const ['birthdate','marriage_date','deathdate']")
 check(str_contains($dart,"TextInputType.phone"),'phone uses telephone keyboard');
 check(str_contains($dart,"Pengajuan Ahli Waris Belum Lengkap"),'all missing items detailed in dialog');
 
+
+$regexDate=<<<'DART'
+RegExp(r'^\d{4}-\d{2}-\d{2}
+)
+DART;
+$regexNik=<<<'DART'
+RegExp(r'^\d{16}
+)
+DART;
+$regexPhone=<<<'DART'
+RegExp(r'^\+?[0-9]{8,16}
+)
+DART;
+check(str_contains($dart,$regexDate),'date regex uses a single backslash for digit class');
+check(str_contains($dart,$regexNik),'NIK regex uses a single backslash for digit class');
+check(str_contains($dart,$regexPhone),'telephone regex accepts optional plus and numbers');
+
 echo "V2516 waris individual-document tests passed.\n";
