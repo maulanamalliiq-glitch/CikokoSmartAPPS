@@ -21,17 +21,19 @@ if($action==='health'){
         'api_permissions'=>is_file(__DIR__.'/permissions.php'),
         'api_rt_rw'=>is_file(__DIR__.'/rt_rw_letters.php'),
         'api_territory'=>is_file(__DIR__.'/territory.php'),
+        'api_surat_identity'=>is_file(__DIR__.'/surat_identity_v2525.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2.5.14','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2.5.25','build'=>'V2525-HARDCHECK-ID','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
 require __DIR__.'/territory.php';
+require_once __DIR__.'/surat_identity_v2525.php';
 
 if($action==='login'&&$method==='POST'){
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
@@ -265,15 +267,34 @@ if($action==='waris'&&$method==='POST'){
 if($action==='history'){
  $st=$db->prepare('SELECT id,kind AS title,"report" AS kind,status,created_at FROM mobile_reports WHERE user_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=$st->fetchAll();
  try{$st=$db->prepare('SELECT id,reference_no AS reference,"Ahli Waris" AS title,"waris" AS kind,status,created_at FROM aw_applications WHERE account_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=array_merge($rows,$st->fetchAll());}catch(Throwable $e){error_log('waris history: '.$e->getMessage());}
- usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));mobile_json(['ok'=>true,'items'=>array_slice($rows,0,100)]);
+ usort($rows,fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));
+ foreach($rows as &$entry){$entry=cikoko_v2525_identity_row($entry,($entry['kind']??'report')==='waris'?'waris':'report');}unset($entry);
+ mobile_json(['ok'=>true,'api_build'=>'V2525-HARDCHECK-ID','items'=>array_slice($rows,0,100)]);
 }
 if($action==='admin_reports'){
  mobile_need($u,'reports:view');$rows=$db->query('SELECT id,kind AS title,user_name AS name,"report" AS kind,status,created_at FROM mobile_reports ORDER BY id DESC LIMIT 100')->fetchAll();
  try{$rows=array_merge($rows,$db->query('SELECT id,reference_no AS reference,applicant_name AS name,"waris" AS kind,status,created_at FROM aw_applications ORDER BY id DESC LIMIT 100')->fetchAll());}catch(Throwable $e){}
- mobile_json(['ok'=>true,'items'=>$rows]);
+ foreach($rows as &$entry){$entry=cikoko_v2525_identity_row($entry,($entry['kind']??'report')==='waris'?'waris':'report');}unset($entry);
+ mobile_json(['ok'=>true,'api_build'=>'V2525-HARDCHECK-ID','items'=>$rows]);
 }
 if($action==='status'&&$method==='POST'){
- mobile_need($u,'reports:verify');$b=mobile_body();$status=mobile_text($b['status']??'',20);$kind=mobile_text($b['kind']??'',20);$id=(int)($b['id']??0);if(!$id||!in_array($status,['masuk','proses','revisi','selesai','ditolak'],true))mobile_error('Status salah',422);
+ mobile_need($u,'reports:verify');
+ $b=mobile_body();if(!$b && !empty($_POST))$b=$_POST;
+ $status=strtolower(mobile_text($b['status']??$b['new_status']??'',40));
+ $status=['diproses'=>'proses','dalam proses'=>'proses','disetujui'=>'selesai','perbaikan'=>'revisi'][$status]??$status;
+ $kind=strtolower(mobile_text($b['kind']??'report',24));
+ $awRef=cikoko_v2525_reference_from_input($b);
+ if($awRef!=='')$kind='waris';
+ if(!in_array($kind,['report','waris'],true))mobile_error('Jenis permohonan tidak dikenal',422);
+ $id=0;
+ foreach(['id','application_id','request_id','report_id','reference_no','reference','document_key','title'] as $field){
+  if(!array_key_exists($field,$b))continue;
+  $candidate=cikoko_v2525_identifier($db,$b[$field],$kind);
+  if($candidate>0){$id=$candidate;break;}
+ }
+ if($id<1 && $awRef!=='')$id=cikoko_v2525_identifier($db,$awRef,'waris');
+ if($id<1){error_log('[Cikoko V2525] status: missing numeric ID, kind='.$kind.', submitted_keys='.implode(',',array_intersect(array_keys($b),['id','reference','reference_no','title','document_key'])));mobile_error('API belum menerima ID surat yang valid. Periksa versi server dan muat ulang daftar.',422);}
+ if(!in_array($status,['masuk','proses','revisi','selesai','ditolak'],true))mobile_error('Status tidak dikenal',422);
  if($kind==='waris'){
   $st=$db->prepare('SELECT account_id,status FROM aw_applications WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)mobile_error('Permohonan tidak ditemukan',404);
   $db->prepare('UPDATE aw_applications SET status=? WHERE id=?')->execute([$status,$id]);$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,?,?,?,?)')->execute([$id,$row['status'],$status,$uid,'Pembaruan via aplikasi']);$owner=$row['account_id'];
