@@ -15,6 +15,7 @@ import 'document_detail.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
 import 'rt_rw_letters.dart';
+import 'rt_rw_signer_page.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -181,6 +182,7 @@ class _HomeState extends State<HomePage> {
     setState(() {
       section=s;
       if(s=='Dashboard'){nav=2;}
+      else if(s=='Berita & Kegiatan'){nav=1;}
       else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
       else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=1;}
@@ -190,7 +192,7 @@ class _HomeState extends State<HomePage> {
   }
   void selectNav(int value){
     if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==1){switchTo('Berita & Kegiatan');return;}
     if(value==2){switchTo('Dashboard');return;}
     if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
@@ -229,7 +231,7 @@ class _HomeState extends State<HomePage> {
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
-      const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
+      const NavigationDestination(icon:Icon(Icons.newspaper_outlined),selectedIcon:Icon(Icons.newspaper),label:'Berita'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
       const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
       const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
@@ -246,6 +248,7 @@ class _HomeState extends State<HomePage> {
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
+    case 'TTD & Stempel':return RtRwSignerPage(api:api);
     case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
