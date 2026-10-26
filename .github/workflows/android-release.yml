@@ -22,7 +22,8 @@ jobs:
           find cpanel/mobile-api -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php qa/test_v2513_territory.php
           php qa/test_v2516_waris_documents.php
-          php qa/test_v2520_waris_stage.php
+          php qa/test_v2519_waris_stage.php
+          php qa/test_v2520_public_letters.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
