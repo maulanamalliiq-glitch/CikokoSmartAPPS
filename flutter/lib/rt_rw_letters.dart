@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
+import 'rt_rw_pdf_page.dart';
+import 'rt_rw_signer_page.dart';
 
 /// Alur verifikasi wilayah. Tidak menerbitkan TTE, stempel, atau PDF.
 String cikokoAreaLabel(dynamic area) {
@@ -167,6 +169,11 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
       const SizedBox(height: 8),
       const Text('Wilayah penerima mengikuti RT/RW yang tersimpan pada profil warga.'),
       const SizedBox(height: 12),
+      if (canVerify) Padding(padding:const EdgeInsets.only(bottom:12),
+        child:OutlinedButton.icon(
+          onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(
+            builder:(_)=>RtRwSignerPage(api:widget.api))),
+          icon:const Icon(Icons.draw_outlined),label:const Text('Atur TTD & Stempel Petugas'))),
       if (isWarga) Card(child: Padding(padding: const EdgeInsets.all(14), child:
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('RT '+cikokoAreaLabel(widget.api.profile?['rt'])+
@@ -230,6 +237,19 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
                 const SizedBox(height: 8),
                 Text(statusLabel('${letter['status'] ?? ''}'),
                   style: const TextStyle(fontWeight: FontWeight.w600)),
+                 if (letter['status']=='terverifikasi')
+                   Wrap(spacing:8,children:[
+                     TextButton.icon(icon:const Icon(Icons.picture_as_pdf_outlined),
+                       label:const Text('Lihat PDF'),
+                       onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(
+                         builder:(_)=>RtRwPdfPage(api:widget.api,
+                           id:int.parse('${letter['id']}'))))),
+                     OutlinedButton.icon(icon:const Icon(Icons.download_outlined),
+                       label:const Text('Unduh PDF'),
+                       onPressed:()=>Navigator.of(context).push(MaterialPageRoute<void>(
+                         builder:(_)=>RtRwPdfPage(api:widget.api,
+                           id:int.parse('${letter['id']}'))))),
+                   ]),
                 if (canVerify && ((role == 'rt' && letter['status'] == 'menunggu_rt') ||
                     (role == 'rw' && letter['status'] == 'menunggu_rw')))
                   Align(alignment: Alignment.centerRight, child: TextButton.icon(
@@ -241,8 +261,8 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
         },
       ),
       const SizedBox(height: 12),
-      const Text('Persetujuan RT/RW belum menghasilkan surat PDF resmi atau tanda tangan/stempel digital. '
-        'Surat resmi hanya boleh diterbitkan setelah modul penerbitan dan otorisasi siap.',
+      const Text('PDF tersedia setelah persetujuan RT dan RW dengan TTD/stempel dari petugas yang berwenang. '
+        'Gambar TTD/cap tidak sama dengan TTE tersertifikasi; nomor REG adalah register sistem.',
         style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
     ]);
   }
