@@ -584,7 +584,7 @@ class _PhotoState extends State<PhotoInput> {
             OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.camera),icon:const Icon(Icons.camera_alt_outlined,size:16),label:const Text('Kamera',style:TextStyle(fontSize:12))),
             OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.gallery),icon:const Icon(Icons.photo_library_outlined,size:16),label:const Text('Galeri',style:TextStyle(fontSize:12))),
           ]),
-          Text(selectedName??'Belum ada foto',maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
+          Text(selectedName??(selectedPath==null?'Belum ada foto':'Foto sudah dipilih'),maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
         ]))
       ]),
     ])));
@@ -598,8 +598,111 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
  static const requiredPhotos=<String,String>{'r1':'Surat pengantar RT/RW','r2':'Surat permohonan','r3':'Surat pernyataan keabsahan','r4_ktp':'KTP Ahli Waris','r4_kk':'KK Ahli Waris','r4_akta':'Akta Lahir Ahli Waris','r5':'Surat kematian','r6':'Surat nikah'};
  static const optionalPhotos=<String,String>{'r7':'Akta cerai (jika bercerai)','r8':'Surat kematian ahli waris (jika ada)'};
  static const childPhotos=<String,String>{'ktp':'KTP','kk':'KK','akta':'Akta Lahir'};
- Future<void> send()async{if(sending)return;for(final k in ['name','nik','phone','address','relation','deceased_name','heirs']){if(v(k).text.trim().isEmpty){notify(context,'Lengkapi ${names[k]}',error:true);return;}}if(!RegExp(r'^\d{16}$').hasMatch(v('nik').text)){notify(context,'NIK harus 16 digit',error:true);return;}for(final k in requiredPhotos.keys){if((files[k]??[]).isEmpty){notify(context,'Upload ${requiredPhotos[k]}',error:true);return;}}for(var i=1;i<=children;i++){for(final e in childPhotos.entries){if((files['child_${i}_${e.key}']??[]).isEmpty){notify(context,'Upload ${e.value} anak ke-$i',error:true);return;}}}if(!agree){notify(context,'Setujui pernyataan data',error:true);return;}
- setState((){sending=true;progress=0;});try{final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),'declaration':'1','child_count':'$children','document_format':'split_v1'};final response=await api.upload('waris',data,files,progress:(v){if(mounted)setState(()=>progress=v);});if(mounted){notify(context,'Terkirim. Nomor: ${response['reference']}');setState(()=>sending=false);}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>sending=false);}}
+ Future<void> showIncomplete(List<String> problems)async{
+   if(!mounted)return;
+   await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
+     title:const Text('Pengajuan Ahli Waris Belum Lengkap'),
+     content:ConstrainedBox(constraints:const BoxConstraints(maxHeight:370),
+       child:SingleChildScrollView(child:Column(
+         mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,
+         children:[
+           const Text('Mohon lengkapi atau perbaiki bagian berikut sebelum mengirim:'),
+           const SizedBox(height:12),
+           for(var i=0;i<problems.length;i++)Padding(
+             padding:const EdgeInsets.only(bottom:8),
+             child:Text((i+1).toString()+'. '+problems[i],
+               style:const TextStyle(fontSize:13))),
+         ],
+       ))),
+     actions:[FilledButton(onPressed:()=>Navigator.pop(dialog),
+       child:const Text('Perbaiki Isian'))],
+   ));
+ }
+ bool validDate(String value){
+   if(!RegExp(r'^\\d{4}-\\d{2}-\\d{2}$').hasMatch(value))return false;
+   final parts=value.split('-').map(int.tryParse).toList();
+   if(parts.any((part)=>part==null))return false;
+   final date=DateTime(parts[0]!,parts[1]!,parts[2]!);
+   return date.year==parts[0]&&date.month==parts[1]&&date.day==parts[2] &&
+     !date.isAfter(DateTime.now())&&date.year>=1850;
+ }
+ Future<void> send()async{
+   if(sending)return;
+   final missing=<String>[];
+   for(final key in const ['name','nik','phone','address','relation',
+       'deceased_name','heirs']){
+     if(v(key).text.trim().isEmpty)missing.add('Isian '+(names[key]??key)+' masih kosong.');
+   }
+   final nik=v('nik').text.trim();
+   if(nik.isNotEmpty&&!RegExp(r'^\\d{16}$').hasMatch(nik)){
+     missing.add('NIK pemohon harus tepat 16 digit angka.');
+   }
+   final phone=v('phone').text.trim();
+   if(phone.isNotEmpty&&!RegExp(r'^\\+?[0-9]{8,16}$').hasMatch(phone)){
+     missing.add('Nomor HP harus 8–16 digit angka, boleh diawali tanda +.');
+   }
+   for(final key in const ['birthdate','marriage_date','deathdate']){
+     final date=v(key).text.trim();
+     if(date.isNotEmpty&&!validDate(date)){
+       missing.add((names[key]??key)+' harus dipilih dari kalender dan tidak boleh melewati hari ini.');
+     }
+   }
+   for(final entry in requiredPhotos.entries){
+     final path=photoFor(entry.key);
+     if(path==null)missing.add('Foto '+entry.value+' belum dipilih (Kamera atau Galeri).');
+     else if(!await File(path).exists())missing.add('Foto '+entry.value+' tidak ditemukan; pilih ulang fotonya.');
+   }
+   for(var i=1;i<=children;i++){
+     if(v('child_name_'+i.toString()).text.trim().isEmpty){
+       missing.add('Nama anak ke-'+i.toString()+' belum diisi.');
+     }
+     for(final entry in childPhotos.entries){
+       final key='child_'+i.toString()+'_'+entry.key;
+       final path=photoFor(key);
+       if(path==null)missing.add('Foto '+entry.value+' anak ke-'+i.toString()+' belum dipilih.');
+       else if(!await File(path).exists())missing.add('Foto '+entry.value+' anak ke-'+i.toString()+' hilang; pilih ulang.');
+     }
+   }
+   for(final entry in optionalPhotos.entries){
+     final path=photoFor(entry.key);
+     if(path!=null&&!await File(path).exists()){
+       missing.add('Foto '+entry.value+' tidak ditemukan; pilih ulang atau kosongkan.');
+     }
+   }
+   if(!agree)missing.add('Centang pernyataan kebenaran data dan foto dokumen.');
+   if(missing.isNotEmpty){await showIncomplete(missing);return;}
+
+   setState((){sending=true;progress=0;});
+   try{
+     // Reject an outdated cPanel before sending potentially sensitive documents.
+     final capability=await api.call('waris_format');
+     if(capability['upload_format']!='split_v1'){
+       throw ApiError('Server cPanel belum mendukung KTP, KK, dan Akta Lahir secara terpisah. Pasang patch API Ahli Waris terbaru.');
+     }
+     final count=requiredPhotos.length+children*childPhotos.length+
+       optionalPhotos.keys.where((key)=>photoFor(key)!=null).length;
+     final maxFiles=(capability['max_file_uploads'] as num?)?.toInt()??0;
+     if(maxFiles>0&&count>maxFiles){
+       throw ApiError('Jumlah foto '+count.toString()+' melebihi batas server ('+
+         maxFiles.toString()+' berkas). Administrator perlu menambah max_file_uploads di cPanel.');
+     }
+     final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),
+       'declaration':'1','child_count':children.toString(),
+       'document_format':'split_v1'};
+     final response=await api.upload('waris',data,files,
+       progress:(value){if(mounted)setState(()=>progress=value);});
+     if(mounted)notify(context,'Permohonan diterima. Nomor: '+(response['reference']??'-').toString());
+   }catch(e){
+     final raw=e.toString();
+     final text=raw.contains('Endpoint tidak tersedia')||
+        raw.contains('Persyaratan foto belum lengkap: r4')
+       ?'Server cPanel masih menggunakan format dokumen Ahli Waris lama (r4). '
+        'Formulir HP sudah terpisah, tetapi server perlu Patch Ahli Waris terbaru. '
+        'Foto yang sudah dipilih tetap berada dalam formulir.'
+       :raw;
+     await showIncomplete([text]);
+   }finally{if(mounted)setState(()=>sending=false);}
+ }
  @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(12),children:[const Card(child:Padding(padding:EdgeInsets.all(16),child:Text('Permohonan Pencatatan Ahli Waris\nSemua data dan foto dokumen akan diperiksa petugas. Pastikan foto terbaca.',style:TextStyle(color:navy,fontWeight:FontWeight.w600)))),Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Identitas Pemohon dan Pewaris',style:Theme.of(c).textTheme.titleMedium),const SizedBox(height:14),for(final e in names.entries)Field(e.value,v(e.key),lines:e.key=='heirs'||e.key=='address'?3:1,date:const ['birthdate','marriage_date','deathdate'].contains(e.key),keyboard:e.key=='nik'?TextInputType.number:e.key=='phone'?TextInputType.phone:TextInputType.text)]))),const SizedBox(height:12),Text('Foto Persyaratan Wajib',style:Theme.of(c).textTheme.titleMedium),for(final e in requiredPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:12),Text('Dokumen Kondisional',style:Theme.of(c).textTheme.titleMedium),for(final e in optionalPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:14),Row(children:[Expanded(child:Text('Data Anak (maksimal 10)',style:Theme.of(c).textTheme.titleMedium)),OutlinedButton(onPressed:children>=10?null:()=>setState(()=>children++),child:const Text('+ Tambah Anak'))]),for(var i=1;i<=children;i++)Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[Field('Nama anak ke-$i',v('child_name_$i')),for(final e in childPhotos.entries)PhotoInput(key:ValueKey('child_${i}_${e.key}'),label:'${e.value} anak ke-$i',currentPath:photoFor('child_${i}_${e.key}'),onChanged:(f)=>setState(()=>files['child_${i}_${e.key}']=[f]))]))),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),title:const Text('Saya menyatakan seluruh data dan foto dokumen sesuai keadaan sebenarnya.',style:TextStyle(fontSize:12))),if(sending)...[LinearProgressIndicator(value:progress),Padding(padding:const EdgeInsets.all(8),child:Text('Mengirim ${(progress*100).toStringAsFixed(0)}%'))],FilledButton.icon(onPressed:sending?null:send,icon:const Icon(Icons.send),label:const Padding(padding:EdgeInsets.all(12),child:Text('Kirim Permohonan Ahli Waris'))),const SizedBox(height:24)]);
 }
 class ReportForm extends StatefulWidget{final String kind;const ReportForm({super.key,required this.kind});@override State<ReportForm> createState()=>_ReportState();}
