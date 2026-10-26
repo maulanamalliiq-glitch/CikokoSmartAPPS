@@ -229,7 +229,7 @@ class _CikokoRtRwPageState extends State<CikokoRtRwPage> {
     } finally { password.dispose(); }
   }
   Future<void> submit() async {
-    final values = <String, TextEditingController>{for (final k in rtRwFormFields.keys): k: TextEditingController()};
+    final values = <String, TextEditingController>{for (final k in rtRwFormFields.keys) k: TextEditingController()};
     try {
       final profile = widget.api.profile ?? {};
       values['nama']!.text = (profile['name'] ?? '').toString();
