@@ -151,6 +151,9 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
             if(!$letter)mobile_error('Permohonan tidak ditemukan.',404);
             $expected=$role==='rt'?'menunggu_rt':'menunggu_rw';
             $key=$role==='rt'?'rt_officer_id':'rw_officer_id';
+            if(cikoko_area($officer['rw']??'','RW',false)!==(string)$letter['rw']
+                || ($role==='rt' && cikoko_area($officer['rt']??'','RT',false)!==(string)$letter['rt']))
+                mobile_error('Wilayah tugas Anda telah berubah. Hubungi Admin Kelurahan untuk tindak lanjut.',403);
             if((string)$letter[$key]!==$uid || $letter['status']!==$expected)
                 mobile_error('Permohonan bukan pada tahap atau wilayah tugas Anda.',403);
             $next=$decision==='reject'?'ditolak':($role==='rt'?'menunggu_rw':'terverifikasi');
