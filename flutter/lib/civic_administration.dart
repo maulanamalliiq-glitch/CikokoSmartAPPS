@@ -88,6 +88,7 @@ class _CivicNewState extends State<CivicNewDocument>{
  static const labels=<String,String>{
   'name':'Nama Lengkap','nik':'NIK (16 angka)','birthplace':'Tempat Lahir','birthdate':'Tanggal Lahir (YYYY-MM-DD)',
   'occupation':'Pekerjaan','religion':'Agama','marital_status':'Status Pernikahan','citizenship':'Warga Negara',
+  'education':'Pendidikan','gender':'Jenis Kelamin',
   'address':'Alamat','purpose':'Maksud dan Keperluan'};
  @override void initState(){super.initState();
   for(final k in (isLetter?labels.keys:['period','opening','income']))inputs[k]=TextEditingController();
@@ -125,7 +126,12 @@ class _CivicNewState extends State<CivicNewDocument>{
  body:ListView(padding:const EdgeInsets.all(15),children:[
   if(isLetter)...[
    if(widget.kind!='pengantar')const ListTile(leading:Icon(Icons.info_outline),title:Text('Template sementara, menunggu format resmi')),
-   for(final e in labels.entries)Padding(padding:const EdgeInsets.only(bottom:11),child:TextField(
+   for(final e in labels.entries)if(e.key=='gender')Padding(padding:const EdgeInsets.only(bottom:11),child:DropdownButtonFormField<String>(
+     initialValue:inputs['gender']!.text.isEmpty?null:inputs['gender']!.text,
+     decoration:const InputDecoration(labelText:'Jenis Kelamin',border:OutlineInputBorder()),
+     items:const [DropdownMenuItem(value:'Laki-laki',child:Text('Laki-laki')),DropdownMenuItem(value:'Perempuan',child:Text('Perempuan'))],
+     onChanged:(value){inputs['gender']!.text=value??'';}))
+   else Padding(padding:const EdgeInsets.only(bottom:11),child:TextField(
      controller:inputs[e.key],maxLines:e.key=='purpose'?3:1,
      keyboardType:e.key=='nik'?TextInputType.number:null,
      decoration:InputDecoration(labelText:e.value,border:const OutlineInputBorder()))),
