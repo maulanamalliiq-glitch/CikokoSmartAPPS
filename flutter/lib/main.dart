@@ -64,8 +64,8 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                        'password': 'Password',
                        'confirm': 'Ulangi password',
                        'address': 'Alamat lengkap',
-                       'rt': 'Nomor RT (contoh: 003)',
-                       'rw': 'Nomor RW (contoh: 010)',
+                       'rt': 'RT (contoh: 02)',
+                       'rw': 'RW (contoh: 05)',
                        'phone': 'Nomor telepon',
                        'email': 'Email',
                      }.entries)
