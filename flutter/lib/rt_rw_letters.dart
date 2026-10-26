@@ -307,7 +307,7 @@ class _RtRwOfficerManagerState extends State<RtRwOfficerManager> {
         if (rows.isEmpty) const ListTile(title: Text('Buat akun petugas berperan RT/RW terlebih dahulu.')),
         for (final officer in rows) Card(child: ListTile(
           title: Text('${officer['name'] ?? ''} (${(officer['role'] ?? '').toString().toUpperCase()})'),
-          subtitle: Text('RT ${officer['rt'] ?? '-'} / RW ${officer['rw'] ?? '-'}'
+          subtitle: Text('RT '+cikokoAreaLabel(officer['rt'])+' / RW '+cikokoAreaLabel(officer['rw'])+
             '${officer['active'] == true ? '' : ' • Tidak aktif'}'),
           trailing: const Icon(Icons.edit_location_alt_outlined),
           onTap: () => edit(officer),
