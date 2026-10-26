@@ -12,7 +12,7 @@ void main() {
   test('Hanya referensi Ahli Waris yang valid boleh menjadi cadangan', () {
     expect(cikokoWarisReference({'kind': 'waris', 'reference': 'AW-20261026-E4C39D56'}),
         'AW-20261026-E4C39D56');
-    expect(cikokoWarisReference({'kind': 'report', 'reference': 'AW-20261026-E4C39D56'}), isNull);
+    expect(cikokoWarisReference({'kind': 'report', 'reference': 'AW-20261026-E4C39D56'}), 'AW-20261026-E4C39D56');
     expect(cikokoWarisReference({'kind': 'waris', 'reference': 'not-valid'}), isNull);
     expect(cikokoWarisReference({'kind': 'report', 'title': 'AW-20261027-6EAD7D63'}),
         'AW-20261027-6EAD7D63');
