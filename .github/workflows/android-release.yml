@@ -21,6 +21,7 @@ jobs:
           php -v
           find cpanel/mobile-api -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php qa/test_v2513_territory.php
+          php qa/test_v2516_waris_documents.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -40,22 +41,22 @@ jobs:
       - name: Flutter widget and role tests
         working-directory: flutter
         run: flutter test
-      - name: Build V2515 release bundle and universal APK
+      - name: Build V2516 release bundle and universal APK
         working-directory: flutter
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/out-v2515"
+          mkdir -p "$GITHUB_WORKSPACE/out-v2516"
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2515/Cikoko-v2515-unsigned.aab"
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2516/Cikoko-v2516-unsigned.aab"
           flutter build apk --release
           test -s build/app/outputs/flutter-apk/app-release.apk
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2515/Cikoko-v2515-universal-unsigned.apk"
-          test -s "$GITHUB_WORKSPACE/out-v2515/Cikoko-v2515-unsigned.aab"
-          test -s "$GITHUB_WORKSPACE/out-v2515/Cikoko-v2515-universal-unsigned.apk"
-      - name: Upload V2515 release for local signing
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2516/Cikoko-v2516-universal-unsigned.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2516/Cikoko-v2516-unsigned.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2516/Cikoko-v2516-universal-unsigned.apk"
+      - name: Upload V2516 release for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2515-ANDROID-RELEASE-UNSIGNED
-          path: out-v2515/
+          name: Cikoko-v2516-ANDROID-RELEASE-UNSIGNED
+          path: out-v2516/
           if-no-files-found: error
           retention-days: 14
