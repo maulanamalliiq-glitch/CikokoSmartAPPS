@@ -41,6 +41,8 @@ function cikoko_area_update(array $request,array $existing,bool $resident):array
 }
 /** Harus tepat satu akun ketua aktif per wilayah. Tidak mengambil role dari input warga. */
 function cikoko_officer_for(string $role,string $rt,string $rw):array {
+    $rt=cikoko_area($rt,'RT');
+    $rw=cikoko_area($rw,'RW');
     $found=[];
     foreach(db_read('portal_users') as $person){
         if(($person['role']??'')!==$role||empty($person['active']))continue;
