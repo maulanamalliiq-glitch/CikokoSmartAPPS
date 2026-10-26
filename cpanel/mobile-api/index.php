@@ -54,6 +54,10 @@ if($action==='register'&&$method==='POST'){
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
+if($action==='public_letters'&&$method==='GET'){
+ require_once __DIR__.'/public_letters.php';
+ cikoko_public_letters(mobile_db());
+}
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 require_once __DIR__.'/waris_review.php';
 require_once __DIR__.'/waris_stage.php';
@@ -274,8 +278,15 @@ if($action==='status'&&$method==='POST'){
   $st=$db->prepare('SELECT account_id,status FROM aw_applications WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)mobile_error('Permohonan tidak ditemukan',404);
   $db->prepare('UPDATE aw_applications SET status=? WHERE id=?')->execute([$status,$id]);$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,?,?,?,?)')->execute([$id,$row['status'],$status,$uid,'Pembaruan via aplikasi']);$owner=$row['account_id'];
  }else{
-  $st=$db->prepare('SELECT user_id FROM mobile_reports WHERE id=?');$st->execute([$id]);$owner=$st->fetchColumn();if(!$owner)mobile_error('Laporan tidak ditemukan',404);
-  $db->prepare('UPDATE mobile_reports SET status=? WHERE id=?')->execute([$status,$id]);
+  $st=$db->prepare('SELECT user_id,status FROM mobile_reports WHERE id=?');$st->execute([$id]);$report=$st->fetch();if(!$report)mobile_error('Laporan tidak ditemukan',404);
+  $owner=$report['user_id'];
+  $db->beginTransaction();
+  try{
+   $db->prepare('UPDATE mobile_reports SET status=? WHERE id=?')->execute([$status,$id]);
+   require_once __DIR__.'/report_progress.php';
+   cikoko_report_history_log($db,$id,(string)$uid,(string)$report['status'],$status);
+   $db->commit();
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
  }
  if($kind==='waris'){waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Status Ahli Waris: '.ucfirst($status),'Periksa rincian dan progres surat Anda.','personal',(string)$owner);}else{mobile_emit('progres_surat','Status permohonan: '.ucfirst($status),'Periksa rincian permohonan pada aplikasi','personal',(string)$owner);}mobile_json(['ok'=>true]);
 }
