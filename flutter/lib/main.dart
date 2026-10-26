@@ -757,9 +757,9 @@ class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? futu
       final row=Map<String,dynamic>.from(r);
       final id=cikokoPositiveId(row);
       final ref=cikokoWarisReference(row);
-      if(id==null && ref==null){notify(context,'Nomor pengajuan belum tersedia. Muat ulang riwayat.',error:true);reload();return;}
+      if(id==null && ref==null){notify(context,'Nomor pengajuan tidak diterima dari server. Pastikan API V2525 aktif.',error:true);reload();return;}
       showCikokoDocument(context,api,id:id??0,reference:ref??'',
-        kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',onChanged:reload);
+        kind:cikokoDocumentKind(row),onChanged:reload);
     },
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]));});
 }
@@ -811,11 +811,11 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
  @override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
  Future<void> update(Map<String,dynamic> r,String status)async{
-  final kind=(r['kind']??'report').toString();
+  final kind=cikokoDocumentKind(r);
   final id=cikokoPositiveId(r);
   final ref=cikokoWarisReference(r);
-  if(id==null && (kind!='waris'||ref==null)){
-    if(mounted)notify(context,'ID pengajuan belum tersedia. Perbarui daftar surat.',error:true);
+  if(id==null && ref==null){
+    if(mounted)notify(context,'Server belum mengirim ID pengajuan. Pastikan API V2525 aktif lalu muat ulang.',error:true);
     await load();return;
   }
   try{
@@ -836,8 +836,8 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
       final row=Map<String,dynamic>.from(r);
       final id=cikokoPositiveId(row);
       final ref=cikokoWarisReference(row);
-      if(id==null && ref==null){notify(context,'ID surat tidak tersedia. Muat ulang daftar.',error:true);load();return;}
-      showCikokoDocument(context,api,id:id??0,reference:ref??'',kind:'${r['kind']??'report'}',onChanged:load);
+      if(id==null && ref==null){notify(context,'Server belum mengirim ID surat. Pastikan API V2525 aktif.',error:true);load();return;}
+      showCikokoDocument(context,api,id:id??0,reference:ref??'',kind:cikokoDocumentKind(row),onChanged:load);
     },
     trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
