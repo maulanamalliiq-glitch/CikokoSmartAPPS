@@ -1,6 +1,8 @@
 name: Cikoko Web Integration and Patch
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -43,5 +45,22 @@ jobs:
         with:
           name: CIKOKO-V2500-CPANEL-WEBSITE-AND-SQL
           path: build/CIKOKO_V2500_CPANEL_PATCH.zip
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Prepare dedicated V2514 RT/RW overlay
+        run: |
+          mkdir -p build/cikoko-v2514/mobile-api
+          for file in index.php v211.php territory.php rt_rw_letters.php; do
+            cp "cpanel/mobile-api/$file" "build/cikoko-v2514/mobile-api/$file"
+          done
+          cp V2514_RELEASE_NOTES.md build/cikoko-v2514/BACA_DULU_V2514.md
+          (cd build/cikoko-v2514 && zip -q -r ../CIKOKO_V2514_CPANEL_RT_RW_PATCH.zip .)
+          unzip -t build/CIKOKO_V2514_CPANEL_RT_RW_PATCH.zip
+      - name: Upload dedicated V2514 RT/RW cPanel patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: CIKOKO-V2514-CPANEL-RT-RW-PATCH
+          path: build/CIKOKO_V2514_CPANEL_RT_RW_PATCH.zip
           retention-days: 14
           if-no-files-found: error

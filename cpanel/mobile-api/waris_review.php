@@ -29,12 +29,35 @@ function waris_review_schema(PDO $db):void {
         mobile_error('Database perlu migrasi v207. Jalankan mobile-api/migrate_waris_v207.sql.',503);
     }
 }
+/**
+ * A document is stored under its own requirement code; legacy combined codes
+ * remain recognizable for previously submitted applications and revisions.
+ */
+function waris_required_upload_codes(int $childCount,bool $split):array {
+    $codes=$split
+      ? ['r1','r2','r3','r4_ktp','r4_kk','r4_akta','r5','r6']
+      : ['r1','r2','r3','r4','r5','r6'];
+    for($i=1;$i<=max(0,min(10,$childCount));$i++){
+        if($split){
+            foreach(['ktp','kk','akta'] as $kind)$codes[]='child_'.$i.'_'.$kind;
+        }else{
+            $codes[]='child_'.$i;
+        }
+    }
+    return $codes;
+}
 function waris_codes(int $childCount=10):array {
     $codes=['r1'=>'Surat Pengantar RT/RW','r2'=>'Surat Permohonan','r3'=>'Surat Pernyataan Keabsahan',
-       'r4'=>'KTP, KK dan Akta Lahir Ahli Waris','r5'=>'Surat Kematian Pewaris',
-       'r6'=>'Surat Nikah Pewaris','r7'=>'Akta Cerai (bila berlaku)',
-       'r8'=>'Surat Kematian Ahli Waris (bila berlaku)'];
-    for($i=1;$i<=max(0,min(10,$childCount));$i++)$codes['child_'.$i]='Foto dokumen Anak ke-'.$i;
+       'r4'=>'KTP, KK dan Akta Lahir Ahli Waris (dokumen lama)',
+       'r4_ktp'=>'KTP Ahli Waris','r4_kk'=>'KK Ahli Waris','r4_akta'=>'Akta Lahir Ahli Waris',
+       'r5'=>'Surat Kematian Pewaris','r6'=>'Surat Nikah Pewaris',
+       'r7'=>'Akta Cerai (bila berlaku)','r8'=>'Surat Kematian Ahli Waris (bila berlaku)'];
+    for($i=1;$i<=max(0,min(10,$childCount));$i++){
+        $codes['child_'.$i]='Foto dokumen Anak ke-'.$i.' (dokumen lama)';
+        $codes['child_'.$i.'_ktp']='KTP Anak ke-'.$i;
+        $codes['child_'.$i.'_kk']='KK Anak ke-'.$i;
+        $codes['child_'.$i.'_akta']='Akta Lahir Anak ke-'.$i;
+    }
     return $codes;
 }
 function waris_children(array $app):array {
@@ -61,14 +84,23 @@ function waris_emit_link(PDO $db,string $kind,int $id,string $category,string $t
 }
 function waris_review_dispatch(string $action,string $method,PDO $db,array $u,string $uid):void {
   waris_review_schema($db);
-  $id=(int)($_GET['id']??0);
+  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+  // A reference number is an optional fallback for old history cards with absent IDs.
+  $reference=trim((string)($_GET['reference']??''));
+  if($id===0 && $reference!=='' && preg_match('/^AW-[0-9]{8}-[A-F0-9]{8}$/D',$reference)){
+    $look=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=?');
+    $look->execute([$reference]);
+    $id=(int)($look->fetchColumn()?:0);
+  }
   if($action==='document_detail' && $method==='GET') {
     $kind=(string)($_GET['kind']??'waris');
     if($kind==='report') {
        $q=$db->prepare('SELECT id,user_id,user_name,user_role,kind,address,phone,notes,status,created_at FROM mobile_reports WHERE id=?');$q->execute([$id]);$report=$q->fetch();
        if(!$report)mobile_error('Laporan tidak ditemukan',404);
        if(!hash_equals((string)$report['user_id'],$uid)&&!mobile_can($u,'reports:view'))mobile_error('Akses laporan ditolak.',403);
-       mobile_json(['ok'=>true,'kind'=>'report','detail'=>$report,'timeline'=>[['new_status'=>$report['status'],'created_at'=>$report['created_at'],'notes'=>'Laporan telah diterima']],'corrections'=>[],'documents'=>[]]);
+       require_once __DIR__.'/report_progress.php';
+        $history=cikoko_report_history($db,$id,(string)$report['created_at']);
+        mobile_json(['ok'=>true,'kind'=>'report','detail'=>$report,'timeline'=>$history,'corrections'=>[],'documents'=>[]]);
     }
     if($kind!=='waris')mobile_error('Jenis pengajuan tidak dikenal',422);
     $app=waris_load($db,$id,$u);
@@ -105,7 +137,7 @@ function waris_review_dispatch(string $action,string $method,PDO $db,array $u,st
     if(in_array($app['status'],['selesai','ditolak'],true))mobile_error('Permohonan yang ditutup tidak dapat meminta revisi baru.',409);
     $codes=$body['codes']??[];$reason=mobile_text($body['notes']??'',1000);
     $allowed=waris_codes(count(waris_children($app)));
-    if(!is_array($codes)||count($codes)<1||count($codes)>18||$reason==='')mobile_error('Pilih dokumen dan isi alasan perbaikan.',422);
+    if(!is_array($codes)||count($codes)<1||count($codes)>count($allowed)||$reason==='')mobile_error('Pilih dokumen dan isi alasan perbaikan.',422);
     foreach($codes as $code)if(!is_string($code)||!array_key_exists($code,$allowed))mobile_error('Dokumen perbaikan tidak dikenal.',422);
     $codes=array_values(array_unique($codes));
     try {

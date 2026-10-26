@@ -22,13 +22,13 @@ void main() {
   });
   testWidgets('Ringkasan surat publik tidak menampilkan data pemohon', (tester) async {
     await tester.pumpWidget(MaterialApp(home:Scaffold(body:CikokoLetterCounters(
-      guest:true,counts:null,onTap:(){}))));
+      counts:null,onStatusTap:(_){}))));
     expect(find.text('—'),findsNWidgets(3));
     expect(find.text('Status Pelayanan Surat'),findsOneWidget);
   });
   testWidgets('Status warga berasal dari data yang disuplai API', (tester) async {
     await tester.pumpWidget(MaterialApp(home:Scaffold(body:CikokoLetterCounters(
-      guest:false,counts:const {'masuk':2,'proses':1,'selesai':3},onTap:(){}))));
+      counts:const {'masuk':2,'proses':1,'selesai':3},onStatusTap:(_){}))));
     expect(find.text('2'),findsOneWidget);
     expect(find.text('1'),findsOneWidget);
     expect(find.text('3'),findsOneWidget);

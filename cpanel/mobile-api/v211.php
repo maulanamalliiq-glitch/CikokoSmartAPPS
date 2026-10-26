@@ -6,6 +6,7 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+require __DIR__.'/territory.php';
 $action=(string)($_GET['action']??'');
 $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
 $defaults=[
@@ -57,13 +58,14 @@ try {
  if($action==='v211_profile'){
   $row=v211_userrow($uid);
   if(!$row)mobile_json(['ok'=>true,'user'=>['name'=>'Administrator','username'=>$u['username'],'email'=>'','phone'=>'','address'=>'','nik'=>'','has_photo'=>false]]);
-  mobile_json(['ok'=>true,'user'=>['name'=>$row['name']??'','username'=>$row['username']??'','email'=>$row['email']??'','phone'=>$row['phone']??'','address'=>$row['address']??'','nik'=>$row['nik']??'','has_photo'=>!empty($row['photo_name'])]]);
+  mobile_json(['ok'=>true,'user'=>['name'=>$row['name']??'','username'=>$row['username']??'','email'=>$row['email']??'','phone'=>$row['phone']??'','address'=>$row['address']??'','nik'=>$row['nik']??'','rt'=>$row['rt']??'','rw'=>$row['rw']??'','has_photo'=>!empty($row['photo_name'])]]);
  }
  if($action==='v211_profile_update'){
   v211_mustpost($method);$row=v211_userrow($uid);if(!$row)mobile_error('Profil administrator utama dikelola terpisah',403);
   $b=mobile_body();$changes=[];foreach(['name'=>150,'phone'=>30,'email'=>180,'address'=>900,'nik'=>16] as $key=>$len)$changes[$key]=mobile_text($b[$key]??($row[$key]??''),$len);
   if(mobile_strlen($changes['name'])<3||!preg_match('/^[0-9+() -]{8,30}$/',$changes['phone'])||!filter_var($changes['email'],FILTER_VALIDATE_EMAIL)||$changes['address']==='')mobile_error('Mohon lengkapi nama, telepon, alamat dan email yang valid.',422);
   if($changes['nik']!==''&&!preg_match('/^[0-9]{16}$/',$changes['nik']))mobile_error('NIK harus berjumlah 16 angka.',422);
+  $changes=array_merge($changes,cikoko_area_update($b,$row,$u['user_role']==='warga'));
   v211_saveuser($uid,$changes);mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui']);
  }
  if($action==='v211_profile_upload'){

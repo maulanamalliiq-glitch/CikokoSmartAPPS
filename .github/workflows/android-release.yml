@@ -1,8 +1,10 @@
 name: Cikoko Android APK dan AAB
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [main]
+  push:
+    branches: [main, fix/v2524-full-surat-android]
     paths:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
@@ -14,6 +16,14 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: PHP lint and RT/RW permission regression tests
+        run: |
+          php -v
+          find cpanel/mobile-api -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php qa/test_v2513_territory.php
+          php qa/test_v2516_waris_documents.php
+          php qa/test_v2519_waris_stage.php
+          php qa/test_v2520_public_letters.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -33,35 +43,54 @@ jobs:
       - name: Flutter widget and role tests
         working-directory: flutter
         run: flutter test
-      - name: Build Android debug test APK
+      - name: Prepare optional release signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          STORE_PASS: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+        run: |
+          SIGN_MODE=UNSIGNED
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASS" ] && [ -n "$KEY_PASS" ]; then
+            if printf '%s' "$KEYSTORE_B64" | base64 -d > flutter/android/app/cikoko-upload.keystore && \
+               keytool -list -keystore flutter/android/app/cikoko-upload.keystore -storepass "$STORE_PASS" >/dev/null 2>&1; then
+              echo "CIKOKO_KEYSTORE_PATH=cikoko-upload.keystore" >> "$GITHUB_ENV"
+              echo "CIKOKO_STORE_PASSWORD=$STORE_PASS" >> "$GITHUB_ENV"
+              echo "CIKOKO_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+              echo "CIKOKO_KEY_ALIAS=androidkey" >> "$GITHUB_ENV"
+              SIGN_MODE=SIGNED
+            else
+              rm -f flutter/android/app/cikoko-upload.keystore
+              echo "::warning::Keystore secret gagal didekode/diverifikasi. Release ini unsigned; jangan gunakan untuk memperbarui APK terpasang."
+            fi
+          else
+            echo "::warning::Signing secrets belum lengkap. Release unsigned saja."
+          fi
+          echo "CIKOKO_SIGNING_MODE=$SIGN_MODE" >> "$GITHUB_ENV"
+      - name: Build V2524 release bundle and universal APK
         working-directory: flutter
-        run: flutter build apk --debug
-      - name: Upload test APK
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/out-v2524"
+          flutter build appbundle --release
+          test -s build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-release.aab"
+          flutter build apk --release
+          test -s build/app/outputs/flutter-apk/app-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-release.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
+          # Keep official SDK signing utilities as internal CI artifact for signing offline.
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER_JAR=$(find "$SDK_ROOT/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)
+          test -s "$APKSIGNER_JAR"
+          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2524/apksigner.jar"
+      - name: Record signing status
+        run: |
+          printf 'Signing mode: %s\nSource: fix/v2524-full-surat-android\nAPK build code: 2524\n' "$CIKOKO_SIGNING_MODE" > out-v2524/SIGNING_STATUS.txt
+      - name: Upload V2524 release for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2500-TEST-APK
-          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          name: Cikoko-v2524-ANDROID-RELEASE-CHECK-SIGNING
+          path: out-v2524/
           if-no-files-found: error
           retention-days: 14
-      - name: Build release AAB and APK for secure offline signing
-        working-directory: flutter
-        run: |
-          flutter build appbundle --release
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-          test -s build/app/outputs/bundle/release/app-release.aab
-          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-      - name: Stage unsigned release outputs and Android signer
-        run: |
-          mkdir -p flutter/build/offline-release
-          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2500-unsigned.aab
-          cp flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk flutter/build/offline-release/Cikoko-v2500-arm64-unsigned.apk
-          SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
-          test -n "$SIGNER"
-          cp "$SIGNER" flutter/build/offline-release/apksigner.jar
-      - name: Upload offline signing artifacts (unsigned, not for Play Store)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cikoko-v2500-OFFLINE-SIGNING-APK-AAB
-          path: flutter/build/offline-release/
-          if-no-files-found: error
-          retention-days: 7
