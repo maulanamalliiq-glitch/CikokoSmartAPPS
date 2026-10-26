@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -55,6 +56,19 @@ class CikokoApi {
     }
   }
   Future<Map<String,dynamic>> callWithQuery(String action,Map<String,String> query) async => call('$action&${Uri(queryParameters:query).query}');
+  Future<Uint8List> downloadPdf(String action,int id) async {
+    if(token==null)throw ApiError('Silakan login.');
+    final u=Uri.parse(root+'?action='+Uri.encodeQueryComponent(action)+'&id='+id.toString());
+    try{
+      final r=await http.get(u,headers:{'Authorization':'Bearer '+token!,'Accept':'application/pdf'})
+          .timeout(const Duration(seconds:45));
+      if(r.statusCode!=200 || r.bodyBytes.length<40 || !r.bodyBytes.take(5).toList().toString().contains('37, 80, 68, 70, 45')){
+        throw ApiError('Berkas PDF tidak tersedia. Periksa persetujuan dokumen dan modul PDF server.');
+      }
+      return r.bodyBytes;
+    }on SocketException {throw ApiError('Tidak ada koneksi internet');}
+    on TimeoutException {throw ApiError('Pengambilan PDF melebihi batas waktu');}
+  }
   String photoUrl(String action,Map<String,String> params) => '${root.replaceFirst('index.php','v211.php')}?action=$action&${Uri(queryParameters:params).query}';
   Map<String,String> authHeaders() => token==null ? {} : {'Authorization':'Bearer $token'};
   Future<Map<String,dynamic>> callWithParams(String action,Map<String,String> params)=>callWithQuery(action,params);
