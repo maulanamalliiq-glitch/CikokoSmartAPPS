@@ -53,6 +53,11 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-universal-unsigned.apk"
           test -s "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-unsigned.aab"
           test -s "$GITHUB_WORKSPACE/out-v2518/Cikoko-v2518-universal-unsigned.apk"
+          # Keep official SDK signing utilities as internal CI artifact for signing offline.
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER_JAR=$(find "$SDK_ROOT/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)
+          test -s "$APKSIGNER_JAR"
+          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2518/apksigner.jar"
       - name: Upload V2518 release for local signing
         uses: actions/upload-artifact@v4
         with:
