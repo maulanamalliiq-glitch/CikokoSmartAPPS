@@ -158,7 +158,7 @@ class _HomeState extends State<HomePage> {
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
       // This is public letter service-wide data, not the user's private history.
       try {
-        final summary=await api.call('public_letters');
+        final summary=await api.call('public_letter_status');
         final raw=Map<String,dynamic>.from(summary['counts'] as Map);
         if(mounted)setState(()=>letterCounts={
           for(final key in ['masuk','proses','selesai'])
