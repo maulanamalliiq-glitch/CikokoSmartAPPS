@@ -20,5 +20,5 @@ foreach(['r4_ktp'=>'KTP Ahli Waris','r4_kk'=>'KK Ahli Waris','r4_akta'=>'Akta La
 check(isset($labels['r4'],$labels['child_1'],$labels['r7'],$labels['r8']),'historical and conditional documents kept');
 $dart=file_get_contents(dirname(__DIR__).'/flutter/lib/main.dart');
 check(str_contains($dart,"'document_format':'split_v1'"),'Flutter requests split document format');
-check(str_contains($dart,"child_${i}_${e.key}"),'Flutter child photos keyed independently');
+check(str_contains($dart,'child_${i}_${e.key}'),'Flutter child photos keyed independently');
 echo "V2516 waris individual-document tests passed.\n";
