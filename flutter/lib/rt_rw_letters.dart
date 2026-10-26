@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
 
-/// V2513 — alur verifikasi wilayah. Tidak menerbitkan TTE, stempel, atau PDF.
+/// Alur verifikasi wilayah. Tidak menerbitkan TTE, stempel, atau PDF.
+String cikokoAreaLabel(dynamic area) {
+  final value = int.tryParse((area ?? '').toString());
+  return value == null || value < 1 ? '-' : value.toString().padLeft(2, '0');
+}
 class RtRwLettersPage extends StatefulWidget {
   final CikokoApi api;
   const RtRwLettersPage({super.key, required this.api});
@@ -10,16 +14,61 @@ class RtRwLettersPage extends StatefulWidget {
 }
 
 class _RtRwLettersState extends State<RtRwLettersPage> {
-  final subject = TextEditingController();
-  final notes = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  final form = <String,TextEditingController>{
+    for(final k in const ['nama','tempat_lahir','tanggal_lahir','no_ktp_kk','agama',
+      'kewarganegaraan','pendidikan','jenis_kelamin','status','pekerjaan',
+      'alamat','maksud_keperluan']) k:TextEditingController(),
+  };
   late Future<Map<String, dynamic>> requests;
   bool saving = false;
 
   String get role => '${widget.api.profile?['role'] ?? ''}';
   @override
-  void initState() { super.initState(); refresh(); }
+  void initState() {
+    super.initState();
+    form['nama']!.text=''+(widget.api.profile?['name']??'').toString();
+    form['alamat']!.text=''+(widget.api.profile?['address']??'').toString();
+    form['no_ktp_kk']!.text=''+(widget.api.profile?['nik']??'').toString();
+    form['kewarganegaraan']!.text='WNI';
+    refresh();
+  }
   @override
-  void dispose() { subject.dispose(); notes.dispose(); super.dispose(); }
+  void dispose() { for(final c in form.values){c.dispose();} super.dispose(); }
+  Future<void> chooseBirthDate() async {
+    final now=DateTime.now();
+    final picked=await showDatePicker(
+      context:context,initialDate:DateTime(now.year-20),
+      firstDate:DateTime(1900),lastDate:now,helpText:'Tanggal Lahir');
+    if(picked!=null) {
+      form['tanggal_lahir']!.text=picked.year.toString().padLeft(4,'0')+'-'
+        +picked.month.toString().padLeft(2,'0')+'-'
+        +picked.day.toString().padLeft(2,'0');
+    }
+  }
+  Widget formField(String key,String label,{int lines=1,bool date=false,TextInputType? keyboard})=>
+    Padding(padding:const EdgeInsets.only(bottom:12),child:TextFormField(
+      controller:form[key],readOnly:date,onTap:date?chooseBirthDate:null,
+      keyboardType:keyboard??TextInputType.text,
+      minLines:lines,maxLines:lines>1?4:1,
+      decoration:InputDecoration(labelText:label,border:const OutlineInputBorder(),
+        suffixIcon:date?const Icon(Icons.calendar_month_outlined):null),
+      validator:(v) {
+        if((v??'').trim().isEmpty)return label+' wajib diisi';
+        if(key=='no_ktp_kk' && v!.trim().length<8)return 'Periksa No. KTP/KK';
+        return null;
+      },
+    ));
+  Widget genderField()=>Padding(padding:const EdgeInsets.only(bottom:12),
+    child:DropdownButtonFormField<String>(
+      initialValue:null,decoration:const InputDecoration(
+        labelText:'Jenis Kelamin',border:OutlineInputBorder()),
+      items:const [
+        DropdownMenuItem(value:'Laki-laki',child:Text('Laki-laki')),
+        DropdownMenuItem(value:'Perempuan',child:Text('Perempuan'))],
+      validator:(v)=>v==null?'Jenis Kelamin wajib dipilih':null,
+      onChanged:(v)=>form['jenis_kelamin']!.text=v??'',
+    ));
   void refresh() { requests = widget.api.call('rt_rw_list'); }
   void flash(String message) {
     if (!mounted) return;
@@ -35,13 +84,12 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
     return labels[status] ?? status;
   }
   Future<void> submit() async {
-    if (saving) return;
+    if (saving || !(formKey.currentState?.validate()??false)) return;
     setState(() => saving = true);
     try {
-      await widget.api.call('rt_rw_submit', body: {
-        'subject': subject.text.trim(), 'notes': notes.text.trim(),
+      await widget.api.call('rt_rw_submit',body:{
+        'form':<String,String>{for(final f in form.entries)f.key:f.value.text.trim()},
       });
-      subject.clear(); notes.clear();
       if (mounted) setState(refresh);
       flash('Permohonan berhasil dikirim ke Ketua RT sesuai data profil.');
     } catch (e) { flash('$e'); }
@@ -57,9 +105,21 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
         builder: (dialog) => StatefulBuilder(builder: (context, rebuild) => AlertDialog(
           title: const Text('Verifikasi Surat Pengantar'),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('${letter['subject'] ?? ''}'),
+            Text((letter['subject']??'').toString()),
+            if(letter['form'] is Map)...[
+              const SizedBox(height:12),
+              for(final entry in const <String,String>{
+                'nama':'Nama','tempat_lahir':'Tempat Lahir','tanggal_lahir':'Tanggal Lahir',
+                'no_ktp_kk':'No. KTP/KK','agama':'Agama','kewarganegaraan':'Kewarganegaraan',
+                'pendidikan':'Pendidikan','jenis_kelamin':'Jenis Kelamin','status':'Status',
+                'pekerjaan':'Pekerjaan','alamat':'Alamat',
+                'maksud_keperluan':'Maksud/Keperluan',
+              }.entries)Padding(padding:const EdgeInsets.only(bottom:5),
+                child:Text(entry.value+': '+(letter['form'][entry.key]??'').toString(),
+                  style:const TextStyle(fontSize:12))),
+            ],
             const SizedBox(height: 8),
-            Text('RT ${letter['rt'] ?? ''} / RW ${letter['rw'] ?? ''}'),
+            Text('RT '+cikokoAreaLabel(letter['rt'])+' / RW '+cikokoAreaLabel(letter['rw'])),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: decision,
@@ -109,14 +169,32 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
       const SizedBox(height: 12),
       if (isWarga) Card(child: Padding(padding: const EdgeInsets.all(14), child:
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('RT ${widget.api.profile?['rt'] ?? '-'} / RW ${widget.api.profile?['rw'] ?? '-'}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          TextField(controller: subject, decoration: const InputDecoration(labelText: 'Keperluan surat')),
-          const SizedBox(height: 10),
-          TextField(controller: notes, minLines: 3, maxLines: 5,
-            decoration: const InputDecoration(labelText: 'Keterangan permohonan')),
-          const SizedBox(height: 12),
+          Text('RT '+cikokoAreaLabel(widget.api.profile?['rt'])+
+               ' / RW '+cikokoAreaLabel(widget.api.profile?['rw']),
+            style:const TextStyle(fontWeight:FontWeight.bold)),
+          const SizedBox(height:10),
+          Form(key:formKey,child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+            const Text('IDENTITAS PEMOHON',
+              style:TextStyle(fontWeight:FontWeight.bold,fontSize:12)),
+            const SizedBox(height:10),
+            formField('nama','Nama'),
+            formField('tempat_lahir','Tempat Lahir'),
+            formField('tanggal_lahir','Tanggal Lahir',date:true),
+            formField('no_ktp_kk','No. KTP/KK',keyboard:TextInputType.number),
+            formField('agama','Agama'),
+            formField('kewarganegaraan','Kewarganegaraan'),
+            formField('pendidikan','Pendidikan'),
+            genderField(),
+            formField('status','Status'),
+            formField('pekerjaan','Pekerjaan'),
+            formField('alamat','Alamat',lines:2),
+            const SizedBox(height:4),
+            const Text('MAKSUD SURAT',
+              style:TextStyle(fontWeight:FontWeight.bold,fontSize:12)),
+            const SizedBox(height:10),
+            formField('maksud_keperluan','Maksud/Keperluan',lines:2),
+          ])),
+          const SizedBox(height:12),
           FilledButton.icon(onPressed: saving ? null : submit, icon: const Icon(Icons.send_outlined),
             label: Text(saving ? 'Mengirim...' : 'Kirim ke Ketua RT Otomatis')),
           const SizedBox(height: 6),
@@ -144,8 +222,9 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${letter['subject'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('${letter['applicant_name'] ?? ''} • RT ${letter['rt'] ?? ''} / RW ${letter['rw'] ?? ''}',
-                  style: const TextStyle(fontSize: 12)),
+                Text((letter['applicant_name']??'').toString()+' • RT '+
+                    cikokoAreaLabel(letter['rt'])+' / RW '+cikokoAreaLabel(letter['rw']),
+                  style:const TextStyle(fontSize:12)),
                 const SizedBox(height: 5),
                 Text('${letter['notes'] ?? ''}', style: const TextStyle(fontSize: 12)),
                 const SizedBox(height: 8),
@@ -189,10 +268,10 @@ class _RtRwOfficerManagerState extends State<RtRwOfficerManager> {
         title: Text('Wilayah ${officer['name'] ?? ''}'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           if (officer['role'] == 'rt') TextField(controller: rt, keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Nomor RT')),
+            decoration: const InputDecoration(labelText: 'RT')),
           const SizedBox(height: 10),
           TextField(controller: rw, keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Nomor RW')),
+            decoration: const InputDecoration(labelText: 'RW')),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Batal')),
