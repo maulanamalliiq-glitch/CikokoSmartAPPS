@@ -17,6 +17,7 @@ import 'v211_features.dart';
 import 'home_customization.dart';
 import 'home_services_admin.dart';
 import 'fkdm_reports.dart';
+import 'civic_administration.dart';
 import 'public_information.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
@@ -244,7 +245,7 @@ class _HomeState extends State<HomePage> {
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Aktivitas'=>Icons.assignment_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
-    'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
+    'Surat Ahli Waris'=>Icons.description_outlined,'Administrasi RT/RW & LMK'=>Icons.approval_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Kelola Laporan Lapangan'=>Icons.manage_search_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
@@ -309,6 +310,7 @@ class _HomeState extends State<HomePage> {
     case 'Layanan Online':return feed('layanan');
     case 'Galeri':return feed('galeri');
     case 'Surat Ahli Waris':return const WarisForm();
+    case 'Administrasi RT/RW & LMK':return CivicAdministrationPage(api:api);
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
     case 'Laporan FKDM':return FkdmReportPage(api:api);
@@ -421,6 +423,7 @@ class _HomeState extends State<HomePage> {
     )),
     if(role=='warga'||guest)Padding(padding:const EdgeInsets.only(top:9),child:Wrap(spacing:7,runSpacing:2,children:[
       ActionChip(avatar:const Icon(Icons.description_outlined,size:16,color:blue),label:const Text('Ahli Waris',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Surat Ahli Waris')),
+      ActionChip(avatar:const Icon(Icons.approval_outlined,size:16,color:blue),label:const Text('Surat RT/RW',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Administrasi RT/RW & LMK')),
       ActionChip(avatar:const Icon(Icons.bug_report_outlined,size:16,color:blue),label:const Text('Jumantik',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Laporan Jumantik')),
       ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
     ])),
