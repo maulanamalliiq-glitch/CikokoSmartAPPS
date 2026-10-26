@@ -49,7 +49,7 @@ class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPag
 class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
- Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
+ Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. RT/RW sudah tersimpan. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
  @override
  Widget build(BuildContext context) {
    final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
@@ -81,6 +81,8 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                        'password': 'Password',
                        'confirm': 'Ulangi password',
                        'address': 'Alamat lengkap',
+                       'rt': 'Nomor RT (contoh: 001)',
+                       'rw': 'Nomor RW (contoh: 003)',
                        'phone': 'Nomor telepon',
                        'email': 'Email',
                      }.entries)
@@ -89,7 +91,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                          child: TextField(
                            controller: ctrl(entry.key),
                            obscureText: entry.key == 'password' || entry.key == 'confirm',
-                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : entry.key == 'phone' ? TextInputType.phone : TextInputType.text,
+                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : ['phone','rt','rw'].contains(entry.key) ? TextInputType.phone : TextInputType.text,
                            decoration: InputDecoration(labelText: entry.value),
                          ),
                        )
@@ -98,6 +100,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                      const SizedBox(height: 12),
                      TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
                    ],
+                   if(signup)const Padding(padding:EdgeInsets.only(bottom:8),child:Text('RT/RW dipakai otomatis untuk mengirim surat ke petugas wilayah Anda. Tidak perlu menunggu persetujuan admin.',style:TextStyle(color:Colors.blueGrey,fontSize:12))),
                    const SizedBox(height: 22),
                    SizedBox(
                      width: double.infinity,
