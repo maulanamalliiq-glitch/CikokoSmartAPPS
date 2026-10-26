@@ -14,6 +14,7 @@ import 'role_catalog.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
+import 'surat_identifier.dart';
 import 'home_widgets.dart';
 import 'public_letters.dart';
 import 'v211_features.dart';
@@ -752,11 +753,14 @@ class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? futu
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
     subtitle:Text('${r['reference']??''} • ${r['status']??''}\n${r['created_at']??''}',style:const TextStyle(fontSize:11)),
     trailing:const Icon(Icons.chevron_right),
-    onTap:()=>showCikokoDocument(context,api,
-       id:int.tryParse('${r['id']??''}')??0,
-       reference:'${r['reference']??''}',
-       kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',
-       onChanged:reload),
+    onTap:(){
+      final row=Map<String,dynamic>.from(r);
+      final id=cikokoPositiveId(row);
+      final ref=cikokoWarisReference(row);
+      if(id==null && ref==null){notify(context,'Nomor pengajuan belum tersedia. Muat ulang riwayat.',error:true);reload();return;}
+      showCikokoDocument(context,api,id:id??0,reference:ref??'',
+        kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',onChanged:reload);
+    },
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]));});
 }
 class ChatPage extends StatefulWidget{const ChatPage({super.key});@override State<ChatPage> createState()=>_ChatState();}
@@ -806,17 +810,35 @@ class AdminReports extends StatefulWidget{const AdminReports({super.key});@overr
 class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
  @override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
- Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
+ Future<void> update(Map<String,dynamic> r,String status)async{
+  final kind=(r['kind']??'report').toString();
+  final id=cikokoPositiveId(r);
+  final ref=cikokoWarisReference(r);
+  if(id==null && (kind!='waris'||ref==null)){
+    if(mounted)notify(context,'ID pengajuan belum tersedia. Perbarui daftar surat.',error:true);
+    await load();return;
+  }
+  try{
+    await api.call('status',body:{
+      'kind':kind,'id':id??ref,'status':status,
+      if(ref!=null)'reference_no':ref,
+    });
+    await load();
+  }catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
  @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
   const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
   for(final r in rows)Card(child:ListTile(
     leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
     subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
-    onTap:()=>showCikokoDocument(context,api,
-      id:int.tryParse('${r['id']??''}')??0,
-      reference:'${r['reference']??''}',
-      kind:'${r['kind']??'report'}',onChanged:load),
+    onTap:(){
+      final row=Map<String,dynamic>.from(r);
+      final id=cikokoPositiveId(row);
+      final ref=cikokoWarisReference(row);
+      if(id==null && ref==null){notify(context,'ID surat tidak tersedia. Muat ulang daftar.',error:true);load();return;}
+      showCikokoDocument(context,api,id:id??0,reference:ref??'',kind:'${r['kind']??'report'}',onChanged:load);
+    },
     trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
