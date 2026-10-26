@@ -19,11 +19,13 @@ if($action==='health'){
         'roles_lib'=>is_file(dirname(__DIR__).'/roles-lib.php'),
         'api_bootstrap'=>is_file(__DIR__.'/bootstrap.php'),
         'api_permissions'=>is_file(__DIR__.'/permissions.php'),
+        'api_rt_rw'=>is_file(__DIR__.'/rt_rw_letters.php'),
+        'api_territory'=>is_file(__DIR__.'/territory.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'205.1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2.5.14','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -54,7 +56,7 @@ if($action==='content'&&$method==='GET'){
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 require_once __DIR__.'/waris_review.php';
-if(str_starts_with($action,'rt_rw_')){require_once __DIR__.'/rt_rw_letters.php';cikoko_rt_rw_dispatch($action,$method,$db,$u);}
+if(str_starts_with($action,'rt_rw_')){if(!is_file(__DIR__.'/rt_rw_letters.php'))mobile_error('Patch Surat Pengantar RT/RW belum terpasang di server.',503);require_once __DIR__.'/rt_rw_letters.php';cikoko_rt_rw_dispatch($action,$method,$db,$u);}
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
   $profile=['id'=>$uid,'name'=>'Administrator','username'=>$u['username'],'role'=>$u['user_role']];
