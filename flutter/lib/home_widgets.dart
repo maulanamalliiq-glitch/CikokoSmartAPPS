@@ -135,7 +135,7 @@ class CikokoLetterCounters extends StatelessWidget {
     Row(children: [
       const Expanded(child: Text('Status Pelayanan Surat',
         style: TextStyle(fontWeight: FontWeight.w800, color: homeNavy, fontSize: 13.5))),
-      TextButton(onPressed:onTap, child:Text(guest?'Login →':'Riwayat →',
+      TextButton(onPressed:onTap, child:Text('Lihat Status →',
         style:const TextStyle(fontSize:11.2,fontWeight:FontWeight.w700))),
     ]),
     Row(children: [
@@ -150,7 +150,7 @@ class CikokoLetterCounters extends StatelessWidget {
             borderRadius:BorderRadius.circular(11)),
           child:Row(children:[
             Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-              Text(guest||counts==null?'—':'${counts![pair.$1]??0}',style:TextStyle(
+              Text(counts==null?'—':'${counts![pair.$1]??0}',style:TextStyle(
                 color:pair.$3,fontSize:19,fontWeight:FontWeight.w900)),
               const SizedBox(height:2),
               Text(pair.$2,maxLines:1,overflow:TextOverflow.ellipsis,
