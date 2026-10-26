@@ -19,6 +19,7 @@ const roleFeatures = <String,RoleFeature>{
   'services': RoleFeature('Layanan Masyarakat','Pilih pelayanan yang dibutuhkan','Layanan Online'),
   'gallery': RoleFeature('Galeri','Dokumentasi kegiatan Cikoko','Galeri'),
   'waris': RoleFeature('Surat Ahli Waris','Ajukan surat secara daring','Surat Ahli Waris',capability:'waris:create'),
+  'rt_rw': RoleFeature('Surat Digital RT/RW','Pengajuan dan verifikasi berjenjang','Surat Digital RT/RW'),
   'history': RoleFeature('Riwayat Pengajuan','Status surat dan laporan Anda','Riwayat'),
   'jumantik': RoleFeature('Laporan Jumantik','Upload foto pemeriksaan lingkungan','Laporan Jumantik',capability:'report:jumantik'),
   'kegiatan': RoleFeature('Laporan Kegiatan','Kirim laporan dan foto kegiatan','Laporan Kegiatan',capability:'report:kegiatan'),
@@ -47,16 +48,16 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
- 'admin_kelurahan':['verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
+ 'admin':['rt_rw','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin_kelurahan':['rt_rw','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
  'pppk':['kegiatan','attendance','roster','performance','leave','history','news'],
  'pjlp':['kegiatan','attendance','roster','performance','protap','leave','history'],
  'ptsp':['verify','archive_list','civil','kegiatan','history','services'],
  'dukcapil':['civil','kegiatan','history','services','announcements'],
- 'rt':['kegiatan','bakti','jumantik','history','news','announcements'],
- 'rw':['kegiatan','bakti','monitor','history','news','announcements'],
+ 'rt':['rt_rw','kegiatan','bakti','jumantik','history','news','announcements'],
+ 'rw':['rt_rw','kegiatan','bakti','monitor','history','news','announcements'],
  'fkdm':['fkdm','kegiatan','history','news','announcements'],
  'lmk':['lmk','kegiatan','history','news','announcements'],
  'jumantik_rt':['jumantik','history','news','announcements'],
@@ -65,7 +66,7 @@ const roleMenus = <String,List<String>>{
  'pkk':['dasawisma','history','announcements'],
  'posyandu':['posyandu','kegiatan','history','news','announcements'],
  'ppsu':['ppsu','bakti','kegiatan','history','news','announcements'],
- 'warga':['services','waris','jumantik','history','news','announcements','gallery'],
+ 'warga':['rt_rw','services','waris','jumantik','history','news','announcements','gallery'],
 };
 List<RoleFeature> modulesForRole(String role, Map<String,bool> caps) {
  return (roleMenus[role]??roleMenus['warga']!).map((key)=>roleFeatures[key]!).where((feature)=>feature.capability==null || caps[feature.capability]==true).toList();
