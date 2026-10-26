@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/v2524-full-surat-android]
+    branches: [main, fix/v2525-full-surat-android, fix/v2525-hardcheck-api-flutter]
     paths:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
@@ -24,6 +24,7 @@ jobs:
           php qa/test_v2516_waris_documents.php
           php qa/test_v2519_waris_stage.php
           php qa/test_v2520_public_letters.php
+          php qa/test_v2525_identity.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -67,30 +68,30 @@ jobs:
             echo "::warning::Signing secrets belum lengkap. Release unsigned saja."
           fi
           echo "CIKOKO_SIGNING_MODE=$SIGN_MODE" >> "$GITHUB_ENV"
-      - name: Build V2524 release bundle and universal APK
+      - name: Build V2525 release bundle and universal APK
         working-directory: flutter
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/out-v2524"
+          mkdir -p "$GITHUB_WORKSPACE/out-v2525"
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-release.aab"
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2525/Cikoko-v2525-release.aab"
           flutter build apk --release
           test -s build/app/outputs/flutter-apk/app-release.apk
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
-          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-release.aab"
-          test -s "$GITHUB_WORKSPACE/out-v2524/Cikoko-v2524-universal-release.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2525/Cikoko-v2525-universal-release.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2525/Cikoko-v2525-release.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2525/Cikoko-v2525-universal-release.apk"
           # Keep official SDK signing utilities as internal CI artifact for signing offline.
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           APKSIGNER_JAR=$(find "$SDK_ROOT/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -n 1)
           test -s "$APKSIGNER_JAR"
-          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2524/apksigner.jar"
+          cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2525/apksigner.jar"
       - name: Record signing status
         run: |
-          printf 'Signing mode: %s\nSource: fix/v2524-full-surat-android\nAPK build code: 2524\n' "$CIKOKO_SIGNING_MODE" > out-v2524/SIGNING_STATUS.txt
-      - name: Upload V2524 release for local signing
+          printf 'Signing mode: %s\nSource: fix/v2525-full-surat-android\nAPK build code: 2524\n' "$CIKOKO_SIGNING_MODE" > out-v2525/SIGNING_STATUS.txt
+      - name: Upload V2525 release for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2524-ANDROID-RELEASE-CHECK-SIGNING
-          path: out-v2524/
+          name: Cikoko-v2525-ANDROID-RELEASE-CHECK-SIGNING
+          path: out-v2525/
           if-no-files-found: error
           retention-days: 14
