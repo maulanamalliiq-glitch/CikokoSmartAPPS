@@ -10,7 +10,7 @@ class CikokoProfileEditor extends StatefulWidget {
 }
 class _State extends State<CikokoProfileEditor> {
  final name=TextEditingController(),phone=TextEditingController(),email=TextEditingController(),
-  address=TextEditingController(),rt=TextEditingController(),rw=TextEditingController(),areaAddress=TextEditingController();
+  address=TextEditingController(),rt=TextEditingController(),rw=TextEditingController(),areaAddress=TextEditingController(),areaPassword=TextEditingController();
  bool busy=false,areaBusy=false;
  String feedback='',areaFeedback='';
  Map<String,dynamic>? areaProfile;
@@ -26,7 +26,7 @@ class _State extends State<CikokoProfileEditor> {
  }
  @override void dispose(){
   name.dispose();phone.dispose();email.dispose();address.dispose();
-  rt.dispose();rw.dispose();areaAddress.dispose();super.dispose();
+  rt.dispose();rw.dispose();areaAddress.dispose();areaPassword.dispose();super.dispose();
  }
  Future<void> loadArea()async{
   if(mounted)setState((){loadingArea=true;areaError=null;});
@@ -37,7 +37,7 @@ class _State extends State<CikokoProfileEditor> {
    final verified=x['verified_area'] is Map?Map<String,dynamic>.from(x['verified_area'] as Map):null;
    final p=req??verified;
    rt.text=(p?['rt']??'').toString();rw.text=(p?['rw']??'').toString();
-   areaAddress.text=(req?['address']??address.text).toString();
+   areaAddress.text=(x['registered_address']??address.text).toString();
    setState((){areaProfile=Map<String,dynamic>.from(x);loadingArea=false;});
   }catch(e){if(mounted)setState((){loadingArea=false;areaError=e.toString();});}
  }
@@ -60,15 +60,15 @@ class _State extends State<CikokoProfileEditor> {
    return;
   }
   final confirmed=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-   title:const Text('Kirim profil RT/RW?'),
-   content:Text('Pengajuan RT '+r+' / RW '+w+' menunggu verifikasi Admin Kelurahan sebelum dapat dipakai untuk mengajukan surat.'),
+   title:const Text('Simpan RT/RW Domisili?'),
+   content:Text('RT '+r+' / RW '+w+' akan dipakai otomatis untuk semua surat baru. Dokumen lama tetap di wilayah sebelumnya.'),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Batal')),
-    FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Kirim ke Admin'))]));
+    FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Simpan Wilayah'))]));
   if(confirmed!=true||!mounted)return;
   setState((){areaBusy=true;areaFeedback='';});
   try{
-   await widget.api.call('civic_profile_request',body:{'rt':r,'rw':w,'address':a});
-   if(mounted){setState(()=>areaFeedback='Permintaan RT/RW terkirim. Menunggu verifikasi Admin.');await loadArea();}
+   await widget.api.call('civic_profile_request',body:{'rt':r,'rw':w,'address':a,'password':areaPassword.text});
+   if(mounted){setState(()=>areaFeedback='RT/RW berhasil disimpan dan langsung aktif.');areaPassword.clear();await loadArea();}
   }catch(e){if(mounted)setState(()=>areaFeedback='Gagal mengirim: '+e.toString());}
   finally{if(mounted)setState(()=>areaBusy=false);}
  }
@@ -82,16 +82,16 @@ class _State extends State<CikokoProfileEditor> {
   final p=areaProfile??{},verified=p['verified_area'] is Map?Map<String,dynamic>.from(p['verified_area'] as Map):null;
   final request=p['area_request'] is Map?Map<String,dynamic>.from(p['area_request'] as Map):null;
   final duty=p['duty'] is Map?Map<String,dynamic>.from(p['duty'] as Map):null;
-  final pending=request?['status']=='pending',rejected=request?['status']=='rejected';
+  final pending=false,rejected=false;
   return Card(child:Padding(padding:const EdgeInsets.all(16),
    child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
     const Text('Detail Wilayah RT/RW',style:TextStyle(fontSize:17,fontWeight:FontWeight.w800)),
     const SizedBox(height:8),
     if(role=='warga')...[
-     Text(pending?'Status: MENUNGGU VERIFIKASI ADMIN':verified!=null?'Status: TERVERIFIKASI':'Status: BELUM TERVERIFIKASI',
+     Text(pending?'Status: TERDAFTAR':verified!=null?'Status: TERDAFTAR':'Status: BELUM DIISI',
       style:TextStyle(fontWeight:FontWeight.w700,color:pending?Colors.deepOrange:verified!=null?Colors.green:Colors.red)),
      if(verified!=null)Padding(padding:const EdgeInsets.only(top:6,bottom:9),
-      child:Text('RT '+(verified['rt']??'').toString()+' / RW '+(verified['rw']??'').toString()+' • disahkan Admin',
+      child:Text('RT '+(verified['rt']??'').toString()+' / RW '+(verified['rw']??'').toString()+' • diisi saat pendaftaran',
        style:const TextStyle(fontWeight:FontWeight.w700))),
      if(rejected)Text('Alasan revisi: '+(request?['reason']??'Periksa data wilayah').toString(),
        style:const TextStyle(color:Colors.red)),
@@ -99,11 +99,15 @@ class _State extends State<CikokoProfileEditor> {
      field('Nomor RT',rt,keyboard:TextInputType.number),
      field('Nomor RW',rw,keyboard:TextInputType.number),
      field('Alamat Domisili Lengkap',areaAddress,lines:3),
-     const Text('Admin Kelurahan harus memverifikasi wilayah ini. RT/RW yang Anda ketik belum memberi akses kepada akun petugas mana pun.',
+     const Text('RT/RW langsung digunakan untuk mengirim surat ke akun Ketua RT yang sesuai, kemudian diteruskan ke RW. Nomor RT/RW tidak membuat akun petugas.',
       style:TextStyle(color:Colors.blueGrey,fontSize:12)),
      const SizedBox(height:12),
-     FilledButton.icon(onPressed:areaBusy?null:requestArea,icon:const Icon(Icons.send_outlined),
-      label:Text(areaBusy?'Mengirim...':'Ajukan Verifikasi Wilayah')),
+     if(verified!=null)...[
+      TextField(controller:areaPassword,obscureText:true,decoration:const InputDecoration(labelText:'Password akun jika mengubah RT/RW',border:OutlineInputBorder())),
+      const SizedBox(height:12),
+     ],
+     FilledButton.icon(onPressed:areaBusy?null:requestArea,icon:const Icon(Icons.save_outlined),
+      label:Text(areaBusy?'Mengirim...':'Simpan RT/RW')),
     ]else if(duty!=null)...[
      const Text('Wilayah penugasan resmi (hanya dapat diubah Admin):',style:TextStyle(color:Colors.blueGrey,fontSize:12)),
      Text('Jabatan: '+(duty['duty']??'').toString().toUpperCase(),style:const TextStyle(fontWeight:FontWeight.w700)),
