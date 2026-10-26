@@ -21,4 +21,16 @@ check(isset($labels['r4'],$labels['child_1'],$labels['r7'],$labels['r8']),'histo
 $dart=file_get_contents(dirname(__DIR__).'/flutter/lib/main.dart');
 check(str_contains($dart,"'document_format':'split_v1'"),'Flutter requests split document format');
 check(str_contains($dart,'child_${i}_${e.key}'),'Flutter child photos keyed independently');
+
+$index=file_get_contents(dirname(__DIR__).'/cpanel/mobile-api/index.php');
+check(str_contains($index,"if(\$action==='waris_format'"),'capability preflight endpoint available');
+check(str_contains($index,"Foto wajib yang belum diterima server:"),'backend error includes names of all missing documents');
+check(str_contains($index,"max_file_uploads"),'backend explains PHP upload count limit');
+check(str_contains($dart,"currentPath:photoFor("),'photo preview is rebuilt from form state');
+check(str_contains($dart,"cikoko_waris_photos"),'photos saved to distinct app-owned files');
+check(str_contains($dart,"getTemporaryDirectory()"),'images stored independently of picker transient paths');
+check(str_contains($dart,"date:const ['birthdate','marriage_date','deathdate']"),'all date fields select calendar');
+check(str_contains($dart,"TextInputType.phone"),'phone uses telephone keyboard');
+check(str_contains($dart,"Pengajuan Ahli Waris Belum Lengkap"),'all missing items detailed in dialog');
+
 echo "V2516 waris individual-document tests passed.\n";
