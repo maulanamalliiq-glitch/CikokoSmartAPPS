@@ -118,7 +118,7 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
         $st->execute([$uid,mobile_text($profile['name']??'',160),$address,$rt,$rw,
             (string)$officerRt['id'],(string)$officerRw['id'],$subject,$notes]);
         $id=(int)$db->lastInsertId();
-        mobile_emit('surat','Permohonan pengantar baru','Ada permohonan pengantar RT/RW untuk wilayah tugas Anda.','personal',(string)$officerRt['id']);
+        mobile_emit('rt_rw_surat','Permohonan pengantar baru','Ada permohonan pengantar RT/RW untuk wilayah tugas Anda.','personal',(string)$officerRt['id']);
         mobile_json(['ok'=>true,'id'=>$id,'status'=>'menunggu_rt','rt'=>$rt,'rw'=>$rw]);
     }
     if($action==='rt_rw_list'){
@@ -162,9 +162,9 @@ function cikoko_rt_rw_dispatch(string $action,string $method,PDO $db,array $auth
             $db->prepare('INSERT INTO mobile_rt_rw_letter_history(letter_id,actor_id,actor_role,decision,note) VALUES(?,?,?,?,?)')
                 ->execute([$id,$uid,$role,$decision,$note]);
             $db->commit();
-            mobile_emit('progres_surat','Status Surat Pengantar RT/RW','Status permohonan Anda: '.$next.'.','personal',(string)$letter['applicant_id']);
+            mobile_emit('rt_rw_status','Status Surat Pengantar RT/RW','Status permohonan Anda: '.$next.'.','personal',(string)$letter['applicant_id']);
             if($next==='menunggu_rw')
-                mobile_emit('surat','Verifikasi RW menunggu','Ada surat pengantar dari RT untuk ditinjau.','personal',(string)$letter['rw_officer_id']);
+                mobile_emit('rt_rw_surat','Verifikasi RW menunggu','Ada surat pengantar dari RT untuk ditinjau.','personal',(string)$letter['rw_officer_id']);
             mobile_json(['ok'=>true,'status'=>$next]);
         }catch(Throwable $e){
             if($db->inTransaction())$db->rollBack();
