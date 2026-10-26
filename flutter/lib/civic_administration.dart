@@ -77,8 +77,8 @@ class _CivicAdministrationState extends State<CivicAdministrationPage> {
 }
 
 class CivicNewDocument extends StatefulWidget {
- final CikokoApi api;final String kind;
- const CivicNewDocument({super.key,required this.api,required this.kind});
+ final CikokoApi api;final String kind;final int? revisionOf;final Map<String,dynamic>? original;
+ const CivicNewDocument({super.key,required this.api,required this.kind,this.revisionOf,this.original});
  @override State<CivicNewDocument> createState()=>_CivicNewState();
 }
 class _CivicNewState extends State<CivicNewDocument>{
@@ -92,6 +92,20 @@ class _CivicNewState extends State<CivicNewDocument>{
  @override void initState(){super.initState();
   for(final k in (isLetter?labels.keys:['period','opening','income']))inputs[k]=TextEditingController();
   if(!isLetter){final now=DateTime.now();inputs['period']!.text=now.year.toString()+'-'+now.month.toString().padLeft(2,'0');inputs['opening']!.text='0';}
+  if(widget.original!=null){
+    for(final e in widget.original!.entries){
+      if(inputs.containsKey(e.key))inputs[e.key]!.text=e.value.toString();
+    }
+    if(!isLetter){
+      for(final raw in List<dynamic>.from(widget.original!['entries']??[])){
+        if(raw is Map)expenses.add({
+          'activity':TextEditingController(text:(raw['activity']??'').toString()),
+          'amount':TextEditingController(text:(raw['amount']??0).toString()),
+          'notes':TextEditingController(text:(raw['notes']??'').toString())
+        });
+      }
+    }
+  }
  }
  @override void dispose(){for(final x in inputs.values)x.dispose();for(final r in expenses)for(final x in r.values)x.dispose();super.dispose();}
  int amount(String? v)=>int.tryParse((v??'').replaceAll(RegExp(r'[^0-9]'),''))??0;
@@ -102,7 +116,7 @@ class _CivicNewState extends State<CivicNewDocument>{
    final Map<String,dynamic> p=isLetter?{for(final e in inputs.entries)e.key:e.value.text.trim()}:
     {'opening':amount(inputs['opening']?.text),'income':amount(inputs['income']?.text),
      'entries':[for(final r in expenses){'activity':r['activity']!.text.trim(),'amount':amount(r['amount']!.text),'notes':r['notes']!.text.trim()}]};
-   await widget.api.call('civic_submit',body:{'kind':widget.kind,'fields':p,if(!isLetter)'period':inputs['period']!.text.trim()});
+   await widget.api.call(widget.revisionOf==null?'civic_submit':'civic_resubmit',body:{'kind':widget.kind,'fields':p,if(!isLetter)'period':inputs['period']!.text.trim(),if(widget.revisionOf!=null)'id':widget.revisionOf});
    if(mounted)Navigator.of(context).pop(true);
   }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString())));}
   finally{if(mounted)setState(()=>busy=false);}
@@ -226,6 +240,15 @@ class _CivicDetailState extends State<CivicDetailPage>{
    for(final a in approvals)ListTile(leading:const Icon(Icons.fact_check_outlined),
     title:Text((a['duty']??'').toString()+' • '+(a['action']??'').toString()),
     subtitle:Text((a['created_at']??'').toString()+' '+(a['notes']??'').toString())),
+   if(d['status']=='dikembalikan' &&
+       (d['owner_id']??'').toString()==(widget.api.profile?['id']??'').toString())...[
+      FilledButton.icon(onPressed:()async{
+        final changed=await Navigator.of(context).push<bool>(MaterialPageRoute(builder:(_)=>
+          CivicNewDocument(api:widget.api,kind:(d['kind']??'').toString(),
+             revisionOf:widget.id,original:p)));
+        if(changed==true&&mounted)setState(reload);
+      },icon:const Icon(Icons.edit_note_outlined),label:const Text('Perbaiki & Kirim Ulang')),
+   ],
    FilledButton.icon(onPressed:pdf,icon:const Icon(Icons.picture_as_pdf_outlined),
     label:Text(d['status']=='selesai'?'PDF Final':'Pratinjau PDF Draft')),
    if(canSign(d))...[
