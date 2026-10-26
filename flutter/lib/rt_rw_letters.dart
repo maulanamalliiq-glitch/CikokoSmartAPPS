@@ -159,6 +159,33 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
     finally { reason.dispose(); password.dispose(); }
   }
 
+  Future<void> reaffirmLegacy(Map<String,dynamic> letter) async {
+    final password=TextEditingController();
+    try{
+      final submit=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(
+        title:const Text('Lengkapi TTD Surat Lama'),
+        content:Column(mainAxisSize:MainAxisSize.min,children:[
+          const Text('Berlaku hanya untuk surat yang telah Anda setujui sebelumnya. '
+            'Unggah TTD/stempel Anda dahulu melalui menu petugas.'),
+          const SizedBox(height:12),
+          TextField(controller:password,obscureText:true,
+            decoration:const InputDecoration(labelText:'Password akun')),
+        ]),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Batal')),
+          FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Sahkan Persetujuan Lama')),
+        ],
+      ));
+      if(submit!=true)return;
+      await widget.api.call('rt_rw_reaffirm',body:{
+        'id':letter['id'],'decision':'approve','current_password':password.text,
+      });
+      if(mounted)setState(refresh);
+      flash('TTD untuk persetujuan lama berhasil direkam.');
+    }catch(e){flash('$e');}
+    finally{password.dispose();}
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWarga = role == 'warga';
@@ -237,6 +264,10 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
                 const SizedBox(height: 8),
                 Text(statusLabel('${letter['status'] ?? ''}'),
                   style: const TextStyle(fontWeight: FontWeight.w600)),
+                 if (canVerify && letter['requires_reaffirm']==true)
+                   TextButton.icon(icon:const Icon(Icons.draw_outlined),
+                     label:const Text('Lengkapi TTD Surat Lama'),
+                     onPressed:()=>reaffirmLegacy(letter)),
                  if (letter['status']=='terverifikasi')
                    Wrap(spacing:8,children:[
                      TextButton.icon(icon:const Icon(Icons.picture_as_pdf_outlined),
