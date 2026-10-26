@@ -5,20 +5,21 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'api.dart';
 
 // Bottom sheet preview: only details returned by authenticated PHP endpoint.
-Future<void> showCikokoDocument(BuildContext context, CikokoApi api, {required int id, required String kind, VoidCallback? onChanged}) {
+Future<void> showCikokoDocument(BuildContext context, CikokoApi api, {required int id, required String kind, String reference='', VoidCallback? onChanged}) {
   return showModalBottomSheet<void>(
     context:context,isScrollControlled:true,useSafeArea:true,backgroundColor:Colors.white,
     shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(22))),
     builder:(ctx)=>SizedBox(height:MediaQuery.sizeOf(ctx).height*.86,
-      child:DocumentDetailSheet(api:api,id:id,kind:kind,onChanged:onChanged)),
+      child:DocumentDetailSheet(api:api,id:id,kind:kind,reference:reference,onChanged:onChanged)),
   );
 }
 class DocumentDetailSheet extends StatefulWidget {
   final CikokoApi api;
   final int id;
   final String kind;
+  final String reference;
   final VoidCallback? onChanged;
-  const DocumentDetailSheet({super.key,required this.api,required this.id,required this.kind,this.onChanged});
+  const DocumentDetailSheet({super.key,required this.api,required this.id,required this.kind,this.reference='',this.onChanged});
   @override State<DocumentDetailSheet> createState()=>_DocumentDetailState();
 }
 class _DocumentDetailState extends State<DocumentDetailSheet> {
@@ -30,7 +31,18 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
   double progress=0;
   @override void initState(){super.initState();reload();}
   @override void dispose(){reason.dispose();super.dispose();}
-  void reload(){request=widget.api.call('document_detail&id=${widget.id}&kind=${widget.kind}');if(mounted)setState((){});}
+  void reload(){
+    if(widget.id<=0 && widget.reference.trim().isEmpty){
+      request=Future.error(ApiError('Nomor tidak tersedia pada data riwayat. Muat ulang daftar pengajuan.'));
+    }else{
+      request=widget.api.callWithParams('document_detail',{
+        if(widget.id>0)'id':widget.id.toString(),
+        'kind':widget.kind,
+        if(widget.reference.trim().isNotEmpty)'reference':widget.reference.trim(),
+      });
+    }
+    if(mounted)setState((){});
+  }
   String v(dynamic x)=>x==null||'$x'.trim().isEmpty?'—':'$x';
   Future<void> askCorrections()async{
     if(selected.isEmpty||reason.text.trim().isEmpty){message('Pilih dokumen yang kurang dan tulis catatan.',error:true);return;}

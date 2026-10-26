@@ -124,41 +124,42 @@ class CikokoQuickMenu extends StatelessWidget {
   );
 }
 
-/// Angka dari API saja. Pengguna publik tidak melihat angka milik orang lain.
+/// Angka rekap dari API publik: tidak membocorkan identitas dan lampiran.
 class CikokoLetterCounters extends StatelessWidget {
   final Map<String,int>? counts;
-  final bool guest;
-  final VoidCallback onTap;
-  const CikokoLetterCounters({super.key,required this.counts,required this.guest,required this.onTap});
+  final void Function(String) onStatusTap;
+  const CikokoLetterCounters({super.key,required this.counts,required this.onStatusTap});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment:CrossAxisAlignment.start, children: [
-    Row(children: [
-      const Expanded(child: Text('Status Pelayanan Surat',
-        style: TextStyle(fontWeight: FontWeight.w800, color: homeNavy, fontSize: 13.5))),
-      TextButton(onPressed:onTap, child:Text(guest?'Login →':'Riwayat →',
-        style:const TextStyle(fontSize:11.2,fontWeight:FontWeight.w700))),
+  Widget build(BuildContext context)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[
+      const Expanded(child:Text('Status Pelayanan Surat',
+        style:TextStyle(fontWeight:FontWeight.w800,color:homeNavy,fontSize:13.5))),
+      TextButton(onPressed:()=>onStatusTap('all'),
+        child:const Text('Lihat Status →',style:TextStyle(fontSize:11.2,fontWeight:FontWeight.w700))),
     ]),
-    Row(children: [
-      for (final pair in const [
+    Row(children:[
+      for(final pair in const [
         ('masuk','Surat Masuk',Color(0xff2467ba)),
         ('proses','Diproses',Color(0xffd58823)),
         ('selesai','Selesai',Color(0xff17875a)),
       ]) ...[
-        Expanded(child: InkWell(onTap:onTap,borderRadius:BorderRadius.circular(11),child:Container(
-          padding:const EdgeInsets.symmetric(horizontal:10,vertical:9),
-          decoration:BoxDecoration(color:Colors.white,border:Border.all(color:homeBorder),
-            borderRadius:BorderRadius.circular(11)),
-          child:Row(children:[
-            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-              Text(guest||counts==null?'—':'${counts![pair.$1]??0}',style:TextStyle(
-                color:pair.$3,fontSize:19,fontWeight:FontWeight.w900)),
-              const SizedBox(height:2),
-              Text(pair.$2,maxLines:1,overflow:TextOverflow.ellipsis,
-                style:const TextStyle(fontSize:9.6,color:homeNavy,fontWeight:FontWeight.w600)),
-            ])),
-            Icon(Icons.chevron_right_rounded,size:16,color:pair.$3),
-          ]),
-        ))),
+        Expanded(child:InkWell(onTap:()=>onStatusTap(pair.$1),
+          borderRadius:BorderRadius.circular(11),
+          child:Container(
+            padding:const EdgeInsets.symmetric(horizontal:10,vertical:9),
+            decoration:BoxDecoration(color:Colors.white,border:Border.all(color:homeBorder),
+              borderRadius:BorderRadius.circular(11)),
+            child:Row(children:[
+              Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(counts==null?'—':'${counts![pair.$1]??0}',
+                  style:TextStyle(color:pair.$3,fontSize:19,fontWeight:FontWeight.w900)),
+                const SizedBox(height:2),
+                Text(pair.$2,maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontSize:9.6,color:homeNavy,fontWeight:FontWeight.w600)),
+              ])),
+              Icon(Icons.chevron_right_rounded,size:16,color:pair.$3),
+            ]),
+          ))),
         if(pair.$1!='selesai')const SizedBox(width:6),
       ],
     ]),
