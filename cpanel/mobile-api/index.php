@@ -176,6 +176,12 @@ if($action==='report'&&$method==='POST'){
  $address=mobile_text($_POST['address']??'',500);$phone=mobile_text($_POST['phone']??'',40);$notes=mobile_text($_POST['notes']??'',4000);if(!$address||!$notes)mobile_error('Alamat dan keterangan wajib',422);
  $photo=mobile_file('photo',true);$db->prepare('INSERT INTO mobile_reports(user_id,user_name,user_role,kind,address,phone,notes,photo_name) VALUES(?,?,?,?,?,?,?,?)')->execute([$uid,$u['username'],$u['user_role'],$kind,$address,$phone,$notes,$photo]);$id=(int)$db->lastInsertId();mobile_emit('laporan_masuk','Laporan '.$kind.' baru','Laporan masuk #'.$id,'admin');mobile_emit('laporan_masuk','Laporan berhasil dikirim','Nomor laporan: '.$id,'personal',$uid);mobile_json(['ok'=>true,'id'=>$id]);
 }
+if($action==='waris_format'&&$method==='GET'){
+ mobile_need($u,'waris:create');
+ mobile_json(['ok'=>true,'upload_format'=>'split_v1',
+   'max_file_uploads'=>(int)ini_get('max_file_uploads'),
+   'post_max_size'=>(string)ini_get('post_max_size')]);
+}
 if($action==='waris'&&$method==='POST'){
  mobile_need($u,'waris:create');
  require_once dirname(__DIR__).'/ahli-waris/bootstrap.php';
@@ -189,10 +195,23 @@ if($action==='waris'&&$method==='POST'){
  // Old combined codes are still accepted from older APKs for compatibility.
  $split=$format==='split_v1';
  $required=waris_required_upload_codes($children,$split);
+ if($_POST===[]&&$_FILES===[]){
+   mobile_error('Data dan foto tidak diterima server. Periksa batas upload_max_filesize, post_max_size dan max_file_uploads pada cPanel.',413);
+ }
+ $missing=[];
+ $labels=waris_codes($children);
  foreach($required as $k){
   $file=$_FILES[$k]??null;
-  if(!is_array($file)||is_array($file['name'])||($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK)
-   mobile_error('Foto wajib belum lengkap: '.(waris_codes($children)[$k]??$k),422);
+  if(!is_array($file)||is_array($file['name'])||
+     ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK){
+   $missing[]=$labels[$k]??$k;
+  }
+ }
+ if($missing){
+  mobile_error('Foto wajib yang belum diterima server: '.implode('; ',$missing).
+   '. Jika sudah dipilih di HP, periksa max_file_uploads ('.
+   (int)ini_get('max_file_uploads').' berkas), post_max_size ('.
+   (string)ini_get('post_max_size').') dan pasang patch API terbaru.',422);
  }
  for($i=1;$i<=$children;$i++){
   if(trim((string)($_POST['child_name_'.$i]??''))==='')mobile_error('Nama anak ke-'.$i.' wajib diisi.',422);
