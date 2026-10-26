@@ -186,6 +186,7 @@ if($action==='waris'&&$method==='POST'){
  mobile_need($u,'waris:create');
  require_once dirname(__DIR__).'/ahli-waris/bootstrap.php';
  try {aw_prepare_schema($db);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
+ if($_POST===[]&&$_FILES===[]){mobile_error('Data dan foto tidak diterima server. Periksa batas upload_max_filesize, post_max_size dan max_file_uploads pada cPanel.',413);}
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
  foreach(['name','phone','address','relation','deceased_name','heirs'] as $k)if(trim((string)($_POST[$k]??''))==='')mobile_error('Lengkapi '.$k,422);
  $children=min(10,max(0,(int)($_POST['child_count']??0)));
@@ -195,9 +196,6 @@ if($action==='waris'&&$method==='POST'){
  // Old combined codes are still accepted from older APKs for compatibility.
  $split=$format==='split_v1';
  $required=waris_required_upload_codes($children,$split);
- if($_POST===[]&&$_FILES===[]){
-   mobile_error('Data dan foto tidak diterima server. Periksa batas upload_max_filesize, post_max_size dan max_file_uploads pada cPanel.',413);
- }
  $missing=[];
  $labels=waris_codes($children);
  foreach($required as $k){
