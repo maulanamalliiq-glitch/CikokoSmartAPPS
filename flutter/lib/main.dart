@@ -325,7 +325,7 @@ class _HomeState extends State<HomePage> {
     case 'Pesan Masuk':return const AdminChatPage();
     case 'Notifikasi':return eventList();
     case 'Inovasi':return InnovationPage(api:api);
-    case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
+    case 'Profil':return profilePage();
     case 'Verifikasi Laporan':return const AdminReports();
     case 'Tambah Berita':return MobileEditor(api:api,mode:'berita');
     case 'Tambah Pengumuman':return MobileEditor(api:api,mode:'pengumuman');

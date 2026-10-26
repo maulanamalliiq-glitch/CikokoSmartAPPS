@@ -11,13 +11,15 @@ class CivicAdministrationPage extends StatefulWidget {
 class _CivicAdministrationState extends State<CivicAdministrationPage> {
  late Future<Map<String,dynamic>> data;
  late Future<Map<String,dynamic>> catalog;
+ late Future<Map<String,dynamic>> region;
  Map<String,dynamic>? scope;
  @override void initState(){super.initState();reload();}
  void reload(){
   data=widget.api.call('civic_list');catalog=widget.api.call('civic_catalog');
+  region=widget.api.call('civic_profile_get');
   catalog.then((v){if(mounted)setState(()=>scope=v['scope'] is Map?Map<String,dynamic>.from(v['scope']):null);}).catchError((_){});
  }
- Future<void> refresh()async{setState(reload);try{await Future.wait([data,catalog]);}catch(_){}}
+ Future<void> refresh()async{setState(reload);try{await Future.wait([data,catalog,region]);}catch(_){}}
  String get role=>(widget.api.profile?['role']??'warga').toString();
  Future<void> create(String kind)async{
   final changed=await Navigator.of(context).push<bool>(MaterialPageRoute(builder:(_)=>CivicNewDocument(api:widget.api,kind:kind)));
@@ -36,13 +38,27 @@ class _CivicAdministrationState extends State<CivicAdministrationPage> {
    if(s.hasError)return ListTile(title:const Text('Pengaturan belum tersedia'),subtitle:Text(s.error.toString()));
    if(!s.hasData)return const Center(child:CircularProgressIndicator());
    return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    if(role=='warga')...[
-     const Text('Ajukan Surat',style:TextStyle(fontWeight:FontWeight.w700)),
-     for(final item in const [
-      ['pengantar','Surat Pengantar RT/RW'],['domisili','Surat Domisili (template sementara)'],
-      ['keterangan','Surat Keterangan (template sementara)'],['permohonan','Surat Permohonan (template sementara)'],
-     ])ListTile(leading:const Icon(Icons.description_outlined),title:Text(item[1]),trailing:const Icon(Icons.chevron_right),onTap:()=>create(item[0])),
-    ],
+    if(role=='warga')FutureBuilder<Map<String,dynamic>>(future:region,builder:(ctx,area){
+     if(area.hasError)return const Text('Wilayah tidak dapat diperiksa. Coba muat ulang.',style:TextStyle(color:Colors.red));
+     if(!area.hasData)return const LinearProgressIndicator();
+     final authorized=area.data?['can_apply']==true;
+     final verified=area.data?['verified_area'] is Map
+      ?Map<String,dynamic>.from(area.data!['verified_area'] as Map):null;
+     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       Text(authorized?'Wilayah terverifikasi: RT '+(verified?['rt']??'').toString()+
+         ' / RW '+(verified?['rw']??'').toString():'Lengkapi Profil → Detail Wilayah RT/RW terlebih dahulu',
+         style:TextStyle(fontWeight:FontWeight.w700,color:authorized?Colors.green:Colors.deepOrange)),
+       const SizedBox(height:9),
+       if(!authorized)const Text('Surat baru dapat diajukan setelah Admin Kelurahan memverifikasi RT/RW Anda.',
+        style:TextStyle(color:Colors.blueGrey,fontSize:12)),
+       for(final item in const [
+        ['pengantar','Surat Pengantar RT/RW'],['domisili','Surat Domisili (template sementara)'],
+        ['keterangan','Surat Keterangan (template sementara)'],['permohonan','Surat Permohonan (template sementara)'],
+       ])ListTile(leading:const Icon(Icons.description_outlined),title:Text(item[1]),
+         trailing:Icon(authorized?Icons.chevron_right:Icons.lock_outline),
+         onTap:authorized?()=>create(item[0]):null),
+     ]);
+    }),
     if(scope!=null)...[
      Text('Jabatan: '+(scope?['duty']??'').toString()+' • RT '+(scope?['rt']??'-').toString()+' / RW '+(scope?['rw']??'-').toString(),
        style:const TextStyle(fontWeight:FontWeight.bold)),
@@ -92,6 +108,10 @@ class _CivicNewState extends State<CivicNewDocument>{
   'address':'Alamat','purpose':'Maksud dan Keperluan'};
  @override void initState(){super.initState();
   for(final k in (isLetter?labels.keys:['period','opening','income']))inputs[k]=TextEditingController();
+  if(isLetter){
+   inputs['name']!.text=(widget.api.profile?['name']??'').toString();
+   inputs['address']!.text=(widget.api.profile?['address']??'').toString();
+  }
   if(!isLetter){final now=DateTime.now();inputs['period']!.text=now.year.toString()+'-'+now.month.toString().padLeft(2,'0');inputs['opening']!.text='0';}
   if(widget.original!=null){
     for(final e in widget.original!.entries){
