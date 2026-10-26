@@ -250,7 +250,7 @@ class _CikokoRtRwPageState extends State<CikokoRtRwPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           FilledButton(onPressed: () async {
-            final form = <String, String>{for (final k in rtRwFormFields.keys): k: values[k]!.text.trim()};
+            final form = <String, String>{for (final k in rtRwFormFields.keys) k: values[k]!.text.trim()};
             if (form.values.any((value) => value.isEmpty)) { showError('Lengkapi semua kolom formulir.'); return; }
             try {
               final result = await widget.api.call('rt_rw_submit', body: {'form': form});
@@ -264,7 +264,7 @@ class _CikokoRtRwPageState extends State<CikokoRtRwPage> {
             } catch (e) { showError(e.toString()); }
           }, child: const Text('Kirim Surat')),
         ],
-      )));
+      ));
     } finally { for (final v in values.values) { v.dispose(); } }
   }
   @override
