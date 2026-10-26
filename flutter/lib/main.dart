@@ -573,14 +573,26 @@ class AdminReports extends StatefulWidget{const AdminReports({super.key});@overr
 class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
  @override void initState(){super.initState();load();}
  Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
- Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
+ int? validApplicationId(Map<String,dynamic> row) {
+  for (final key in ['id', 'application_id', 'request_id']) {
+    final value = row[key];
+    final parsed = value is int ? value : int.tryParse('${value ?? ''}'.trim());
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return null;
+ }
+ Future<void> update(Map<String,dynamic> r,String status)async{
+  final id=validApplicationId(r);
+  if(id==null){if(mounted)notify(context,'ID pengajuan tidak tersedia. Muat ulang daftar surat.',error:true);await load();return;}
+  try{await api.call('status',body:{'kind':'${r['kind']??'report'}','id':id,'status':status});await load();}catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
  @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
   const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
   for(final r in rows)Card(child:ListTile(
     leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
     subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
-    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??'report'}',onChanged:load),
+    onTap:(){final id=validApplicationId(Map<String,dynamic>.from(r));if(id==null){notify(context,'ID pengajuan tidak tersedia. Muat ulang daftar surat.',error:true);load();return;}showCikokoDocument(context,api,id:id,kind:'${r['kind']??'report'}',onChanged:load);},
     trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
