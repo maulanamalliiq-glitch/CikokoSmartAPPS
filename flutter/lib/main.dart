@@ -1,6 +1,8 @@
 import 'profile_editor.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -444,7 +446,47 @@ class _HomeState extends State<HomePage> {
     )),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
  Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const Text('Silakan masuk untuk mengelola profil.'),FilledButton(onPressed:openLogin,child:const Text('Masuk'))])))):CikokoProfileEditor(api:api);
 }
-class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
+class Field extends StatelessWidget {
+  final String label;
+  final TextEditingController ctrl;
+  final int lines;
+  final TextInputType keyboard;
+  final bool date;
+  const Field(this.label,this.ctrl,{super.key,this.lines=1,
+    this.keyboard=TextInputType.text,this.date=false});
+
+  Future<void> chooseDate(BuildContext context) async {
+    final today=DateTime.now();
+    final parsed=DateTime.tryParse(ctrl.text);
+    final initial=parsed!=null && !parsed.isAfter(today) && parsed.year>=1850
+      ? parsed : DateTime(today.year-25);
+    final picked=await showDatePicker(context:context,initialDate:initial,
+      firstDate:DateTime(1850),lastDate:today,helpText:label);
+    if(picked!=null)ctrl.text=picked.year.toString().padLeft(4,'0')+'-'
+      +picked.month.toString().padLeft(2,'0')+'-'
+      +picked.day.toString().padLeft(2,'0');
+  }
+
+  @override Widget build(BuildContext c)=>Padding(
+    padding:const EdgeInsets.only(bottom:12),
+    child:TextField(
+      controller:ctrl,maxLines:lines,
+      keyboardType:date?TextInputType.datetime:keyboard,
+      readOnly:date,
+      onTap:date?()=>chooseDate(c):null,
+      inputFormatters:!date && keyboard==TextInputType.number
+        ?[FilteringTextInputFormatter.digitsOnly]:null,
+      decoration:InputDecoration(
+        labelText:label,alignLabelWithHint:lines>1,
+        suffixIcon:date?IconButton(
+          icon:const Icon(Icons.calendar_month_outlined),
+          tooltip:'Pilih tanggal',
+          onPressed:()=>chooseDate(c),
+        ):null,
+      ),
+    ),
+  );
+}
 class PhotoInput extends StatefulWidget {
   final String label;
   final void Function(String path) onChanged;
@@ -457,32 +499,65 @@ class _PhotoState extends State<PhotoInput> {
   Future<void> pick(ImageSource source) async {
     if(selecting)return;
     setState(()=>selecting=true);
-    try {
-      final file=await ImagePicker().pickImage(source:source,maxWidth:1900,maxHeight:2400,imageQuality:78,requestFullMetadata:false);
+    try{
+      final file=await ImagePicker().pickImage(source:source,
+        maxWidth:1900,maxHeight:2400,imageQuality:82,requestFullMetadata:false);
       if(file==null)return;
-      var newPath=file.path;
-      try {
-        final original=File(file.path);
-        if(await original.length()>1550000) {
-          for(final quality in [78,67,55]) {
-            final compressed=await FlutterImageCompress.compressWithFile(file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
-            if(compressed==null)break;
-            final output=File('${Directory.systemTemp.path}/cikoko_${DateTime.now().microsecondsSinceEpoch}.jpg');
-            await output.writeAsBytes(compressed,flush:true);
-            newPath=output.path;
-            if(compressed.length<=1550000)break;
-          }
+
+      // Picker paths can be recycled or deleted after subsequent camera picks.
+      // Always make a unique app-owned copy BEFORE returning to the form.
+      final root=await getTemporaryDirectory();
+      final folder=Directory(root.path+'/cikoko_waris_photos');
+      if(!await folder.exists())await folder.create(recursive:true);
+      final unique=DateTime.now().microsecondsSinceEpoch.toString()+'_'
+        +Random.secure().nextInt(0x7fffffff).toRadixString(16);
+      final lower=file.name.toLowerCase();
+      var bytes=await File(file.path).readAsBytes();
+      // Convert unsupported camera formats and large files to JPEG.
+      if(bytes.length>1550000 ||
+          !(lower.endsWith('.png')||lower.endsWith('.webp')||
+            lower.endsWith('.jpg')||lower.endsWith('.jpeg'))){
+        for(final quality in [80,68,55]){
+          final compressed=await FlutterImageCompress.compressWithFile(
+            file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
+          if(compressed==null)break;
+          bytes=compressed;
+          if(bytes.length<=1550000)break;
         }
-      }catch(_) { /* Gunakan foto asli jika kompresi tidak didukung. */ }
+      }
+      final isJpeg=bytes.length>=3&&bytes[0]==0xff&&bytes[1]==0xd8;
+      final isPng=bytes.length>=4&&bytes[0]==0x89&&bytes[1]==0x50;
+      final isWebp=bytes.length>=12 &&
+        String.fromCharCodes(bytes.sublist(8,12))=='WEBP';
+      if(!isJpeg&&!isPng&&!isWebp)throw const FormatException(
+        'Foto harus JPG, PNG atau WebP.');
+      final savedExt=isJpeg?'.jpg':isPng?'.png':'.webp';
+      final out=File(folder.path+'/'+unique+savedExt);
+      await out.writeAsBytes(bytes,flush:true);
+      if(!await out.exists()||await out.length()<100){
+        throw const FileSystemException('Foto belum berhasil disimpan.');
+      }
       if(!mounted)return;
-      setState(() {
-        selectedPath=newPath;
-        final original=file.name;
-        selectedName=source==ImageSource.camera ? 'Foto Kamera - ${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.jpg' : original;
+      final previous=selectedPath;
+      setState((){
+        selectedPath=out.path;
+        selectedName=source==ImageSource.camera
+          ?'Foto Kamera - '+DateTime.now().day.toString()+'-'
+            +DateTime.now().month.toString()+'-'+DateTime.now().year.toString()+savedExt
+          :file.name;
       });
-      widget.onChanged(newPath);
-    }catch(e) {if(mounted)notify(context,'Gagal mengambil foto: $e',error:true);}
-    finally {if(mounted)setState(()=>selecting=false);}
+      widget.onChanged(out.path);
+      // Do not remove other documents; only replace this field's old copy.
+      if(previous!=null&&previous!=out.path) {
+        final f=File(previous);
+        if(await f.exists())await f.delete();
+      }
+    }catch(e){
+      if(mounted)notify(context,'Foto '+widget.label+' tidak dapat disimpan: '+e.toString(),
+        error:true);
+    }finally{
+      if(mounted)setState(()=>selecting=false);
+    }
   }
   @override Widget build(BuildContext c)=>Card(
     child:Padding(padding:const EdgeInsets.all(10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
