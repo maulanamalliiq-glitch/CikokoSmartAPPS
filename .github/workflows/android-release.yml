@@ -40,39 +40,22 @@ jobs:
       - name: Flutter widget and role tests
         working-directory: flutter
         run: flutter test
-      - name: Build Android debug test APK
+      - name: Build V2514 release bundle and universal APK
         working-directory: flutter
-        run: flutter build apk --debug
-      - name: Upload test APK
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/out-v2514"
+          flutter build appbundle --release
+          test -s build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out-v2514/Cikoko-v2514-unsigned.aab"
+          flutter build apk --release
+          test -s build/app/outputs/flutter-apk/app-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/out-v2514/Cikoko-v2514-universal-unsigned.apk"
+          test -s "$GITHUB_WORKSPACE/out-v2514/Cikoko-v2514-unsigned.aab"
+          test -s "$GITHUB_WORKSPACE/out-v2514/Cikoko-v2514-universal-unsigned.apk"
+      - name: Upload V2514 release for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2514-TEST-APK
-          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          name: Cikoko-v2514-ANDROID-RELEASE-UNSIGNED
+          path: out-v2514/
           if-no-files-found: error
           retention-days: 14
-      - name: Build release AAB and APK for secure offline signing
-        working-directory: flutter
-        run: |
-          flutter build appbundle --release
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          mkdir -p build/offline-release
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/offline-release/Cikoko-v2514-arm64-unsigned.apk
-          flutter build apk --release
-          test -s build/app/outputs/bundle/release/app-release.aab
-          test -s build/app/outputs/flutter-apk/app-release.apk
-      - name: Stage unsigned release outputs and Android signer
-        run: |
-          mkdir -p flutter/build/offline-release
-          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2514-unsigned.aab
-          cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v2514-universal-unsigned.apk
-          SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
-          test -n "$SIGNER"
-          cp "$SIGNER" flutter/build/offline-release/apksigner.jar
-      - name: Upload offline signing artifacts (unsigned, not for Play Store)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cikoko-v2514-OFFLINE-SIGNING-APK-AAB
-          path: flutter/build/offline-release/
-          if-no-files-found: error
-          retention-days: 7
