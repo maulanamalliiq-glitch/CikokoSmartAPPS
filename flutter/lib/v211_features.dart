@@ -73,11 +73,11 @@ class _CivicProfileState extends State<CivicProfilePage>{
  }
  @override void initState(){super.initState();pending=loadProfile();}
  @override void dispose(){for(final c in fields.values){c.dispose();}currentPassword.dispose();super.dispose();}
- void fill(Map<String,dynamic> row){for(final k in fields.keys){fields[k]!.text='${row[k]??''}';}}
+ void fill(Map<String,dynamic> row){for(final k in fields.keys){final raw='${row[k]??''}';if(k=='rt'||k=='rw'){final n=int.tryParse(raw);fields[k]!.text=n==null?'':n.toString().padLeft(2,'0');}else{fields[k]!.text=raw;}}}
  Future<void> save()async{if(saving)return;setState(()=>saving=true);try{
   await widget.api.call('v211_profile_update',body:{for(final k in ['name','phone','email','address','nik'])k:fields[k]!.text.trim(),if(widget.api.profile?['role']=='warga') ...{'rt':fields['rt']!.text.trim(),'rw':fields['rw']!.text.trim(),'current_password':currentPassword.text}});
   widget.api.profile?['name']=fields['name']!.text.trim();
-  widget.api.profile?['rt']=fields['rt']!.text.trim().padLeft(3,'0');widget.api.profile?['rw']=fields['rw']!.text.trim().padLeft(3,'0');
+  widget.api.profile?['rt']=fields['rt']!.text.trim().padLeft(2,'0');widget.api.profile?['rw']=fields['rw']!.text.trim().padLeft(2,'0');
   currentPassword.clear();if(mounted){civicMessage(context,'Perubahan profil berhasil disimpan.');setState((){editing=false;pending=loadProfile();});}
  }catch(_){if(mounted)civicMessage(context,'Perubahan profil belum berhasil disimpan. Silakan periksa kembali isian Anda.');}finally{if(mounted)setState(()=>saving=false);}}
  Future<void> uploadAvatar()async{final f=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:80,maxWidth:1400);if(f==null)return;
@@ -90,7 +90,7 @@ class _CivicProfileState extends State<CivicProfilePage>{
    Stack(children:[CircleAvatar(radius:47,backgroundColor:const Color(0xffdfedff),backgroundImage:(row['has_photo']==true||avatarReady)?NetworkImage(photoUrl,headers:{'Authorization':'Bearer ${widget.api.token}' }):null,child:(row['has_photo']==true||avatarReady)?null:const Icon(Icons.person_outline,size:47,color:civicBlue)),Positioned(bottom:0,right:0,child:IconButton.filled(onPressed:uploadAvatar,tooltip:'Ubah foto profil',icon:const Icon(Icons.camera_alt_outlined,size:18)))]),const SizedBox(height:8),
    Text(fields['name']!.text,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:civicNavy)),const Text('Profil pengguna Cikoko',style:TextStyle(fontSize:11,color:Colors.blueGrey)),
   ]))),const SizedBox(height:12),
-  for(final e in <String,String>{'name':'Nama Lengkap','username':'Username','phone':'Nomor HP','email':'Email','address':'Alamat Lengkap','nik':'Nomor Induk Kependudukan','rt':'Nomor RT','rw':'Nomor RW'}.entries)if(!['rt','rw'].contains(e.key)||widget.api.profile?['role']=='warga')Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
+  for(final e in <String,String>{'name':'Nama Lengkap','username':'Username','phone':'Nomor HP','email':'Email','address':'Alamat Lengkap','nik':'Nomor Induk Kependudukan','rt':'RT','rw':'RW'}.entries)if(!['rt','rw'].contains(e.key)||widget.api.profile?['role']=='warga')Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
    controller:fields[e.key],enabled:editing && e.key!='username',minLines:e.key=='address'?2:1,maxLines:e.key=='address'?3:1,
    keyboardType:e.key=='rt'||e.key=='rw'?TextInputType.number:e.key=='phone'||e.key=='nik'?TextInputType.phone:e.key=='email'?TextInputType.emailAddress:TextInputType.text,decoration:InputDecoration(labelText:e.value),
   )),
