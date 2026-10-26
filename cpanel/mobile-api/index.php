@@ -56,6 +56,11 @@ if($action==='content'&&$method==='GET'){
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 require_once __DIR__.'/waris_review.php';
+require_once __DIR__.'/waris_stage.php';
+if($action==='waris_stage'&&$method==='POST'){
+ mobile_need($u,'waris:create');
+ waris_stage_upload($db,(string)$uid,(string)($_POST['draft_key']??''));
+}
 if(str_starts_with($action,'rt_rw_')){if(!is_file(__DIR__.'/rt_rw_letters.php'))mobile_error('Patch Surat Pengantar RT/RW belum terpasang di server.',503);require_once __DIR__.'/rt_rw_letters.php';cikoko_rt_rw_dispatch($action,$method,$db,$u);}
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
@@ -179,6 +184,7 @@ if($action==='report'&&$method==='POST'){
 if($action==='waris_format'&&$method==='GET'){
  mobile_need($u,'waris:create');
  mobile_json(['ok'=>true,'upload_format'=>'split_v1',
+   'staged_uploads'=>true,'stage_batch_size'=>8,
    'max_file_uploads'=>(int)ini_get('max_file_uploads'),
    'post_max_size'=>(string)ini_get('post_max_size')]);
 }
@@ -196,13 +202,25 @@ if($action==='waris'&&$method==='POST'){
  // Old combined codes are still accepted from older APKs for compatibility.
  $split=$format==='split_v1';
  $required=waris_required_upload_codes($children,$split);
+ $stagedKey=trim((string)($_POST['draft_key']??''));
+ if($stagedKey!==''){
+  $stagedKey=waris_stage_key($stagedKey);
+  if(!$split)mobile_error('Pengiriman bertahap hanya untuk format dokumen terbaru.',422);
+ }
+ $stagedRows=$stagedKey!==''?waris_stage_rows($db,(string)$uid,$stagedKey):[];
  $missing=[];
  $labels=waris_codes($children);
  foreach($required as $k){
-  $file=$_FILES[$k]??null;
-  if(!is_array($file)||is_array($file['name'])||
-     ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK){
-   $missing[]=$labels[$k]??$k;
+  if($stagedKey!==''){
+   $row=$stagedRows[$k]??null;
+   $path=dirname(__DIR__).'/ahli-waris/private/uploads/'.($row['storage_name']??'');
+   if(!$row||!is_file($path))$missing[]=$labels[$k]??$k;
+  }else{
+   $file=$_FILES[$k]??null;
+   if(!is_array($file)||is_array($file['name'])||
+      ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK){
+    $missing[]=$labels[$k]??$k;
+   }
   }
  }
  if($missing){
@@ -222,12 +240,21 @@ if($action==='waris'&&$method==='POST'){
   $db->prepare($sql)->execute([$reference,$uid,mobile_text($_POST['name'],160),$nik,mobile_text($_POST['phone'],40),mobile_text($_POST['address'],3000),mobile_text($_POST['relation'],100),mobile_text($_POST['deceased_name'],200),mobile_text($_POST['marital_status']??'Tidak diketahui',40),mobile_text($_POST['birthplace']??'',160),($_POST['birthdate']??'')?:null,($_POST['deathdate']??'')?:null,($_POST['marriage_date']??'')?:null,mobile_text($_POST['heirs'],12000),json_encode($names,JSON_UNESCAPED_UNICODE)]);
   $id=(int)$db->lastInsertId();$ins=$db->prepare('INSERT INTO aw_attachments(application_id,requirement_code,original_name,storage_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?)');
   $dir=dirname(__DIR__).'/ahli-waris/private/uploads';if(!is_dir($dir))mkdir($dir,0750,true);
-  foreach(array_merge($required,['r7','r8']) as $key){$f=$_FILES[$key]??null;if(!$f||($f['error']??4)===UPLOAD_ERR_NO_FILE)continue;
+  foreach(array_merge($required,['r7','r8']) as $key){
+   if($stagedKey!==''){
+    $row=$stagedRows[$key]??null;
+    if($row)$ins->execute([$id,$key,$row['original_name'],$row['storage_name'],
+      $row['mime_type'],(int)$row['size_bytes']]);
+    continue;
+   }
+   $f=$_FILES[$key]??null;if(!$f||($f['error']??4)===UPLOAD_ERR_NO_FILE)continue;
    if(($f['error']??4)!==UPLOAD_ERR_OK||($f['size']??0)>4*1024*1024||!is_uploaded_file($f['tmp_name']))throw new RuntimeException('Foto '.$key.' gagal atau melebihi 4 MB');
    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);$ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;if(!$ext)throw new RuntimeException('Foto '.$key.' harus JPG/PNG/WebP');
    $name=bin2hex(random_bytes(20)).'.'.$ext;if(!move_uploaded_file($f['tmp_name'],$dir.'/'.$name))throw new RuntimeException('Simpan dokumen gagal');$paths[]=$dir.'/'.$name;$ins->execute([$id,$key,basename($f['name']),$name,$mime,(int)$f['size']]);
   }
-  $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);$db->commit();
+  $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);
+  if($stagedKey!=='')$db->prepare('DELETE FROM mobile_waris_staging WHERE user_id=? AND draft_key=?')->execute([$uid,$stagedKey]);
+  $db->commit();
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error('Permohonan belum berhasil disimpan. Data tetap berada di formulir. Periksa dokumen atau hubungi admin jika masalah berulang.',503);}
  mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Permohonan diterima',$reference,'personal',(string)$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
 }
