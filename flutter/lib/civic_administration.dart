@@ -45,11 +45,11 @@ class _CivicAdministrationState extends State<CivicAdministrationPage> {
      final verified=area.data?['verified_area'] is Map
       ?Map<String,dynamic>.from(area.data!['verified_area'] as Map):null;
      return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-       Text(authorized?'Wilayah terverifikasi: RT '+(verified?['rt']??'').toString()+
-         ' / RW '+(verified?['rw']??'').toString():'Lengkapi Profil → Detail Wilayah RT/RW terlebih dahulu',
+       Text(authorized?'Wilayah terdaftar: RT '+(verified?['rt']??'').toString()+
+         ' / RW '+(verified?['rw']??'').toString():'Isi RT/RW ketika daftar akun atau dari Profil terlebih dahulu',
          style:TextStyle(fontWeight:FontWeight.w700,color:authorized?Colors.green:Colors.deepOrange)),
        const SizedBox(height:9),
-       if(!authorized)const Text('Surat baru dapat diajukan setelah Admin Kelurahan memverifikasi RT/RW Anda.',
+       if(!authorized)const Text('Lengkapi RT/RW pada Profil. Surat baru dikirim otomatis ke Ketua RT/RW wilayah Anda.',
         style:TextStyle(color:Colors.blueGrey,fontSize:12)),
        for(final item in const [
         ['pengantar','Surat Pengantar RT/RW'],['domisili','Surat Domisili (template sementara)'],
@@ -72,7 +72,7 @@ class _CivicAdministrationState extends State<CivicAdministrationPage> {
     ],
     if(role=='admin'||role=='admin_kelurahan')const ListTile(
      title:Text('Pengelolaan wilayah dan petugas'),
-     subtitle:Text('Penugasan akun RT/RW/Bendahara/LMK dan verifikasi wilayah warga dilakukan dari admin-civic.php di dashboard website.')),
+     subtitle:Text('Admin menetapkan petugas RT/RW/Bendahara/LMK melalui admin-civic.php; warga mengisi RT/RW sendiri saat daftar.')),
    ])));
   }),
   const SizedBox(height:15),
