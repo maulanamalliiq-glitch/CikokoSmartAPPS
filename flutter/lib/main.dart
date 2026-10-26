@@ -490,12 +490,23 @@ class Field extends StatelessWidget {
 class PhotoInput extends StatefulWidget {
   final String label;
   final void Function(String path) onChanged;
-  const PhotoInput({super.key,required this.label,required this.onChanged});
+  final String? currentPath;
+  const PhotoInput({super.key,required this.label,required this.onChanged,this.currentPath});
   @override State<PhotoInput> createState()=>_PhotoState();
 }
 class _PhotoState extends State<PhotoInput> {
   String? selectedPath, selectedName;
   bool selecting=false;
+  @override void initState(){
+    super.initState();
+    selectedPath=widget.currentPath;
+  }
+  @override void didUpdateWidget(PhotoInput oldWidget){
+    super.didUpdateWidget(oldWidget);
+    if(oldWidget.currentPath!=widget.currentPath){
+      selectedPath=widget.currentPath;
+    }
+  }
   Future<void> pick(ImageSource source) async {
     if(selecting)return;
     setState(()=>selecting=true);
