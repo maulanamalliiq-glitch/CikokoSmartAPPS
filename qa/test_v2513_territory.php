@@ -10,16 +10,16 @@ function fails(callable $fn,string $label):void {
     try{$fn();}catch(DomainException $e){echo "OK ".$label."\n";return;}
     throw new RuntimeException('FAIL '.$label);
 }
-expect(cikoko_area('3','RT')==='003','normalisasi RT');
-expect(cikoko_area('010','RW')==='010','normalisasi RW');
+expect(cikoko_area('3','RT')==='03','normalisasi RT');
+expect(cikoko_area('010','RW')==='10','normalisasi RW');
 fails(fn()=>cikoko_area('000','RT'),'RT nol ditolak');
 fails(fn()=>cikoko_area('1000','RT'),'RT empat digit ditolak');
 fails(fn()=>cikoko_area('4x','RT'),'karakter wilayah tidak valid');
 $hash=password_hash('Pass-Warga-1',PASSWORD_DEFAULT);
 $person=['rt'=>'003','rw'=>'010','password_hash'=>$hash];
-expect(cikoko_area_update(['rt'=>'003','rw'=>'010'],$person,true)===['rt'=>'003','rw'=>'010'],'wilayah tidak berubah');
+expect(cikoko_area_update(['rt'=>'003','rw'=>'010'],$person,true)===['rt'=>'03','rw'=>'10'],'wilayah tidak berubah');
 fails(fn()=>cikoko_area_update(['rt'=>'004','rw'=>'010'],$person,true),'perubahan wilayah perlu password');
-expect(cikoko_area_update(['rt'=>'004','rw'=>'010','current_password'=>'Pass-Warga-1'],$person,true)===['rt'=>'004','rw'=>'010'],'perubahan wilayah dengan password');
+expect(cikoko_area_update(['rt'=>'004','rw'=>'010','current_password'=>'Pass-Warga-1'],$person,true)===['rt'=>'04','rw'=>'10'],'perubahan wilayah dengan password');
 expect(cikoko_area_update(['address'=>'Jalan Cikoko'],$person,true)===[],'API lama tetap dapat memperbarui alamat');
 fails(fn()=>cikoko_area_update(['rt'=>'004'],$person,false),'akun petugas tidak dapat mengubah wilayah sendiri');
 $GLOBALS['users']=[
@@ -34,4 +34,5 @@ expect(cikoko_officer_for('rw','003','010')['id']==='rw010','tujuan RW berdasark
 fails(fn()=>cikoko_officer_for('rt','007','010'),'RT tidak terdaftar ditolak');
 $GLOBALS['users'][]=['id'=>'rtDuplikat','role'=>'rt','active'=>true,'rt'=>'003','rw'=>'010'];
 fails(fn()=>cikoko_officer_for('rt','003','010'),'duplikasi ketua wilayah ditolak');
-echo "V2513 territory tests passed.\n";
+expect(cikoko_area('002','RT')==='02' && cikoko_area('005','RW')==='05','data lama 3 digit menjadi 2 digit');
+echo "V2514 territory tests passed.\n";
