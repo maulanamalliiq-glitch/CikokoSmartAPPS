@@ -35,6 +35,7 @@ function cikoko_public_letters(PDO $db):void {
     $sources=[
       ['table'=>'aw_applications','kind'=>'waris','title'=>'Surat Ahli Waris'],
       ['table'=>'mobile_rt_rw_letters','kind'=>'rt_rw','title'=>'Surat Pengantar RT/RW'],
+      ['table'=>'letters','kind'=>'surat','title'=>'Surat Pelayanan'],
     ];
     try {
       foreach($sources as $source){
@@ -45,9 +46,11 @@ function cikoko_public_letters(PDO $db):void {
           $bucket=cikoko_public_letter_bucket((string)$t['status']);
           $counts[$bucket]+=(int)$t['total'];
         }
-        $reference=$source['kind']==='waris'
-          ?'reference_no'
-          :"CONCAT('RT/RW-',LPAD(id,7,'0'))";
+        $reference=match($source['kind']){
+          'waris'=>'reference_no',
+          'rt_rw'=>"CONCAT('RT/RW-',LPAD(id,7,'0'))",
+          default=>"CONCAT('SURAT-',LPAD(id,7,'0'))",
+        };
         $query='SELECT '.$reference.' AS reference,status,created_at FROM '.$table.' ORDER BY id DESC LIMIT 80';
         foreach($db->query($query)->fetchAll() as $v){
           $ref=(string)($v['reference']??'');
@@ -72,6 +75,6 @@ function cikoko_public_letters(PDO $db):void {
       'ok'=>true,'counts'=>$counts,
       // Recent requests only; aggregate counts cover all records, not just items.
       'items'=>array_slice($items,0,80),
-      'scope'=>'Surat Ahli Waris dan Surat Pengantar RT/RW',
+      'scope'=>'Surat Ahli Waris, Surat Pengantar RT/RW dan Surat Pelayanan',
     ]);
 }
