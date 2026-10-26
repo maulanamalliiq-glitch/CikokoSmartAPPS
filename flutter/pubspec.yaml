@@ -1,5 +1,5 @@
 name: cikoko
-version: 2.5.14+2514
+version: 2.5.15+2515
 description: Aplikasi native Kelurahan Cikoko untuk warga dan petugas.
 publish_to: none
 environment:
@@ -15,6 +15,7 @@ dependencies:
   flutter_image_compress: ^2.4.0
   flutter_local_notifications: ^19.4.2
   url_launcher: ^6.3.2
+  printing: ^5.14.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
