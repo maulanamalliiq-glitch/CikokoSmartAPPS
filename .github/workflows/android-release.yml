@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/v2525-full-surat-android, fix/v2525-hardcheck-api-flutter]
+    branches: [main, fix/v2524-full-surat-android, fix/v2525-hardcheck-api-flutter]
     paths:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
@@ -87,7 +87,7 @@ jobs:
           cp "$APKSIGNER_JAR" "$GITHUB_WORKSPACE/out-v2525/apksigner.jar"
       - name: Record signing status
         run: |
-          printf 'Signing mode: %s\nSource: fix/v2525-full-surat-android\nAPK build code: 2524\n' "$CIKOKO_SIGNING_MODE" > out-v2525/SIGNING_STATUS.txt
+          printf 'Signing mode: %s\nSource: fix/v2525-full-surat-android\nAPK build code: 2525\n' "$CIKOKO_SIGNING_MODE" > out-v2525/SIGNING_STATUS.txt
       - name: Upload V2525 release for local signing
         uses: actions/upload-artifact@v4
         with:
