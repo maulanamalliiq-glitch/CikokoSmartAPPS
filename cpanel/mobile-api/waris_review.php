@@ -84,14 +84,23 @@ function waris_emit_link(PDO $db,string $kind,int $id,string $category,string $t
 }
 function waris_review_dispatch(string $action,string $method,PDO $db,array $u,string $uid):void {
   waris_review_schema($db);
-  $id=(int)($_GET['id']??0);
+  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+  // A reference number is an optional fallback for old history cards with absent IDs.
+  $reference=trim((string)($_GET['reference']??''));
+  if($id===0 && $reference!=='' && preg_match('/^AW-[0-9]{8}-[A-F0-9]{8}$/D',$reference)){
+    $look=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=?');
+    $look->execute([$reference]);
+    $id=(int)($look->fetchColumn()?:0);
+  }
   if($action==='document_detail' && $method==='GET') {
     $kind=(string)($_GET['kind']??'waris');
     if($kind==='report') {
        $q=$db->prepare('SELECT id,user_id,user_name,user_role,kind,address,phone,notes,status,created_at FROM mobile_reports WHERE id=?');$q->execute([$id]);$report=$q->fetch();
        if(!$report)mobile_error('Laporan tidak ditemukan',404);
        if(!hash_equals((string)$report['user_id'],$uid)&&!mobile_can($u,'reports:view'))mobile_error('Akses laporan ditolak.',403);
-       mobile_json(['ok'=>true,'kind'=>'report','detail'=>$report,'timeline'=>[['new_status'=>$report['status'],'created_at'=>$report['created_at'],'notes'=>'Laporan telah diterima']],'corrections'=>[],'documents'=>[]]);
+       require_once __DIR__.'/report_progress.php';
+        $history=cikoko_report_history($db,$id,(string)$report['created_at']);
+        mobile_json(['ok'=>true,'kind'=>'report','detail'=>$report,'timeline'=>$history,'corrections'=>[],'documents'=>[]]);
     }
     if($kind!=='waris')mobile_error('Jenis pengajuan tidak dikenal',422);
     $app=waris_load($db,$id,$u);
