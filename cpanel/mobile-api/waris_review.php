@@ -84,13 +84,12 @@ function waris_emit_link(PDO $db,string $kind,int $id,string $category,string $t
 }
 function waris_review_dispatch(string $action,string $method,PDO $db,array $u,string $uid):void {
   waris_review_schema($db);
-  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
-  // A reference number is an optional fallback for old history cards with absent IDs.
-  $reference=trim((string)($_GET['reference']??''));
-  if($id===0 && $reference!=='' && preg_match('/^AW-[0-9]{8}-[A-F0-9]{8}$/D',$reference)){
-    $look=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=?');
-    $look->execute([$reference]);
-    $id=(int)($look->fetchColumn()?:0);
+  $type=strtolower((string)($_GET['kind']??'waris'));
+  $id=0;
+  foreach(['id','application_id','request_id','reference','reference_no'] as $key){
+    if(!array_key_exists($key,$_GET))continue;
+    $candidate=cikoko_v2525_identifier($db,$_GET[$key],$type);
+    if($candidate>0){$id=$candidate;break;}
   }
   if($action==='document_detail' && $method==='GET') {
     $kind=(string)($_GET['kind']??'waris');
