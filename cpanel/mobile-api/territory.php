@@ -28,6 +28,8 @@ function cikoko_area_update(array $request,array $existing,bool $resident):array
             mobile_error('Wilayah petugas diatur melalui pengelolaan akun resmi.',403);
         return [];
     }
+    // Kompatibilitas aplikasi lama: perubahan profil nonwilayah tidak dipaksa mengisi RT/RW.
+    if(!array_key_exists('rt',$request)&&!array_key_exists('rw',$request))return [];
     $newRt=cikoko_area($request['rt']??$oldRt,'RT');
     $newRw=cikoko_area($request['rw']??$oldRw,'RW');
     if($newRt!==$oldRt||$newRw!==$oldRw){
