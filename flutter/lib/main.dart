@@ -12,6 +12,7 @@ import 'role_catalog.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
+import 'rt_rw_letters.dart';
 import 'home_widgets.dart';
 import 'v211_features.dart';
 
@@ -131,7 +132,7 @@ class _HomeState extends State<HomePage> {
   String get roleLabel=>role=='guest'?'Portal Publik':(roleNames[role]??role.toUpperCase());
   bool get isStaff=>role!='warga'&&role!='guest';
   bool get isAdmin=>capabilities['reports:view']==true;
-  List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
+  List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!,roleFeatures['rt_rw']!]:modulesForRole(role,capabilities);
   @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh,onOpen:(message){
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
@@ -157,24 +158,22 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
-      if(!guest && role=='warga') {
+      if(guest || role=='warga') {
         try {
-          final history=await api.call('history');
-          final rows=List<dynamic>.from(history['items']??[]);
-          final counts={'masuk':0,'proses':0,'selesai':0};
-          for (final record in rows) {
-            final status='${record['status']??''}'.toLowerCase();
-            final key=status=='masuk'?'masuk':status=='selesai'?'selesai':'proses';
-            counts[key]=counts[key]!+1;
-          }
+          final publicData=await api.call('public_letter_status');
+          final raw=Map<String,dynamic>.from(publicData['counts']??{});
+          final counts=<String,int>{
+            for(final key in ['masuk','proses','selesai'])
+              key:int.tryParse((raw[key]??0).toString())??0
+          };
           if(mounted)setState(()=>letterCounts=counts);
-        } catch (_) {if(mounted)setState(()=>letterCounts=null);}
+        } catch (_){if(mounted)setState(()=>letterCounts=null);}
       }
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route=='Surat Digital RT/RW'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -205,6 +204,8 @@ class _HomeState extends State<HomePage> {
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
+    'Surat Digital RT/RW'=>Icons.mark_email_read_outlined,
+    'Status Surat Publik'=>Icons.receipt_long_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
@@ -248,6 +249,8 @@ class _HomeState extends State<HomePage> {
     case 'Pengumuman':return feed('pengumuman');
     case 'Layanan Online':return feed('layanan');
     case 'Galeri':return feed('galeri');
+    case 'Surat Digital RT/RW':return CikokoRtRwPage(api:api,role:role);
+    case 'Status Surat Publik':return CikokoPublicLetterPage(api:api);
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
@@ -293,7 +296,7 @@ class _HomeState extends State<HomePage> {
   }
   List<RoleFeature> get homeShortcuts {
     if(role=='warga'||guest){
-      final wanted=['Layanan Online','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
+      final wanted=['Surat Digital RT/RW','Layanan Online','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
       return wanted.map((route)=>roleFeatures.values.firstWhere((f)=>f.route==route)).toList();
     }
     return modules.take(6).toList();
@@ -310,7 +313,7 @@ class _HomeState extends State<HomePage> {
       ),
     )),
     if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+      counts:letterCounts,guest:guest,onTap:()=>switchTo('Status Surat Publik'))),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
@@ -341,6 +344,7 @@ class _HomeState extends State<HomePage> {
     )),
     if(role=='warga'||guest)Padding(padding:const EdgeInsets.only(top:9),child:Wrap(spacing:7,runSpacing:2,children:[
       ActionChip(avatar:const Icon(Icons.description_outlined,size:16,color:blue),label:const Text('Ahli Waris',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Surat Ahli Waris')),
+      ActionChip(avatar:const Icon(Icons.mark_email_read_outlined,size:16,color:blue),label:const Text('Surat RT/RW',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Surat Digital RT/RW')),
       ActionChip(avatar:const Icon(Icons.bug_report_outlined,size:16,color:blue),label:const Text('Jumantik',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Laporan Jumantik')),
       ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
     ])),
