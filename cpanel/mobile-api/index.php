@@ -29,21 +29,23 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+require __DIR__.'/territory.php';
 
 if($action==='login'&&$method==='POST'){
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
  $a=db_read('admin');if($username!==''&&hash_equals((string)($a['username']??''),$username) && password_verify($pass,(string)($a['password_hash']??''))){$found=['id'=>'admin','name'=>'Administrator','username'=>$username,'role'=>'admin'];}
- if(!$found)foreach(db_read('portal_users') as $u){if(hash_equals((string)($u['username']??''),$username)&&($u['active']??false)&&password_verify($pass,(string)($u['password_hash']??''))){$found=['id'=>$u['id'],'name'=>$u['name'],'username'=>$u['username'],'role'=>$u['role'],'department'=>$u['department']??''];break;}}
+ if(!$found)foreach(db_read('portal_users') as $u){if(hash_equals((string)($u['username']??''),$username)&&($u['active']??false)&&password_verify($pass,(string)($u['password_hash']??''))){$found=['id'=>$u['id'],'name'=>$u['name'],'username'=>$u['username'],'role'=>$u['role'],'department'=>$u['department']??'','rt'=>$u['rt']??'','rw'=>$u['rw']??''];break;}}
  if(!$found)mobile_error('Username, password, atau status akun tidak sesuai',401);
  $token=rtrim(strtr(base64_encode(random_bytes(48)),'+/','-_'),'=');$st=mobile_db()->prepare('INSERT INTO mobile_tokens(token_hash,user_id,username,user_role,expires_at) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 30 DAY))');$st->execute([hash('sha256',$token),$found['id'],$found['username'],$found['role']]);mobile_json(['ok'=>true,'token'=>$token,'user'=>$found]);
 }
 if($action==='register'&&$method==='POST'){
  $b=mobile_body();$name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);$pass=(string)($b['password']??'');$confirm=(string)($b['confirm']??'');$address=mobile_text($b['address']??'',600);$phone=mobile_text($b['phone']??'',40);$email=mobile_text($b['email']??'',160);
  if($pass===''||$pass!==$confirm)mobile_error('Konfirmasi password tidak sama atau kosong',422);
+ $rt=cikoko_area($b['rt']??'','RT');$rw=cikoko_area($b['rw']??'','RW');
  if(mobile_strlen($name)<3 || !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||!preg_match('/^[0-9+ -]{8,20}$/',$phone)||$address===''||!filter_var($email,FILTER_VALIDATE_EMAIL))mobile_error('Periksa nama, username, alamat, nomor telepon dan email',422);
  $users=db_read('portal_users');$a=db_read('admin');$taken=strcasecmp((string)($a['username']??''),$username)===0;foreach($users as $v)if(strcasecmp((string)($v['username']??''),$username)===0)$taken=true;
  if($taken)mobile_error('Username sudah digunakan',409);
- $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'role'=>'warga','department'=>'Warga','address'=>$address,'phone'=>$phone,'email'=>$email,'active'=>true,'created_at'=>date('c')];
+ $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'role'=>'warga','department'=>'Warga','address'=>$address,'rt'=>$rt,'rw'=>$rw,'phone'=>$phone,'email'=>$email,'active'=>true,'created_at'=>date('c')];
  if(!db_write('portal_users',$users))mobile_error('Data akun gagal disimpan',503);
  mobile_json(['ok'=>true,'message'=>'Akun sudah aktif']);
 }
@@ -52,6 +54,7 @@ if($action==='content'&&$method==='GET'){
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 require_once __DIR__.'/waris_review.php';
+if(str_starts_with($action,'rt_rw_')){require_once __DIR__.'/rt_rw_letters.php';cikoko_rt_rw_dispatch($action,$method,$db,$u);}
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
   $profile=['id'=>$uid,'name'=>'Administrator','username'=>$u['username'],'role'=>$u['user_role']];
@@ -59,7 +62,7 @@ if($action==='me'){
     foreach(db_read('portal_users') as $entry){
       if((string)($entry['id']??'')===(string)$uid){
         $profile=['id'=>$uid,'name'=>(string)($entry['name']??''),'username'=>(string)($entry['username']??''),'role'=>$u['user_role'],
-          'phone'=>(string)($entry['phone']??''),'email'=>(string)($entry['email']??''),'address'=>(string)($entry['address']??''),'nik'=>(string)($entry['nik']??'')];
+          'phone'=>(string)($entry['phone']??''),'email'=>(string)($entry['email']??''),'address'=>(string)($entry['address']??''),'nik'=>(string)($entry['nik']??''),'rt'=>(string)($entry['rt']??''),'rw'=>(string)($entry['rw']??'')];
         break;
       }
     }
@@ -76,9 +79,11 @@ if($action==='profile_update'&&$method==='POST'){
   foreach($users as &$entry){
     if((string)($entry['id']??'')!==(string)$uid)continue;
     if(!($entry['active']??false))mobile_error('Akun tidak aktif. Hubungi pengelola.',403);
+    $area=cikoko_area_update($b,$entry,$u['user_role']==='warga');
     $entry['name']=$name;$entry['phone']=$phone;$entry['email']=$email;$entry['address']=$address;
+    foreach($area as $key=>$value)$entry[$key]=$value;
     $result=['id'=>$uid,'name'=>$name,'username'=>(string)$entry['username'],'role'=>$u['user_role'],
-      'phone'=>$phone,'email'=>$email,'address'=>$address,'nik'=>(string)($entry['nik']??'')];
+      'phone'=>$phone,'email'=>$email,'address'=>$address,'nik'=>(string)($entry['nik']??''),'rt'=>(string)($entry['rt']??''),'rw'=>(string)($entry['rw']??'')];
     $updated=true;break;
   }
   unset($entry);
