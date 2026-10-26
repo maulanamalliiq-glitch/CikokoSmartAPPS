@@ -55,15 +55,16 @@ jobs:
         run: |
           flutter build appbundle --release
           flutter build apk --release --split-per-abi --target-platform android-arm64
+          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          mkdir -p build/offline-release
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/offline-release/Cikoko-v2513-arm64-unsigned.apk
           flutter build apk --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s build/app/outputs/flutter-apk/app-release.apk
       - name: Stage unsigned release outputs and Android signer
         run: |
           mkdir -p flutter/build/offline-release
           cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2513-unsigned.aab
-          cp flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk flutter/build/offline-release/Cikoko-v2513-arm64-unsigned.apk
           cp flutter/build/app/outputs/flutter-apk/app-release.apk flutter/build/offline-release/Cikoko-v2513-universal-unsigned.apk
           SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
           test -n "$SIGNER"
