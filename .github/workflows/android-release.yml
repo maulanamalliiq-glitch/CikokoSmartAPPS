@@ -20,7 +20,7 @@ jobs:
         run: |
           php -v
           find cpanel/mobile-api -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-          php qa/test_v2514_territory.php
+          php qa/test_v2513_territory.php
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
