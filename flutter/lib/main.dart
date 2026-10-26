@@ -682,15 +682,45 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
      final count=requiredPhotos.length+children*childPhotos.length+
        optionalPhotos.keys.where((key)=>photoFor(key)!=null).length;
      final maxFiles=(capability['max_file_uploads'] as num?)?.toInt()??0;
-     if(maxFiles>0&&count>maxFiles){
-       throw ApiError('Jumlah foto '+count.toString()+' melebihi batas server ('+
-         maxFiles.toString()+' berkas). Administrator perlu menambah max_file_uploads di cPanel.');
-     }
+     final staged=capability['staged_uploads']==true;
      final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),
        'declaration':'1','child_count':children.toString(),
        'document_format':'split_v1'};
-     final response=await api.upload('waris',data,files,
-       progress:(value){if(mounted)setState(()=>progress=value);});
+     late final Map<String,dynamic> response;
+     if(staged){
+       // Shared hosting may limit each POST to 20 files. Send 8 per request.
+       final random=Random.secure();
+       final draftKey=List.generate(16,
+         (_)=>random.nextInt(256).toRadixString(16).padLeft(2,'0')).join();
+       final photos=<MapEntry<String,String>>[
+         for(final entry in files.entries)
+           for(final path in entry.value)MapEntry(entry.key,path),
+       ];
+       const batchSize=8;
+       final steps=(photos.length+batchSize-1)~/batchSize;
+       for(var i=0;i<photos.length;i+=batchSize){
+         final chunk=photos.skip(i).take(batchSize);
+         final subset=<String,List<String>>{
+           for(final photo in chunk)photo.key:[photo.value],
+         };
+         final batch=i~/batchSize;
+         await api.upload('waris_stage',{'draft_key':draftKey},subset,
+           progress:(value){
+             if(mounted)setState(()=>progress=(batch+value)/steps*0.95);
+           });
+       }
+       data['draft_key']=draftKey;
+       response=await api.upload('waris',data,{},progress:(value){
+         if(mounted)setState(()=>progress=0.95+0.05*value);
+       });
+     }else{
+       if(maxFiles>0&&count>maxFiles){
+         throw ApiError('Server hanya menerima '+maxFiles.toString()+
+           ' foto per permintaan. Perbarui API cPanel agar mendukung unggah bertahap tanpa perubahan hosting.');
+       }
+       response=await api.upload('waris',data,files,
+         progress:(value){if(mounted)setState(()=>progress=value);});
+     }
      if(mounted)notify(context,'Permohonan diterima. Nomor: '+(response['reference']??'-').toString());
    }catch(e){
      final raw=e.toString();
