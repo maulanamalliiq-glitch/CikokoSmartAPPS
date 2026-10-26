@@ -182,8 +182,21 @@ if($action==='waris'&&$method==='POST'){
  try {aw_prepare_schema($db);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
  foreach(['name','phone','address','relation','deceased_name','heirs'] as $k)if(trim((string)($_POST[$k]??''))==='')mobile_error('Lengkapi '.$k,422);
- foreach(['r1','r2','r3','r4','r5','r6'] as $k)if(!isset($_FILES[$k])||$_FILES[$k]['error']!==UPLOAD_ERR_OK)mobile_error('Persyaratan foto belum lengkap: '.$k,422);
- $children=min(10,max(0,(int)($_POST['child_count']??0)));for($i=1;$i<=$children;$i++)if(!isset($_FILES['child_'.$i]))mobile_error('Foto anak ke-'.$i.' belum ada',422);
+ $children=min(10,max(0,(int)($_POST['child_count']??0)));
+ $format=(string)($_POST['document_format']??'');
+ if(!in_array($format,['','split_v1'],true))mobile_error('Format dokumen tidak dikenali.',422);
+ // V2516: new clients upload three distinct photos per heir and per child.
+ // Old combined codes are still accepted from older APKs for compatibility.
+ $split=$format==='split_v1';
+ $required=waris_required_upload_codes($children,$split);
+ foreach($required as $k){
+  $file=$_FILES[$k]??null;
+  if(!is_array($file)||is_array($file['name'])||($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK)
+   mobile_error('Foto wajib belum lengkap: '.(waris_codes($children)[$k]??$k),422);
+ }
+ for($i=1;$i<=$children;$i++){
+  if(trim((string)($_POST['child_name_'.$i]??''))==='')mobile_error('Nama anak ke-'.$i.' wajib diisi.',422);
+ }
  $reference='AW-'.date('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
  $db->beginTransaction();$paths=[];
  try {
@@ -192,7 +205,7 @@ if($action==='waris'&&$method==='POST'){
   $db->prepare($sql)->execute([$reference,$uid,mobile_text($_POST['name'],160),$nik,mobile_text($_POST['phone'],40),mobile_text($_POST['address'],3000),mobile_text($_POST['relation'],100),mobile_text($_POST['deceased_name'],200),mobile_text($_POST['marital_status']??'Tidak diketahui',40),mobile_text($_POST['birthplace']??'',160),($_POST['birthdate']??'')?:null,($_POST['deathdate']??'')?:null,($_POST['marriage_date']??'')?:null,mobile_text($_POST['heirs'],12000),json_encode($names,JSON_UNESCAPED_UNICODE)]);
   $id=(int)$db->lastInsertId();$ins=$db->prepare('INSERT INTO aw_attachments(application_id,requirement_code,original_name,storage_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?)');
   $dir=dirname(__DIR__).'/ahli-waris/private/uploads';if(!is_dir($dir))mkdir($dir,0750,true);
-  foreach(array_merge(['r1','r2','r3','r4','r5','r6','r7','r8'],($children>0?array_map(fn($n)=>'child_'.$n,range(1,$children)):[])) as $key){$f=$_FILES[$key]??null;if(!$f||($f['error']??4)===UPLOAD_ERR_NO_FILE)continue;
+  foreach(array_merge($required,['r7','r8']) as $key){$f=$_FILES[$key]??null;if(!$f||($f['error']??4)===UPLOAD_ERR_NO_FILE)continue;
    if(($f['error']??4)!==UPLOAD_ERR_OK||($f['size']??0)>4*1024*1024||!is_uploaded_file($f['tmp_name']))throw new RuntimeException('Foto '.$key.' gagal atau melebihi 4 MB');
    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);$ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;if(!$ext)throw new RuntimeException('Foto '.$key.' harus JPG/PNG/WebP');
    $name=bin2hex(random_bytes(20)).'.'.$ext;if(!move_uploaded_file($f['tmp_name'],$dir.'/'.$name))throw new RuntimeException('Simpan dokumen gagal');$paths[]=$dir.'/'.$name;$ins->execute([$id,$key,basename($f['name']),$name,$mime,(int)$f['size']]);
