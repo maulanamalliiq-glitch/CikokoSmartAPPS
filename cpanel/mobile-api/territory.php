@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Normalisasi RT/RW: 3 digit konsisten pada akun, routing dan surat. */
+/** Normalisasi RT/RW: minimal 2 digit untuk tampilan RT 02 / RW 05; data lama 002/005 tetap dikenali. */
 function cikoko_area($value,string $label,bool $required=true):string {
     $input=trim((string)$value);
     if($input==='') {
@@ -11,7 +11,7 @@ function cikoko_area($value,string $label,bool $required=true):string {
     if(!preg_match('/^[0-9]{1,3}$/D',$input) || (int)$input<1 || (int)$input>999) {
         mobile_error('Nomor '.$label.' harus angka 1 sampai 999.',422);
     }
-    return str_pad((string)(int)$input,3,'0',STR_PAD_LEFT);
+    return str_pad((string)(int)$input,2,'0',STR_PAD_LEFT);
 }
 function cikoko_user_by_id(string $uid):?array {
     foreach(db_read('portal_users') as $person)
