@@ -15,6 +15,7 @@ import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
 import 'home_widgets.dart';
+import 'public_letters.dart';
 import 'v211_features.dart';
 import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
@@ -154,19 +155,15 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
-      if(!guest && role=='warga') {
-        try {
-          final history=await api.call('history');
-          final rows=List<dynamic>.from(history['items']??[]);
-          final counts={'masuk':0,'proses':0,'selesai':0};
-          for (final record in rows) {
-            final status='${record['status']??''}'.toLowerCase();
-            final key=status=='masuk'?'masuk':status=='selesai'?'selesai':'proses';
-            counts[key]=counts[key]!+1;
-          }
-          if(mounted)setState(()=>letterCounts=counts);
-        } catch (_) {if(mounted)setState(()=>letterCounts=null);}
-      }
+      // This is public letter service-wide data, not the user's private history.
+      try {
+        final summary=await api.call('public_letters');
+        final raw=Map<String,dynamic>.from(summary['counts'] as Map);
+        if(mounted)setState(()=>letterCounts={
+          for(final key in ['masuk','proses','selesai'])
+            key:(raw[key] as num?)?.toInt()??0,
+        });
+      }catch(_){if(mounted)setState(()=>letterCounts=null);}
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
@@ -313,7 +310,7 @@ class _HomeState extends State<HomePage> {
       ),
     )),
     if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+      counts:letterCounts,onStatusTap:(category)=>showPublicLetterStatus(context,api,category:category))),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
@@ -755,7 +752,11 @@ class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? futu
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
     subtitle:Text('${r['reference']??''} • ${r['status']??''}\n${r['created_at']??''}',style:const TextStyle(fontSize:11)),
     trailing:const Icon(Icons.chevron_right),
-    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',onChanged:reload),
+    onTap:()=>showCikokoDocument(context,api,
+       id:int.tryParse('${r['id']??''}')??0,
+       reference:'${r['reference']??''}',
+       kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',
+       onChanged:reload),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]));});
 }
 class ChatPage extends StatefulWidget{const ChatPage({super.key});@override State<ChatPage> createState()=>_ChatState();}
@@ -812,7 +813,10 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
     leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
     subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
-    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??'report'}',onChanged:load),
+    onTap:()=>showCikokoDocument(context,api,
+      id:int.tryParse('${r['id']??''}')??0,
+      reference:'${r['reference']??''}',
+      kind:'${r['kind']??'report'}',onChanged:load),
     trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
