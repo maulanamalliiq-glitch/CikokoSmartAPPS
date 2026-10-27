@@ -201,6 +201,30 @@ class _LpjDetailPageState extends State<LpjDetailPage>{
   'menunggu_lmk'=>'lmk',
   _=>'',
  };
+ Future<void> setupPin()async{
+  final password=TextEditingController(),pin=TextEditingController(),confirmPin=TextEditingController();
+  final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+   title:const Text('Atur PIN persetujuan LPJ'),
+   content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+    const Text('PIN 6 angka disimpan sebagai hash di server. Konfirmasi password akun untuk mengaktifkan atau mengganti PIN.'),
+    const SizedBox(height:12),
+    TextField(controller:password,obscureText:true,decoration:const InputDecoration(labelText:'Password akun')),
+    TextField(controller:pin,obscureText:true,keyboardType:TextInputType.number,maxLength:6,inputFormatters:[FilteringTextInputFormatter.digitsOnly],decoration:const InputDecoration(labelText:'PIN baru (6 angka)')),
+    TextField(controller:confirmPin,obscureText:true,keyboardType:TextInputType.number,maxLength:6,inputFormatters:[FilteringTextInputFormatter.digitsOnly],decoration:const InputDecoration(labelText:'Ulangi PIN')),
+   ])),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Batal')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Simpan PIN'))],
+  ));
+  final pw=password.text,code=pin.text,confirm=confirmPin.text;
+  password.dispose();pin.dispose();confirmPin.dispose();
+  if(ok!=true||!mounted)return;
+  if(pw.isEmpty||!RegExp(r'^[0-9]{6}$').hasMatch(code)||code!=confirm){showMessage('Password wajib diisi dan PIN 6 angka harus sama.');return;}
+  setState(()=>busy=true);
+  try{
+   await widget.api.call('civic_pin_set',body:{'current_password':pw,'pin':code});
+   showMessage('PIN LPJ berhasil disimpan. Gunakan saat persetujuan.');
+  }catch(e){showMessage(e.toString());}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
  Future<void> decide(String decision)async{
   final pin=TextEditingController(),reason=TextEditingController();
   final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
@@ -258,6 +282,7 @@ class _LpjDetailPageState extends State<LpjDetailPage>{
    const Text('Riwayat persetujuan',style:TextStyle(fontWeight:FontWeight.bold)),
    for(final a in approvals)if(a is Map)ListTile(leading:const Icon(Icons.verified_outlined),title:Text((a['duty']??'').toString()+' • '+(a['action']??'').toString()),subtitle:Text((a['created_at']??'').toString())),
    const SizedBox(height:14),
+   if(canReview)OutlinedButton.icon(onPressed:busy?null:setupPin,icon:const Icon(Icons.lock_outline),label:const Text('Atur / Ganti PIN Persetujuan')),
    if(canReview)Row(children:[
     Expanded(child:FilledButton(onPressed:busy?null:()=>decide('approve'),child:const Text('Setujui dengan PIN'))),
     const SizedBox(width:8),Expanded(child:OutlinedButton(onPressed:busy?null:()=>decide('return'),child:const Text('Kembalikan'))),
