@@ -5,7 +5,14 @@ import 'api.dart';
 /// verifikasi role=admin sebelum membaca atau membuat akun.
 class AdminAccountsPage extends StatefulWidget {
   final CikokoApi api;
-  const AdminAccountsPage({super.key, required this.api});
+  /// Tampilan khusus Bendahara memakai API dan autentikasi Admin Utama
+  /// yang sudah ada. Tidak mengubah login atau aturan server.
+  final bool bendaharaOnly;
+  const AdminAccountsPage({
+    super.key,
+    required this.api,
+    this.bendaharaOnly = false,
+  });
 
   @override
   State<AdminAccountsPage> createState() => _AdminAccountsPageState();
@@ -58,13 +65,25 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
         roles = roleMap.map((k, v) => MapEntry(k, v.toString()))
           ..remove('admin')
           ..remove('warga');
+        if (widget.bendaharaOnly) {
+          // Pilihan dibatasi untuk dua peran resmi yang benar-benar
+          // dikembalikan server; jangan pernah membuat role lokal palsu.
+          roles.removeWhere((key, _) =>
+              key != 'bendahara_rt' && key != 'bendahara_rw');
+        }
         accounts = (res['items'] as List? ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
+            .where((account) =>
+                !widget.bendaharaOnly ||
+                account['role'] == 'bendahara_rt' ||
+                account['role'] == 'bendahara_rw')
             .toList();
-        selectedRole ??= roles.containsKey('bendahara_rt')
-            ? 'bendahara_rt'
-            : (roles.isEmpty ? null : roles.keys.first);
+        if (!roles.containsKey(selectedRole)) {
+          selectedRole = roles.containsKey('bendahara_rt')
+              ? 'bendahara_rt'
+              : (roles.isEmpty ? null : roles.keys.first);
+        }
         loading = false;
         error = null;
       });
@@ -77,7 +96,11 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
       (value ?? '').trim().isEmpty ? 'Wajib diisi' : null;
 
   Future<void> create() async {
-    if (busy || !formKey.currentState!.validate() || selectedRole == null) return;
+    if (busy || selectedRole == null || !roles.containsKey(selectedRole)) return;
+    if (widget.bendaharaOnly &&
+        selectedRole != 'bendahara_rt' &&
+        selectedRole != 'bendahara_rw') return;
+    if (!formKey.currentState!.validate()) return;
     setState(() => busy = true);
     try {
       await widget.api.call('accounts_create', body: {
@@ -150,23 +173,42 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Kelola Akun Petugas',
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          widget.bendaharaOnly ? 'Manajemen Bendahara RT/RW' : 'Kelola Akun Petugas',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 6),
-        const Text(
-          'Hanya Admin Utama dapat membuat akun dan menetapkan '
-          'jabatan resmi Ketua/Bendahara RT/RW. '
-          'Username dan password disampaikan secara pribadi.',
-          style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+        Text(
+          widget.bendaharaOnly
+              ? 'Khusus Admin Utama. Buat akun Bendahara RT/RW sesuai wilayah '
+                'dan lihat status aktifnya. Login, akun lain, serta data LPJ '
+                'tidak berubah.'
+              : 'Hanya Admin Utama dapat membuat akun dan menetapkan '
+                'jabatan resmi Ketua/Bendahara RT/RW. '
+                'Username dan password disampaikan secara pribadi.',
+          style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+        ),
+        if (widget.bendaharaOnly && roles.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Peran Bendahara belum tersedia dari API cPanel. '
+              'Pembuatan akun dinonaktifkan hingga server mengirimkan '
+              'bendahara_rt atau bendahara_rw.',
+              style: TextStyle(color: Colors.deepOrange),
+            ),
+          ),
         const SizedBox(height: 12),
         Card(child: Column(children: [
           ListTile(
             title: const Text('Tambah Akun'),
-            subtitle: const Text('Petugas baru, termasuk Bendahara RT dan RW'),
+            subtitle: Text(widget.bendaharaOnly
+                ? 'Buat akun Bendahara RT atau Bendahara RW'
+                : 'Petugas baru, termasuk Bendahara RT dan RW'),
             trailing: Icon(showForm ? Icons.expand_less : Icons.expand_more),
             onTap: () => setState(() => showForm = !showForm),
           ),
-          if (showForm)
+          if (showForm && roles.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
               child: Form(key: formKey, child: Column(
@@ -203,7 +245,11 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
                         ? const SizedBox(height: 16, width: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.person_add_alt_1),
-                    label: Text(busy ? 'Menyimpan...' : 'Buat Akun Petugas'),
+                    label: Text(busy
+                        ? 'Menyimpan...'
+                        : (widget.bendaharaOnly
+                            ? 'Buat Akun Bendahara'
+                            : 'Buat Akun Petugas')),
                   ),
                 ],
               )),
@@ -211,12 +257,19 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
         ])),
         const SizedBox(height: 14),
         Row(children: [
-          const Expanded(child: Text('Daftar Akun Terdaftar',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+          Expanded(child: Text(
+              widget.bendaharaOnly
+                  ? 'Daftar Bendahara RT/RW'
+                  : 'Daftar Akun Terdaftar',
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold))),
           IconButton(tooltip: 'Muat ulang', onPressed: load,
               icon: const Icon(Icons.refresh)),
         ]),
-        if (accounts.isEmpty) const Text('Belum ada akun petugas.'),
+        if (accounts.isEmpty)
+          Text(widget.bendaharaOnly
+              ? 'Belum ada akun Bendahara RT/RW yang terdaftar.'
+              : 'Belum ada akun petugas.'),
         for (final account in accounts)
           Card(child: ListTile(
             dense: true,
