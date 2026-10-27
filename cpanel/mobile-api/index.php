@@ -67,6 +67,7 @@ if($action==='waris_stage'&&$method==='POST'){
  mobile_need($u,'waris:create');
  waris_stage_upload($db,(string)$uid,(string)($_POST['draft_key']??''));
 }
+if(str_starts_with($action,'civic_')){if(!is_file(__DIR__.'/civic_lpj_v2513.php'))mobile_error('Backend LPJ belum dipasang.',503);require_once __DIR__.'/civic_lpj_v2513.php';lpj_api($action,$method,$db,$u);}
 if(str_starts_with($action,'rt_rw_')){if(!is_file(__DIR__.'/rt_rw_letters.php'))mobile_error('Patch Surat Pengantar RT/RW belum terpasang di server.',503);require_once __DIR__.'/rt_rw_letters.php';cikoko_rt_rw_dispatch($action,$method,$db,$u);}
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
