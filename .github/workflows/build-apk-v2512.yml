@@ -78,10 +78,18 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk" > "$GITHUB_WORKSPACE/apk-output/APK_SIGNATURE_VERIFY.txt"
           keytool -exportcert -alias "$CIKOKO_KEY_ALIAS" -keystore "android/app/$CIKOKO_KEYSTORE_PATH" -storepass "$CIKOKO_STORE_PASSWORD" > "$GITHUB_WORKSPACE/apk-output/upload-cert.der"
           expected="$(sha256sum "$GITHUB_WORKSPACE/apk-output/upload-cert.der" | awk '{print $1}')"
-          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$GITHUB_WORKSPACE/apk-output/APK_SIGNATURE_VERIFY.txt" | head -n 1 | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-          test -n "$actual"
+          # apksigner output may be indented or have format variations.
+          # Parse the certificate fingerprint without relying on beginning-of-line text.
+          actual="$(sed -nE 's/.*[Cc]ertificate SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\1/p' "$GITHUB_WORKSPACE/apk-output/APK_SIGNATURE_VERIFY.txt" | head -n 1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          echo "Expected upload certificate SHA-256: $expected"
+          echo "APK signer certificate SHA-256: ${actual:-NOT_FOUND}"
+          if [[ -z "$actual" ]]; then
+            echo "::error::Could not parse signer fingerprint from apksigner output."
+            grep -Ei 'Signer|certificate|Verified using' "$GITHUB_WORKSPACE/apk-output/APK_SIGNATURE_VERIFY.txt" | head -n 20 || true
+            exit 1
+          fi
           [[ "$actual" == "$expected" ]] || {
-            echo "::error::APK signer differs from configured Play upload key."
+            echo "::error::APK signer differs from configured upload keystore."
             exit 1
           }
           cp "$apk" "$GITHUB_WORKSPACE/apk-output/Cikoko-v2512-TEST-UNIVERSAL-SIGNED.apk"
