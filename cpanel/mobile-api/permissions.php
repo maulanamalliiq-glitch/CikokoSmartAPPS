@@ -2,7 +2,7 @@
 declare(strict_types=1);
 // Kebijakan akses otoritatif di server. UI mobile tidak boleh menjadi kontrol keamanan tunggal.
 function mobile_role_names():array {return [
- 'admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','lurah'=>'Lurah','asn'=>'ASN / PNS','pppk'=>'PPPK','pjlp'=>'PJLP','ptsp'=>'PTSP','dukcapil'=>'Dukcapil','rt'=>'RT','rw'=>'RW','fkdm'=>'FKDM','lmk'=>'LMK','jumantik_rt'=>'Jumantik RT','jumantik_rw'=>'Jumantik RW','dasawisma'=>'Dasawisma','pkk'=>'PKK','posyandu'=>'Posyandu','ppsu'=>'PPSU','warga'=>'Warga'
+ 'admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','lurah'=>'Lurah','asn'=>'ASN / PNS','pppk'=>'PPPK','pjlp'=>'PJLP','ptsp'=>'PTSP','dukcapil'=>'Dukcapil','rt'=>'RT','rw'=>'RW','bendahara_rt'=>'Bendahara RT','bendahara_rw'=>'Bendahara RW','fkdm'=>'FKDM','lmk'=>'LMK','jumantik_rt'=>'Jumantik RT','jumantik_rw'=>'Jumantik RW','dasawisma'=>'Dasawisma','pkk'=>'PKK','posyandu'=>'Posyandu','ppsu'=>'PPSU','warga'=>'Warga'
  ];}
 function mobile_permission_keys():array {return ['report:jumantik','report:kegiatan','report:fkdm','report:lmk','report:posyandu','report:pkk','report:kerja_bakti','report:ppsu','reports:view','reports:verify','waris:create','waris:view','waris:verify','content:create','archive:create','archive:view','chat:reply','role:manage'];}
 function mobile_default_permissions(string $role):array {
@@ -14,6 +14,7 @@ function mobile_default_permissions(string $role):array {
  'dukcapil'=>['report:kegiatan'],
  'pppk'=>['report:kegiatan'],'pjlp'=>['report:kegiatan'],
  'rt'=>['report:kegiatan','report:kerja_bakti'],'rw'=>['report:kegiatan','report:kerja_bakti'],
+ 'bendahara_rt'=>[], 'bendahara_rw'=>[],
  'fkdm'=>['report:fkdm','report:kegiatan'],'lmk'=>['report:lmk','report:kegiatan'],
  'jumantik_rt'=>['report:jumantik'],'jumantik_rw'=>['report:jumantik'],
  'dasawisma'=>['report:pkk','report:kegiatan'],'pkk'=>['report:pkk','report:kegiatan'],
