@@ -6,7 +6,7 @@ on:
       - build/v2512-playstore-aab
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-aab:
@@ -116,10 +116,36 @@ jobs:
         if: always()
         run: rm -f flutter/android/app/cikoko-upload.jks
 
-      - name: Upload AAB build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cikoko-v2512-${{ steps.signing.outputs.signed == 'true' && 'PLAY-SIGNED' || 'NOT-SIGNED-FOR-PLAY' }}
-          path: out/
-          if-no-files-found: error
-          retention-days: 14
+      - name: Store signed AAB as private draft GitHub Release asset
+        if: steps.signing.outputs.signed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cikoko-v2.5.12-aab-2512"
+          test -s out/Cikoko-v2512-PLAY-SIGNED.aab
+          test -s out/SHA256SUMS.txt
+          test -s out/UPLOAD_CERT_SHA256.txt
+          NOTES="Build source: build/v2512-playstore-aab.
+          Package: com.KelurahanCikoko.malik.
+          Version: 2.5.12 (2512), Android target SDK 36.
+          Draft release: not published to users.
+          Check the upload key SHA-256 against Google Play Console before uploading."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/Cikoko-v2512-PLAY-SIGNED.aab out/SHA256SUMS.txt out/UPLOAD_CERT_SHA256.txt out/SIGNING_STATUS.txt out/SIGNATURE_VERIFY.txt --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" out/Cikoko-v2512-PLAY-SIGNED.aab out/SHA256SUMS.txt out/UPLOAD_CERT_SHA256.txt out/SIGNING_STATUS.txt out/SIGNATURE_VERIFY.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Cikoko 2.5.12 (2512) - AAB Play Store" \
+              --notes "$NOTES" \
+              --draft
+          fi
+          echo "Signed AAB stored in private draft release: $TAG"
+
+      - name: Block distribution of unsigned bundle
+        if: steps.signing.outputs.signed != 'true'
+        run: |
+          echo "::error::Upload signing was not verified. No Play Store release created."
+          exit 1
