@@ -59,12 +59,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Manajemen Bendahara RT/RW'), findsOneWidget);
+    expect(find.text('Buat Akun Bendahara'), findsOneWidget);
+    await tester.tap(find.text('Tambah Akun'));
+    await tester.pumpAndSettle();
     expect(find.text('Bendahara Percobaan'), findsOneWidget);
     expect(find.text('Ketua Percobaan'), findsNothing);
-    expect(find.text('Buat Akun Bendahara'), findsOneWidget);
+    await tester.tap(find.text('Tambah Akun'));
+    await tester.pumpAndSettle();
 
     // Hanya dua role Bendahara yang dapat dipilih.
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    final dropdown = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(dropdown);
     await tester.pumpAndSettle();
     expect(find.text('Bendahara RW'), findsWidgets);
     expect(find.text('Ketua RT'), findsNothing);
@@ -80,6 +87,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Kelola Akun Petugas'), findsOneWidget);
+    await tester.tap(find.text('Tambah Akun'));
+    await tester.pumpAndSettle();
     expect(find.text('Ketua Percobaan'), findsOneWidget);
     expect(find.text('Bendahara Percobaan'), findsOneWidget);
   });
