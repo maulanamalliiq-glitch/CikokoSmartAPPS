@@ -9,6 +9,7 @@ const roleNames = <String,String>{
   'admin': 'Admin Utama', 'admin_kelurahan': 'Admin Kelurahan',
   'lurah': 'Lurah', 'asn': 'ASN / PNS', 'pppk': 'PPPK', 'pjlp': 'PJLP',
   'ptsp': 'PTSP', 'dukcapil': 'Dukcapil', 'rt': 'RT', 'rw': 'RW',
+  'bendahara_rt': 'Bendahara RT', 'bendahara_rw': 'Bendahara RW',
   'fkdm': 'FKDM', 'lmk': 'LMK', 'jumantik_rt': 'Jumantik RT',
   'jumantik_rw': 'Jumantik RW', 'dasawisma': 'Dasawisma', 'pkk': 'PKK',
   'posyandu': 'Posyandu', 'ppsu': 'PPSU', 'warga': 'Warga',
@@ -42,6 +43,7 @@ const roleFeatures = <String,RoleFeature>{
   'archive_add': RoleFeature('Tambah Arsip Ahli Waris','Catat nomor dan tahun surat lama','Tambah Arsip Ahli Waris',capability:'archive:create'),
   'archive_list': RoleFeature('Arsip Ahli Waris','Cari arsip tahun sebelumnya','Arsip Ahli Waris',capability:'archive:view'),
   'role_manage': RoleFeature('Hak Akses Role','Izinkan atau batasi akses petugas','Hak Akses Role',capability:'role:manage'),
+  'accounts_manage': RoleFeature('Kelola Akun Petugas','Tambah akun Ketua/Bendahara RT/RW dan petugas lainnya','Kelola Akun Petugas',capability:'role:manage'),
   'monitor': RoleFeature('Monitoring Wilayah','Ringkasan seluruh laporan wilayah','Monitoring Wilayah',connected:false),
   'approval': RoleFeature('Persetujuan Lurah','Persetujuan dokumen resmi','Persetujuan Lurah',connected:false),
   'attendance': RoleFeature('Kehadiran','Absensi pegawai dan jadwal','Kehadiran',connected:false),
@@ -54,7 +56,7 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['accounts_manage','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
@@ -64,6 +66,8 @@ const roleMenus = <String,List<String>>{
  'dukcapil':['civil','kegiatan','history','services','announcements'],
  'rt':['ttd_stempel','surat_wilayah','lpj_rt','bakti','jumantik','history','news','announcements'],
  'rw':['ttd_stempel','surat_wilayah','lpj_rw','bakti','monitor','history','news','announcements'],
+ 'bendahara_rt':['lpj_rt','history','news','announcements'],
+ 'bendahara_rw':['lpj_rw','history','news','announcements'],
  'fkdm':['fkdm','kegiatan','history','news','announcements'],
  'lmk':['ttd_stempel','lpj_lmk','history','news','announcements'],
  'jumantik_rt':['jumantik','history','news','announcements'],
