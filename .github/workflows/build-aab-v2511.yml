@@ -88,7 +88,21 @@ jobs:
           test -s "$bundle"
           mkdir -p "$GITHUB_WORKSPACE/out"
           if [[ "$EXPECTED_SIGNED" == "true" ]]; then
-            jarsigner -verify -strict "$bundle" >/dev/null
+            # Verify signature integrity and that the signer matches our upload-key alias.
+            # Do not use -strict: self-signed upload certificates trigger exit code 4.
+            jarsigner -verify -verbose:summary -certs \
+              -keystore "android/app/${CIKOKO_KEYSTORE_PATH}" \
+              -storepass:env CIKOKO_STORE_PASSWORD \
+              "$bundle" "$CIKOKO_KEY_ALIAS" > "$GITHUB_WORKSPACE/out/SIGNATURE_VERIFY.txt" 2>&1
+            tail -n 30 "$GITHUB_WORKSPACE/out/SIGNATURE_VERIFY.txt"
+            grep -Fq "jar verified." "$GITHUB_WORKSPACE/out/SIGNATURE_VERIFY.txt" || {
+              echo "::error::AAB failed signature verification."
+              exit 1
+            }
+            grep -Fq "(${CIKOKO_KEY_ALIAS})" "$GITHUB_WORKSPACE/out/SIGNATURE_VERIFY.txt" || {
+              echo "::error::AAB signer does not match configured keystore alias."
+              exit 1
+            }
             cp "$bundle" "$GITHUB_WORKSPACE/out/Cikoko-v2511-PLAY-SIGNED.aab"
             printf '%s\n' "Signed with configured upload key. Verify SHA-256 against Play Console upload certificate before publishing." > "$GITHUB_WORKSPACE/out/SIGNING_STATUS.txt"
           else
