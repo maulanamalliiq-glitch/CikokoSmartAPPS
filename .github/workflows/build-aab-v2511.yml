@@ -59,11 +59,16 @@ jobs:
           set -euo pipefail
           if [[ -n "$KEYSTORE_B64" && -n "$STORE_PASS" && -n "$KEY_PASS" ]]; then
             alias_name="${KEY_ALIAS:-androidkey}"
-            printf '%s' "$KEYSTORE_B64" | base64 --decode > flutter/android/app/cikoko-upload.jks
-            keytool -list -keystore flutter/android/app/cikoko-upload.jks -storepass "$STORE_PASS" -alias "$alias_name" >/dev/null
-            echo "CIKOKO_KEYSTORE_PATH=cikoko-upload.jks" >> "$GITHUB_ENV"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-            echo "Keystore found. The release will be signed with the configured upload key."
+            if printf '%s' "$KEYSTORE_B64" | tr -d '\r\n\t ' | base64 --decode > flutter/android/app/cikoko-upload.jks \
+               && keytool -list -keystore flutter/android/app/cikoko-upload.jks -storepass "$STORE_PASS" -alias "$alias_name" >/dev/null 2>&1; then
+              echo "CIKOKO_KEYSTORE_PATH=cikoko-upload.jks" >> "$GITHUB_ENV"
+              echo "signed=true" >> "$GITHUB_OUTPUT"
+              echo "Keystore verified. Release will use configured upload key."
+            else
+              rm -f flutter/android/app/cikoko-upload.jks
+              echo "signed=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Keystore Base64 or alias/password is invalid. AAB will be generated but NOT signed for Play."
+            fi
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Signing secrets are not configured. Artifact will NOT be ready for Google Play."
