@@ -201,6 +201,98 @@ class _LpjDetailPageState extends State<LpjDetailPage>{
   'menunggu_lmk'=>'lmk',
   _=>'',
  };
+ Future<void> setupPin()async{
+  final password=TextEditingController(),pin=TextEditingController(),confirmPin=TextEditingController();
+  final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+   title:const Text('Atur PIN persetujuan LPJ'),
+   content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+    const Text('PIN 6 angka disimpan sebagai hash di server. Konfirmasi password akun untuk mengaktifkan atau mengganti PIN.'),
+    const SizedBox(height:12),
+    TextField(controller:password,obscureText:true,decoration:const InputDecoration(labelText:'Password akun')),
+    TextField(controller:pin,obscureText:true,keyboardType:TextInputType.number,maxLength:6,inputFormatters:[FilteringTextInputFormatter.digitsOnly],decoration:const InputDecoration(labelText:'PIN baru (6 angka)')),
+    TextField(controller:confirmPin,obscureText:true,keyboardType:TextInputType.number,maxLength:6,inputFormatters:[FilteringTextInputFormatter.digitsOnly],decoration:const InputDecoration(labelText:'Ulangi PIN')),
+   ])),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Batal')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Simpan PIN'))],
+  ));
+  final pw=password.text,code=pin.text,confirm=confirmPin.text;
+  password.dispose();pin.dispose();confirmPin.dispose();
+  if(ok!=true||!mounted)return;
+  if(pw.isEmpty||!RegExp(r'^[0-9]{6}
+  final pin=TextEditingController(),reason=TextEditingController();
+  final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+   title:Text(decision=='approve'?'Setujui LPJ':'Kembalikan LPJ'),
+   content:Column(mainAxisSize:MainAxisSize.min,children:[
+    Text(decision=='approve'?'Masukkan PIN 6 digit untuk menyetujui dokumen.':'Tuliskan alasan perbaikan (minimal 5 karakter).'),
+    const SizedBox(height:10),
+    if(decision=='approve')TextField(controller:pin,obscureText:true,keyboardType:TextInputType.number,maxLength:6,inputFormatters:[FilteringTextInputFormatter.digitsOnly],decoration:const InputDecoration(labelText:'PIN petugas')),
+    if(decision!='approve')TextField(controller:reason,maxLines:3,decoration:const InputDecoration(labelText:'Alasan pengembalian')),
+   ]),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Batal')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Konfirmasi'))],
+  ));
+  if(ok!=true||!mounted){pin.dispose();reason.dispose();return;}
+  final submittedPin=pin.text,submittedReason=reason.text.trim();
+  pin.dispose();reason.dispose();
+  if(decision=='approve'&& !RegExp(r'^[0-9]{6}$').hasMatch(submittedPin)){showMessage('PIN harus 6 digit');return;}
+  if(decision=='return'&&submittedReason.length<5){showMessage('Alasan pengembalian minimal 5 karakter');return;}
+  setState(()=>busy=true);
+  try{
+   await widget.api.call('civic_review',body:{'id':widget.docId,'decision':decision,'pin':submittedPin,'notes':submittedReason});
+   if(mounted){showMessage('Status LPJ berhasil diperbarui');await reload();}
+  }catch(e){showMessage(e.toString());}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
+ void showMessage(String message){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(message)));}
+ Future<void> printPdf()async{
+  setState(()=>busy=true);
+  try{
+   final response=await http.get(Uri.parse(CikokoApi.root+'?action=civic_pdf&id='+widget.docId.toString()),headers:widget.api.authHeaders()).timeout(const Duration(seconds:45));
+   final data=response.bodyBytes;
+   if(response.statusCode!=200||data.length<4||String.fromCharCodes(data.take(4))!='%PDF')throw ApiError('PDF belum tersedia atau belum dapat dicetak.');
+   await Printing.layoutPdf(onLayout:(_)=>data,name:'Cikoko-LPJ-'+widget.docId.toString());
+  }catch(e){showMessage(e.toString());}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
+ @override Widget build(BuildContext context){
+  final payload=doc?['payload'] is Map?Map<String,dynamic>.from(doc!['payload'] as Map):<String,dynamic>{};
+  final approvals=doc?['approvals'] is List?List<dynamic>.from(doc!['approvals'] as List):<dynamic>[];
+  final canReview=expectedSigner.isNotEmpty&&scope?['duty']==expectedSigner;
+  return Scaffold(appBar:AppBar(title:const Text('Detail LPJ')),body:loading?const Center(child:CircularProgressIndicator()):error!=null?Center(child:Text(error!)):ListView(padding:const EdgeInsets.all(16),children:[
+   Text(lpjLabels[widget.kind]??'LPJ',style:Theme.of(context).textTheme.titleLarge),
+   const SizedBox(height:8),
+   Text('Periode: '+(doc?['period']??'-').toString()),
+   Text('Wilayah: RT '+(doc?['rt']??'-').toString()+' / RW '+(doc?['rw']??'-').toString()),
+   Text('Status: '+(doc?['status']??'-').toString().replaceAll('_',' ')),
+   const Divider(height:28),
+   Text('Saldo awal: Rp '+(payload['opening']??0).toString()),
+   Text('Penerimaan: Rp '+(payload['income']??0).toString()),
+   Text('Total pengeluaran: Rp '+(payload['total_expenses']??0).toString()),
+   Text('Saldo akhir: Rp '+(payload['closing']??0).toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+   const SizedBox(height:15),const Text('Rincian pengeluaran',style:TextStyle(fontWeight:FontWeight.bold)),
+   for(final row in (payload['entries'] is List?(payload['entries'] as List):<dynamic>[]))
+    if(row is Map)ListTile(title:Text((row['activity']??'').toString()),subtitle:Text((row['notes']??'').toString()),trailing:Text('Rp '+(row['amount']??0).toString())),
+   const Divider(),
+   const Text('Riwayat persetujuan',style:TextStyle(fontWeight:FontWeight.bold)),
+   for(final a in approvals)if(a is Map)ListTile(leading:const Icon(Icons.verified_outlined),title:Text((a['duty']??'').toString()+' • '+(a['action']??'').toString()),subtitle:Text((a['created_at']??'').toString())),
+   const SizedBox(height:14),
+   if(canReview)OutlinedButton.icon(onPressed:busy?null:setupPin,icon:const Icon(Icons.lock_outline),label:const Text('Atur / Ganti PIN Persetujuan')),
+   if(canReview)Row(children:[
+    Expanded(child:FilledButton(onPressed:busy?null:()=>decide('approve'),child:const Text('Setujui dengan PIN'))),
+    const SizedBox(width:8),Expanded(child:OutlinedButton(onPressed:busy?null:()=>decide('return'),child:const Text('Kembalikan'))),
+   ]),
+   const SizedBox(height:9),
+   OutlinedButton.icon(onPressed:busy?null:printPdf,icon:const Icon(Icons.print_outlined),label:const Text('Lihat / Cetak PDF')),
+   const SizedBox(height:26),
+  ]));
+ }
+}
+).hasMatch(code)||code!=confirm){showMessage('Password wajib diisi dan PIN 6 angka harus sama.');return;}
+  setState(()=>busy=true);
+  try{
+   await widget.api.call('civic_pin_set',body:{'current_password':pw,'pin':code});
+   showMessage('PIN LPJ berhasil disimpan. Gunakan saat persetujuan.');
+  }catch(e){showMessage(e.toString());}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
  Future<void> decide(String decision)async{
   final pin=TextEditingController(),reason=TextEditingController();
   final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
