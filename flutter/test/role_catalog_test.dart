@@ -34,6 +34,22 @@ void main() {
    final modules=modulesForRole('admin',{'role:manage':true});
    expect(modules.any((f)=>f.route=='Hak Akses Role'),isTrue);
  });
+ test('Menu Bendahara hanya untuk Admin Utama dan izin server', () {
+   const route='Manajemen Bendahara RT/RW';
+   expect(modulesForRole('admin', {'role:manage':true})
+       .any((f)=>f.route==route),isTrue);
+   expect(modulesForRole('admin', {})
+       .any((f)=>f.route==route),isFalse);
+   for(final role in roleNames.keys.where((r)=>r!='admin')){
+     expect(modulesForRole(role, {'role:manage':true,'reports:view':true})
+         .any((f)=>f.route==route),isFalse,reason:role);
+   }
+   expect(modulesForRole('bendahara_rt', {})
+       .any((f)=>f.route=='Laporan LPJ RT'),isTrue);
+   expect(modulesForRole('bendahara_rw', {})
+       .any((f)=>f.route=='Laporan LPJ RW'),isTrue);
+ });
+
  test('RT RW dan LMK mendapat LPJ sesuai role tanpa menu kegiatan lama', () {
    final rt=modulesForRole('rt',{});
    final rw=modulesForRole('rw',{});
