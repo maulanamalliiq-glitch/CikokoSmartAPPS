@@ -51,7 +51,7 @@ jobs:
           grep -Fq "'accounts_manage': RoleFeature" flutter/lib/role_catalog.dart
           grep -Fq "'bendahara_manage': RoleFeature" flutter/lib/role_catalog.dart
           grep -Fq "case 'Manajemen Bendahara RT/RW':" flutter/lib/main.dart
-          grep -Fq 'bendaharaOnly: true' flutter/lib/main.dart
+          grep -Fq 'bendaharaOnly:true' flutter/lib/main.dart
           test -s flutter/test/bendahara_admin_ui_test.dart
           grep -Fq "'accounts_list','accounts_create'" cpanel/mobile-api/index.php
       - name: Install Java 17
@@ -155,7 +155,7 @@ jobs:
           test -s lpj-release-2529/Cikoko-v2529-LPJ-PLAY-SIGNED.aab
           test -s lpj-release-2529/Cikoko-v2529-LPJ-TEST-SIGNED.apk
           test -s lpj-release-2529/UPLOAD_CERT_SHA256.txt
-          NOTES="SIGNED Android release candidate; NOT published to Google Play.\nVersion 2.5.29 (2529); package com.KelurahanCikoko.malik.\nIncludes admin-only Bendahara RT/RW management screen plus existing LPJ RT/RW/LMK A+B. Flutter UI-only change; no PHP, database, login, or cPanel production changes.\nCheck Play upload certificate fingerprint. Use Play Internal Testing; verify Admin account login, role list and Bendahara form. Ensure non-admin roles have no management access. Do NOT deploy cPanel code.\nSource: build/v2529-stable-playstore @ $GITHUB_SHA."
+          NOTES="SIGNED Android release candidate; NOT published to Google Play.\nVersion 2.5.29 (2529); package com.KelurahanCikoko.malik.\nIncludes admin-only Bendahara RT/RW management screen plus existing LPJ RT/RW/LMK A+B. Flutter UI-only change; no PHP, database, login, or cPanel production changes.\nCheck Play upload certificate fingerprint. Use Play Internal Testing; verify Admin account login, role list and Bendahara form. Ensure non-admin roles have no management access. Do NOT deploy cPanel code.\nSource: build/v2529-manajemen-bendahara-safe @ $GITHUB_SHA."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" lpj-release-2529/* --clobber --repo "$GITHUB_REPOSITORY"
           else
