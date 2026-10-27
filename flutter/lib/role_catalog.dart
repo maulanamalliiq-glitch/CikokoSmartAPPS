@@ -44,6 +44,7 @@ const roleFeatures = <String,RoleFeature>{
   'archive_list': RoleFeature('Arsip Ahli Waris','Cari arsip tahun sebelumnya','Arsip Ahli Waris',capability:'archive:view'),
   'role_manage': RoleFeature('Hak Akses Role','Izinkan atau batasi akses petugas','Hak Akses Role',capability:'role:manage'),
   'accounts_manage': RoleFeature('Kelola Akun Petugas','Tambah akun Ketua/Bendahara RT/RW dan petugas lainnya','Kelola Akun Petugas',capability:'role:manage'),
+  'bendahara_manage': RoleFeature('Manajemen Bendahara RT/RW','Khusus Admin Utama: akun, wilayah, status Bendahara RT dan RW','Manajemen Bendahara RT/RW',capability:'role:manage'),
   'monitor': RoleFeature('Monitoring Wilayah','Ringkasan seluruh laporan wilayah','Monitoring Wilayah',connected:false),
   'approval': RoleFeature('Persetujuan Lurah','Persetujuan dokumen resmi','Persetujuan Lurah',connected:false),
   'attendance': RoleFeature('Kehadiran','Absensi pegawai dan jadwal','Kehadiran',connected:false),
@@ -56,7 +57,7 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['accounts_manage','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['bendahara_manage','accounts_manage','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
