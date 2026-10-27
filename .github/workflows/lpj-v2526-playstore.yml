@@ -1,0 +1,147 @@
+name: Cikoko LPJ 2526 - signed AAB Play Store candidate
+on:
+  push:
+    branches:
+      - build/v2526-lpj-playstore
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cikoko-lpj-2526-release
+  cancel-in-progress: false
+jobs:
+  signed-lpj-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout release candidate source
+        uses: actions/checkout@v4
+      - name: Validate LPJ backend syntax and permission regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l cpanel/mobile-api/civic_lpj_v2513.php
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/bootstrap.php
+          php qa/test_v2513_territory.php
+          php qa/test_v2519_waris_stage.php
+          php qa/test_v2525_identity.php
+          grep -Fq "import 'lpj_pages.dart';" flutter/lib/main.dart
+          grep -Fq "Laporan LPJ RT" flutter/lib/role_catalog.dart
+          grep -Fq "Laporan LPJ RW" flutter/lib/role_catalog.dart
+          grep -Fq "Laporan LPJ LMK" flutter/lib/role_catalog.dart
+          test -s flutter/lib/lpj_pages.dart
+          test -s cpanel/mobile-api/civic_lpj_v2513.php
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android wrapper if missing
+        working-directory: flutter
+        run: flutter create --platforms=android --project-name=cikoko .
+      - name: Verify package identity and candidate version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fxq 'version: 2.5.26+2526' flutter/pubspec.yaml
+          grep -Fq 'applicationId = "com.KelurahanCikoko.malik"' flutter/android/app/build.gradle.kts
+          grep -Fq 'versionCode = 2526' flutter/android/app/build.gradle.kts
+          grep -Fq 'versionName = "2.5.26"' flutter/android/app/build.gradle.kts
+          grep -Fq 'targetSdk = 36' flutter/android/app/build.gradle.kts
+      - name: Flutter dependencies, static analysis, and all unit tests
+        working-directory: flutter
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+      - name: Configure mandatory existing Google Play upload keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          STORE_PASS: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CIKOKO_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_B64" || -z "$STORE_PASS" || -z "$KEY_PASS" ]]; then
+            echo "::error::Upload signing secrets belum lengkap; build signed dihentikan."
+            exit 1
+          fi
+          alias_name="${KEY_ALIAS:-androidkey}"
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n\t ' | base64 --decode > flutter/android/app/cikoko-upload.jks
+          keytool -list -keystore flutter/android/app/cikoko-upload.jks -storepass "$STORE_PASS" -alias "$alias_name" >/dev/null
+          echo "CIKOKO_KEYSTORE_PATH=cikoko-upload.jks" >> "$GITHUB_ENV"
+          echo "Existing upload keystore verified. Never publish signing credentials."
+      - name: Build signed AAB, verify signature, and capture certificate fingerprint
+        working-directory: flutter
+        shell: bash
+        env:
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: ${{ secrets.CIKOKO_KEY_ALIAS || 'androidkey' }}
+        run: |
+          set -euo pipefail
+          flutter build appbundle --release --build-name=2.5.26 --build-number=2526
+          src=build/app/outputs/bundle/release/app-release.aab
+          test -s "$src"
+          mkdir -p "$GITHUB_WORKSPACE/lpj-release-2526"
+          jarsigner -verify -verbose -certs "$src" > "$GITHUB_WORKSPACE/lpj-release-2526/AAB_SIGNATURE_VERIFY.txt" 2>&1
+          grep -Fq 'jar verified.' "$GITHUB_WORKSPACE/lpj-release-2526/AAB_SIGNATURE_VERIFY.txt"
+          keytool -exportcert -alias "$CIKOKO_KEY_ALIAS" -keystore "android/app/$CIKOKO_KEYSTORE_PATH" -storepass "$CIKOKO_STORE_PASSWORD" | openssl x509 -inform DER -noout -fingerprint -sha256 > "$GITHUB_WORKSPACE/lpj-release-2526/UPLOAD_CERT_SHA256.txt"
+          cp "$src" "$GITHUB_WORKSPACE/lpj-release-2526/Cikoko-v2526-LPJ-PLAY-SIGNED.aab"
+      - name: Build and verify signed universal QA APK
+        working-directory: flutter
+        shell: bash
+        env:
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: ${{ secrets.CIKOKO_KEY_ALIAS || 'androidkey' }}
+        run: |
+          set -euo pipefail
+          flutter build apk --release --build-name=2.5.26 --build-number=2526
+          src=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$src"
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          "$apksigner" verify --verbose --print-certs "$src" > "$GITHUB_WORKSPACE/lpj-release-2526/APK_SIGNATURE_VERIFY.txt"
+          expected="$(keytool -exportcert -alias "$CIKOKO_KEY_ALIAS" -keystore "android/app/$CIKOKO_KEYSTORE_PATH" -storepass "$CIKOKO_STORE_PASSWORD" 2>/dev/null | sha256sum | awk '{print $1}')"
+          actual="$(sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\1/p' "$GITHUB_WORKSPACE/lpj-release-2526/APK_SIGNATURE_VERIFY.txt" | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          [[ -n "$actual" && "$expected" == "$actual" ]] || { echo "::error::APK upload-key certificate mismatch"; exit 1; }
+          cp "$src" "$GITHUB_WORKSPACE/lpj-release-2526/Cikoko-v2526-LPJ-TEST-SIGNED.apk"
+      - name: Finalize integrity files
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'Build: Cikoko 2.5.26 (2526) - LPJ RT/RW/LMK A+B' 'Package: com.KelurahanCikoko.malik' 'Signing: verified existing upload key; compare fingerprint with Play Console before use' 'Status: DRAFT ONLY. Internal Testing and backend QA required.' > lpj-release-2526/BUILD_INFORMATION.txt
+          (cd lpj-release-2526 && sha256sum ./*.aab ./*.apk > SHA256SUMS.txt)
+      - name: Erase upload keystore from CI runner
+        if: always()
+        run: rm -f flutter/android/app/cikoko-upload.jks
+      - name: Store signed AAB and APK in PRIVATE DRAFT GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cikoko-v2.5.26-lpj-2526"
+          test -s lpj-release-2526/Cikoko-v2526-LPJ-PLAY-SIGNED.aab
+          test -s lpj-release-2526/Cikoko-v2526-LPJ-TEST-SIGNED.apk
+          test -s lpj-release-2526/UPLOAD_CERT_SHA256.txt
+          NOTES="SIGNED Android release candidate; NOT published to Google Play.\nVersion 2.5.26 (2526); package com.KelurahanCikoko.malik.\nIncludes LPJ RT/RW/LMK A+B; requires working authorized civic_* LPJ backend in cPanel.\nCheck upload certificate fingerprint, complete end-to-end RT/RW/LMK tests, and upload to Play Internal Testing before Production.\nSource: build/v2526-lpj-playstore @ $GITHUB_SHA."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" lpj-release-2526/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" lpj-release-2526/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Cikoko 2.5.26 (2526) - LPJ Play Internal Testing AAB" \
+              --notes "$NOTES" \
+              --draft
+          fi
+          echo "Build verified and stored in a PRIVATE DRAFT release: $TAG"
