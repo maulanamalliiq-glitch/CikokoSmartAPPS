@@ -5,7 +5,7 @@ on:
     branches:
       - feat/v2513-lpj-role-menus
 permissions:
-  contents: read
+  contents: write
 jobs:
   android-check:
     runs-on: ubuntu-latest
@@ -32,10 +32,38 @@ jobs:
       - name: Build installation-only debug APK
         working-directory: flutter
         run: flutter build apk --debug
-      - name: Upload test-only APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cikoko-v2513-LPJ-RT-RW-LMK-DEBUG-NOT-FOR-PLAY
-          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Save APK to private draft GitHub Release (not Actions Artifacts)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="cikoko-lpj-rt-rw-lmk-qa-2513"
+          APK="flutter/build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK"
+          mkdir -p out
+          cp "$APK" out/Cikoko-LPJ-RT-RW-LMK-DEBUG-NOT-FOR-PLAY.apk
+          sha256sum out/*.apk > out/APK_SHA256SUMS.txt
+          cat > out/PENTING-BACA-SEBELUM-INSTAL.txt <<'EOF'
+          KHUSUS PENGUJIAN MENU LPJ RT, RW, DAN LMK A/B.
+          APK ini dibangun dengan debug signing dan bukan paket untuk Google Play.
+          Jangan menggantikan atau mencopot versi Play Store pada perangkat produksi.
+          APK debug mungkin tidak bisa dipasang di atas aplikasi resmi karena sertifikat berbeda.
+          Backend API LPJ di cPanel dan akun petugas harus dikonfigurasi serta diuji.
+          EOF
+          NOTES="APK debug hanya untuk QA menu LPJ RT/RW/LMK A/B.
+          Source: feat/v2513-lpj-role-menus.
+          Build commit: $GITHUB_SHA.
+          Tidak untuk Play Store atau distribusi ke pengguna umum.
+          Tidak disarankan menimpa aplikasi yang sudah dipasang dari Play Store."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/Cikoko-LPJ-RT-RW-LMK-DEBUG-NOT-FOR-PLAY.apk out/APK_SHA256SUMS.txt out/PENTING-BACA-SEBELUM-INSTAL.txt --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" out/Cikoko-LPJ-RT-RW-LMK-DEBUG-NOT-FOR-PLAY.apk out/APK_SHA256SUMS.txt out/PENTING-BACA-SEBELUM-INSTAL.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Cikoko LPJ RT/RW/LMK - APK DEBUG QA (bukan Play Store)" \
+              --notes "$NOTES" \
+              --draft
+          fi
+          echo "APK QA disimpan pada draft release privat, bukan Actions Artifacts."
