@@ -145,7 +145,7 @@ jobs:
           test -x "$apksigner"
           "$apksigner" verify --verbose --print-certs "$apk" > "$GITHUB_WORKSPACE/out/APK_SIGNATURE_VERIFY.txt"
           expected="$(keytool -exportcert -alias "$CIKOKO_KEY_ALIAS" -keystore "android/app/$CIKOKO_KEYSTORE_PATH" -storepass "$CIKOKO_STORE_PASSWORD" 2>/dev/null | sha256sum | awk '{print $1}')"
-          actual="$(sed -nE 's/.*[Cc]ertificate SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\\1/p' "$GITHUB_WORKSPACE/out/APK_SIGNATURE_VERIFY.txt" | head -n 1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          actual="$(sed -nE 's/.*[Cc]ertificate SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\1/p' "$GITHUB_WORKSPACE/out/APK_SIGNATURE_VERIFY.txt" | head -n 1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           [[ -n "$actual" && "$actual" == "$expected" ]] || { echo "::error::APK signer certificate mismatch"; exit 1; }
           cp "$apk" "$GITHUB_WORKSPACE/out/Cikoko-v2512-RESTORED-TEST-SIGNED.apk"
           (cd "$GITHUB_WORKSPACE/out" && sha256sum Cikoko-v2512-RESTORED-TEST-SIGNED.apk > APK_SHA256SUMS.txt)
@@ -172,7 +172,7 @@ jobs:
           Draft release: not published to users.
           Check the upload key SHA-256 against Google Play Console before uploading."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" out/Cikoko-v2512-RESTORED-PLAY-SIGNED.aab out/SHA256SUMS.txt out/UPLOAD_CERT_SHA256.txt out/SIGNING_STATUS.txt out/SIGNATURE_VERIFY.txt out/Cikoko-v2512-RESTORED-TEST-SIGNED.apk out/APK_SHA256SUMS.txt out/APK_SIGNATURE_VERIFY.txt out/Cikoko-v2512-RESTORED-TEST-SIGNED.apk out/APK_SHA256SUMS.txt out/APK_SIGNATURE_VERIFY.txt --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" out/Cikoko-v2512-RESTORED-PLAY-SIGNED.aab out/SHA256SUMS.txt out/UPLOAD_CERT_SHA256.txt out/SIGNING_STATUS.txt out/SIGNATURE_VERIFY.txt out/Cikoko-v2512-RESTORED-TEST-SIGNED.apk out/APK_SHA256SUMS.txt out/APK_SIGNATURE_VERIFY.txt --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" out/Cikoko-v2512-RESTORED-PLAY-SIGNED.aab out/SHA256SUMS.txt out/UPLOAD_CERT_SHA256.txt out/SIGNING_STATUS.txt out/SIGNATURE_VERIFY.txt out/Cikoko-v2512-RESTORED-TEST-SIGNED.apk out/APK_SHA256SUMS.txt out/APK_SIGNATURE_VERIFY.txt \
               --repo "$GITHUB_REPOSITORY" \
