@@ -61,6 +61,11 @@ if(in_array($action,['public_letters','public_letter_status'],true)&&$method==='
  cikoko_public_letters(mobile_db());
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+// Akun staf hanya dapat dibuat oleh Admin Utama yang telah terautentikasi.
+if(in_array($action,['accounts_list','accounts_create'],true)){
+ require_once __DIR__.'/admin_accounts.php';
+ cikoko_admin_accounts($action,$method,$db,$u);
+}
 require_once __DIR__.'/waris_review.php';
 require_once __DIR__.'/waris_stage.php';
 if($action==='waris_stage'&&$method==='POST'){
