@@ -20,6 +20,7 @@ import 'public_letters.dart';
 import 'v211_features.dart';
 import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
+import 'lpj_pages.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -204,6 +205,7 @@ class _HomeState extends State<HomePage> {
     'Surat Ahli Waris'=>Icons.description_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
     'Surat Wilayah'=>Icons.fact_check_outlined,'Wilayah Ketua RT/RW'=>Icons.location_city_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
+    'Laporan LPJ RT'=>Icons.receipt_long_outlined,'Laporan LPJ RW'=>Icons.receipt_long_outlined,'Laporan LPJ LMK'=>Icons.receipt_long_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
@@ -252,6 +254,11 @@ class _HomeState extends State<HomePage> {
     case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
+    case 'Laporan LPJ RT':return LpjPage(api:api,kind:'lpj_rt');
+    case 'Laporan LPJ RW':return LpjPage(api:api,kind:'lpj_rw');
+    case 'Laporan LPJ LMK':return LpjLmkMenu(onOpen:switchTo);
+    case 'Laporan LPJ LMK A':return LpjPage(api:api,kind:'lpj_lmk_a');
+    case 'Laporan LPJ LMK B':return LpjPage(api:api,kind:'lpj_lmk_b');
     case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
     case 'Laporan LMK':return const ReportForm(kind:'lmk');
     case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
