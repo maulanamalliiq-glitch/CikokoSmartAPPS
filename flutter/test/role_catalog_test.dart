@@ -34,4 +34,19 @@ void main() {
    final modules=modulesForRole('admin',{'role:manage':true});
    expect(modules.any((f)=>f.route=='Hak Akses Role'),isTrue);
  });
+ test('RT RW dan LMK mendapat LPJ sesuai role tanpa menu kegiatan lama', () {
+   final rt=modulesForRole('rt',{});
+   final rw=modulesForRole('rw',{});
+   final lmk=modulesForRole('lmk',{});
+   expect(rt.any((f)=>f.route=='Laporan LPJ RT'),isTrue);
+   expect(rt.any((f)=>f.route=='Laporan LPJ RW'),isFalse);
+   expect(rw.any((f)=>f.route=='Laporan LPJ RW'),isTrue);
+   expect(rw.any((f)=>f.route=='Laporan LPJ RT'),isFalse);
+   expect(lmk.where((f)=>f.route=='Laporan LPJ LMK').length,1);
+   for (final menus in [rt,rw,lmk]) {
+     expect(menus.any((f)=>f.route=='Laporan Kegiatan'),isFalse);
+   }
+   expect(modulesForRole('pppk',{'report:kegiatan':true}).any((f)=>f.route=='Laporan Kegiatan'),isTrue);
+ });
+
 }
