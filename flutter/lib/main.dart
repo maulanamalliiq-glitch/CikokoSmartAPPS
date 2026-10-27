@@ -212,7 +212,7 @@ class _HomeState extends State<HomePage> {
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
     'Tambah Berita'=>Icons.post_add_outlined,'Tambah Pengumuman'=>Icons.add_alert_outlined,
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
-    'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Kelola Akun Petugas'=>Icons.manage_accounts_outlined,'Riwayat'=>Icons.history,
+    'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Kelola Akun Petugas'=>Icons.manage_accounts_outlined,'Manajemen Bendahara RT/RW'=>Icons.account_balance_wallet_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
     'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
     _=>Icons.category_outlined};
@@ -279,6 +279,12 @@ class _HomeState extends State<HomePage> {
     case 'Arsip Ahli Waris':return ArchiveList(api:api);
     case 'Hak Akses Role':return RolePermissionPage(api:api);
     case 'Kelola Akun Petugas':return AdminAccountsPage(api:api);
+    case 'Manajemen Bendahara RT/RW':
+      // UI tidak membuka menu sensitif untuk role lain; server tetap
+      // mewajibkan autentikasi Admin Utama di setiap request.
+      return role == 'admin' && capabilities['role:manage'] == true
+          ? AdminAccountsPage(api:api, bendaharaOnly:true)
+          : const Center(child:Text('Hanya Admin Utama yang dapat mengelola Bendahara.'));
     default: return featureUnavailable(section);
   }}
   Widget featureUnavailable(String name) => Center(child:Padding(padding:const EdgeInsets.all(22),child:Card(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.construction_outlined,size:44,color:blue),const SizedBox(height:16),Text(name,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:10),const Text('Halaman ini tercantum dalam rancangan role, tetapi modul data dan API belum tersedia. Tidak ada perubahan data yang dilakukan.',textAlign:TextAlign.center),const SizedBox(height:18),FilledButton(onPressed:()=>switchTo('Dashboard'),child:const Text('Kembali ke Beranda'))])))));
