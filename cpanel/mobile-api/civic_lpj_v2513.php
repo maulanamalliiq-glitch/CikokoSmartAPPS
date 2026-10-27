@@ -238,7 +238,7 @@ function lpj_api(string $action,string $method,PDO $db,array $u):void {
             $person=cikoko_user_by_id($uid);$name=mobile_text($person['name']??$u['username'],160);
             $db->prepare('INSERT INTO cikoko_lpj_approvals(document_id,revision,duty,officer_user_id,officer_name,action,notes,payload_hash) VALUES(?,?,?,?,?,?,?,?)')
                ->execute([$id,$doc['revision'],$expected,$uid,$name,$decision,$notes,$doc['payload_hash']]);
-            $db->prepare('UPDATE cikoko_lpj_docs SET status=?,updated_at=NOW(),finalized_at=IF(?="disahkan",NOW(),NULL) WHERE id=?')
+            $db->prepare("UPDATE cikoko_lpj_docs SET status=?,updated_at=NOW(),finalized_at=IF(?='disahkan',NOW(),NULL) WHERE id=?")
                ->execute([$next,$next,$id]);
             $db->prepare('INSERT INTO cikoko_lpj_audit(document_id,revision,actor_id,action,status_after,notes,payload_hash) VALUES(?,?,?,?,?,?,?)')
                ->execute([$id,$doc['revision'],$uid,$decision,$next,$notes,$doc['payload_hash']]);
