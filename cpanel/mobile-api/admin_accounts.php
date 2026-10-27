@@ -9,6 +9,12 @@ function cikoko_admin_accounts(string $action,string $method,PDO $db,array $acto
     if(($actor['user_role']??'')!=='admin')mobile_error('Hanya Admin Utama yang dapat mengelola akun.',403);
 
     $roles=mobile_role_names();
+    // Kompatibilitas dengan permissions.php lama di cPanel. Jika daftar
+    // role server belum diperbarui, tetap tampilkan kedua jabatan LPJ resmi.
+    // Tambahan ini hanya berlaku di endpoint Admin Utama; tidak mengubah
+    // login, izin akun lain, atau pemetaan role global.
+    $roles['bendahara_rt']='Bendahara RT';
+    $roles['bendahara_rw']='Bendahara RW';
     unset($roles['admin']);
     if($action==='accounts_list' && $method==='GET') {
         $items=[];
