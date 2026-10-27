@@ -45,8 +45,10 @@ function lpj_scope(PDO $db,array $u):?array {
         $d=(string)$r['duty'];
         if(!in_array($d,['rt','rw','bendahara_rt','bendahara_rw','lmk'],true))return null;
         if($d==='lmk' && $role!=='lmk')return null;
-        if(in_array($d,['rt','bendahara_rt'],true) && $role!=='rt')return null;
-        if(in_array($d,['rw','bendahara_rw'],true) && $role!=='rw')return null;
+        if($d==='rt' && $role!=='rt')return null;
+        if($d==='bendahara_rt' && !in_array($role,['rt','bendahara_rt'],true))return null;
+        if($d==='rw' && $role!=='rw')return null;
+        if($d==='bendahara_rw' && !in_array($role,['rw','bendahara_rw'],true))return null;
         $rw=lpj_area($r['rw']??null);
         $rt=in_array($d,['rt','bendahara_rt'],true)?lpj_area($r['rt']??null):'';
         return ['duty'=>$d,'rt'=>$rt,'rw'=>$rw,'user_id'=>$uid];
@@ -99,7 +101,7 @@ function lpj_send_next(PDO $db,array $doc,string $duty):void {
         $q=$db->prepare($sql);$q->execute([$duty]);
         foreach($q->fetchAll() as $o) {
             if(lpj_area($o['rw']??'',false)!==$doc['rw'])continue;
-            if($duty==='rt' && lpj_area($o['rt']??'',false)!==$doc['rt'])continue;
+            if(in_array($duty,['rt','bendahara_rt'],true) && lpj_area($o['rt']??'',false)!==$doc['rt'])continue;
             mobile_emit('lpj','LPJ perlu diperiksa','LPJ '.strtoupper((string)$doc['kind']).' periode '.$doc['period'].' memerlukan pemeriksaan.','personal',(string)$o['user_id']);
         }
     } catch(Throwable $e) {error_log('[lpj notify] '.$e->getMessage());}
