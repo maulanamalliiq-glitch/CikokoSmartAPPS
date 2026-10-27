@@ -24,7 +24,7 @@ jobs:
         run: |
           php -r '
           function mobile_error($message,$status=400){throw new RuntimeException($message);}
-          function mobile_strlen($value){return mb_strlen($value);}
+          function mobile_strlen($value){return strlen($value);}
           require "cpanel/mobile-api/civic_lpj_v2513.php";
           $p=lpj_payload(["opening"=>1000,"income"=>500,"entries"=>[
             ["activity"=>"Contoh kegiatan","amount"=>300,"notes"=>"Keterangan"]
