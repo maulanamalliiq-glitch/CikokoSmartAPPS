@@ -826,10 +826,20 @@ class _AdminReplySheetState extends State<AdminReplySheet>{
      SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send),label:Text(sending?'Mengirim...':'Kirim Balasan'))),
    ]));
 }
-class AdminReports extends StatefulWidget{const AdminReports({super.key});@override State<AdminReports> createState()=>_AdminReportsState();}
+class AdminReports extends StatefulWidget{
+ final String? onlyKind;
+ final bool allowWarisDate;
+ const AdminReports({super.key,this.onlyKind,this.allowWarisDate=false});
+ @override State<AdminReports> createState()=>_AdminReportsState();
+}
 class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
  @override void initState(){super.initState();load();}
- Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
+ Future<void> load()async{try{
+ final d=await api.call('admin_reports');
+ final list=List<dynamic>.from(d['items']??[]);
+ if(mounted)setState(()=>rows=list.where((item)=>widget.onlyKind==null||
+  cikokoDocumentKind(Map<String,dynamic>.from(item as Map))==widget.onlyKind).toList());
+ }catch(e){if(mounted)notify(context,'$e',error:true);}}
  Future<void> update(Map<String,dynamic> r,String status)async{
   final kind=cikokoDocumentKind(r);
   final id=cikokoPositiveId(r);
@@ -846,12 +856,59 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
     await load();
   }catch(e){if(mounted)notify(context,'$e',error:true);}
  }
+
+ Future<void> editWarisDate(Map<String,dynamic> row)async{
+  if(!widget.allowWarisDate||api.profile?['role']!='admin'||cikokoDocumentKind(row)!='waris')return;
+  final id=cikokoPositiveId(row);
+  if(id==null){notify(context,'ID Ahli Waris tidak tersedia.',error:true);return;}
+  final raw=(row['created_at']??'').toString();
+  final oldDate=raw.length>=10?raw.substring(0,10):'';
+  final today=DateTime.now();
+  final old=DateTime.tryParse(oldDate)??today;
+  final selected=await showDatePicker(
+   context:context,firstDate:DateTime(2000),
+   lastDate:DateTime(today.year,today.month,today.day),
+   initialDate:old.year<2000?DateTime(2000):old.isAfter(today)?today:old,
+   helpText:'Tanggal Pengajuan Ahli Waris');
+  if(selected==null||!mounted)return;
+  final date=selected.year.toString().padLeft(4,'0')+'-'+
+   selected.month.toString().padLeft(2,'0')+'-'+selected.day.toString().padLeft(2,'0');
+  if(date==oldDate){notify(context,'Tanggal tidak berubah.');return;}
+  final yes=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+   title:const Text('Ubah Tanggal Pengajuan'),
+   content:Text('Nomor: '+(row['reference']??'-').toString()+
+    '\nTanggal sebelumnya: '+oldDate+'\nTanggal baru: '+date+
+    '\n\nPerubahan hanya untuk tanggal pengajuan surat ini. Tanggal foto/lampiran dan status tidak diubah. Riwayat akan dicatat.'),
+   actions:[
+    TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Batal')),
+    FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Simpan')),
+   ],
+  ));
+  if(yes!=true||!mounted)return;
+  setState(()=>busy=true);
+  try{
+   final result=await api.call('admin_waris_date',body:{'id':id,'date':date});
+   await load();
+   if(mounted)notify(context,(result['message']??'Tanggal diperbarui').toString());
+  }catch(e){if(mounted)notify(context,'Gagal mengubah tanggal: $e',error:true);}
+  finally{if(mounted)setState(()=>busy=false);}
+ }
  @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
+  Padding(padding:const EdgeInsets.all(8),child:Text(
+   widget.onlyKind=='waris'?'Verifikasi Ahli Waris':
+   widget.onlyKind=='report'?'Laporan Kegiatan':'Verifikasi Laporan',
+   style:const TextStyle(fontSize:20,color:navy,fontWeight:FontWeight.bold))),
+  if(widget.onlyKind=='waris')const Padding(
+   padding:EdgeInsets.symmetric(horizontal:8,vertical:4),
+   child:Text('Khusus Ahli Waris. Admin Utama dapat mengatur progres dan tanggal pengajuan.')),
+  if(widget.onlyKind=='report')const Padding(
+   padding:EdgeInsets.symmetric(horizontal:8,vertical:4),
+   child:Text('Laporan kegiatan selain Ahli Waris.')),
   const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
   for(final r in rows)Card(child:ListTile(
     leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
-    subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
+    subtitle:Text('${r['status']} • ${r['name']??''}'+'\nTanggal: '+(r['created_at']??'-').toString(),style:const TextStyle(fontSize:11)),
     onTap:(){
       final row=Map<String,dynamic>.from(r);
       final id=cikokoPositiveId(row);
@@ -859,6 +916,15 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
       if(id==null && ref==null){notify(context,'Server belum mengirim ID surat. Pastikan API V2525 aktif.',error:true);load();return;}
       showCikokoDocument(context,api,id:id??0,reference:ref??'',kind:cikokoDocumentKind(row),onChanged:load);
     },
-    trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
+    trailing:PopupMenuButton<String>(tooltip:'Tindakan Admin',enabled:!busy,
+      onSelected:(value)=>value=='edit_date'
+       ? editWarisDate(Map<String,dynamic>.from(r))
+       : update(Map<String,dynamic>.from(r),value),
+      itemBuilder:(_)=>[
+       if(widget.allowWarisDate&&api.profile?['role']=='admin'&&cikokoDocumentKind(Map<String,dynamic>.from(r))=='waris')
+        const PopupMenuItem<String>(value:'edit_date',child:Text('Ubah Tanggal Pengajuan')),
+       for(final status in ['masuk','proses','revisi','selesai','ditolak'])
+        PopupMenuItem<String>(value:status,child:Text('Status: '+status)),
+      ]),
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
