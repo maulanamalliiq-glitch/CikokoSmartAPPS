@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'photo_upload.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -49,29 +50,62 @@ class CikokoApi {
     if(p.startsWith('assets/') && !p.contains('..'))return 'https://datawebs.my.id/$p';
     return '';
   }
-  Future<Map<String,dynamic>> upload(String action,Map<String,String> fields,Map<String,List<String>> files,{void Function(double)? progress}) async {
-    final req=http.MultipartRequest('POST',Uri.parse('${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action'));
+  Future<Map<String,dynamic>> upload(String action,Map<String,String> fields,
+      Map<String,List<String>> files,{void Function(double)? progress}) async {
+    final req=http.MultipartRequest('POST',Uri.parse(
+      "${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action"));
     req.headers['Accept']='application/json';
-    if(token!=null) req.headers['Authorization']='Bearer $token';
+    if(token!=null)req.headers['Authorization']='Bearer $token';
     req.fields.addAll(fields);
-    for(final entry in files.entries){for(final f in entry.value){req.files.add(await http.MultipartFile.fromPath(entry.key,f));}}
-    final total=req.contentLength;
-    final original=req.finalize();
-    final streamed=http.StreamedRequest('POST',req.url);
-    streamed.headers.addAll(req.headers);
-    streamed.contentLength=total;
-    final client=http.Client();
+
+    final temp=<File>[];
+    final count=files.values.fold<int>(0,(sum,paths)=>sum+paths.length);
+    var prepared=0;
     try {
-      final pending=client.send(streamed).timeout(const Duration(seconds:120));
-      var sent=0;
-      await streamed.sink.addStream(original.map((chunk){sent+=chunk.length;progress?.call(total==0?0:sent/total);return chunk;}));
-      await streamed.sink.close();
-      final response=await pending;
-      final str=await response.stream.bytesToString();
-      final d=jsonDecode(str);
-      if(d is! Map<String,dynamic> || response.statusCode>=400 || d['ok']!=true)throw ApiError(d is Map? '${d['error']??'Upload gagal'}':'Upload gagal');
-      progress?.call(1);
-      return d;
-    } finally {client.close();}
+      for(final entry in files.entries){
+        for(final path in entry.value){
+          String ready;
+          try {
+            ready=await CikokoPhotoUpload.prepare(entry.key,path);
+          } on FileSystemException catch(e){
+            throw ApiError(e.message);
+          }
+          if(ready!=path)temp.add(File(ready));
+          req.files.add(await http.MultipartFile.fromPath(entry.key,ready));
+          prepared++;
+          progress?.call(count==0?0:0.12*prepared/count);
+        }
+      }
+      final total=req.contentLength;
+      final original=req.finalize();
+      final streamed=http.StreamedRequest('POST',req.url);
+      streamed.headers.addAll(req.headers);
+      streamed.contentLength=total;
+      final client=http.Client();
+      try {
+        final pending=client.send(streamed).timeout(const Duration(seconds:180));
+        var sent=0;
+        await streamed.sink.addStream(original.map((chunk){
+          sent+=chunk.length;
+          progress?.call(total==0?0.12:0.12+0.88*sent/total);
+          return chunk;
+        }));
+        await streamed.sink.close();
+        final response=await pending;
+        final str=await response.stream.bytesToString();
+        final data=jsonDecode(str);
+        if(data is! Map<String,dynamic> || response.statusCode>=400 || data['ok']!=true){
+          throw ApiError(data is Map? "${data['error']??'Upload gagal'}":'Upload gagal');
+        }
+        progress?.call(1);
+        return data;
+      }finally{
+        client.close();
+      }
+    }finally{
+      for(final file in temp){
+        try{if(await file.exists())await file.delete();}catch(_){}
+      }
+    }
   }
 }
