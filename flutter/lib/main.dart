@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'push.dart';
 import 'role_catalog.dart';
+import 'structured_drawer.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
@@ -229,7 +230,23 @@ class _HomeState extends State<HomePage> {
       title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
-    drawer:Drawer(child:SafeArea(child:Column(children:[const SizedBox(height:14),const Logo(size:64),const SizedBox(height:8),Text('${api.profile?['name']??'Warga Cikoko'}',style:const TextStyle(fontWeight:FontWeight.w800,fontSize:17)),Text(roleLabel,style:const TextStyle(color:Colors.blueGrey,fontSize:12)),const Divider(),Expanded(child:ListView(children:[for(final feature in modules)ListTile(dense:true,leading:Icon(iconFor(feature.route),size:21),title:Text(feature.title),subtitle:feature.connected?null:const Text('Butuh modul server tambahan',style:TextStyle(fontSize:10)),onTap:(){Navigator.pop(context);switchTo(feature.route);}),ListTile(leading:const Icon(Icons.chat_outlined),title:const Text('Hubungi Kami'),onTap:(){Navigator.pop(context);switchTo('Hubungi Kami');})])),const Divider(),guest?ListTile(leading:const Icon(Icons.login),title:const Text('Login / Daftar Warga'),onTap:(){Navigator.pop(context);openLogin();}):ListTile(leading:const Icon(Icons.logout),title:const Text('Keluar'),onTap:()async{await api.logout();widget.onLogout();})]))),
+    drawer:Drawer(child:CikokoStructuredDrawer(
+      avatar:const Logo(size:52),
+      accountName:'${api.profile?['name']??'Warga Cikoko'}',
+      roleLabel:roleLabel,
+      guest:guest,
+      allowedFeatures:modules,
+      currentRoute:section,
+      iconFor:iconFor,
+      onClose:()=>Navigator.pop(context),
+      onNavigate:(route){Navigator.pop(context);switchTo(route);},
+      onLogin:(){Navigator.pop(context);openLogin();},
+      onLogout:()async{
+        Navigator.pop(context);
+        await api.logout();
+        widget.onLogout();
+      },
+    )),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
