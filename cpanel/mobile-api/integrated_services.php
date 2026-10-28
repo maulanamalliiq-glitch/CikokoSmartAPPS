@@ -22,10 +22,10 @@ function cikoko_integrated_default():array {
       ['jaksehat','Jak-Sehat','Aplikasi dan layanan kesehatan Jakarta.','https://www.jakarta.go.id/index.php/aplikasi-jaksehat'],
       ['bpjstk','BPJS Ketenagakerjaan','Layanan jaminan sosial ketenagakerjaan.','https://www.bpjsketenagakerjaan.go.id/'],
     ];
-    return array_map(static fn($v)=>[
+    return array_map(static function($v){return [
         'id'=>$v[0],'title'=>$v[1],'description'=>$v[2],
         'url'=>$v[3],'logo_url'=>'','active'=>true,
-    ],$names);
+    ];},$names);
 }
 function cikoko_integrated_store_path():string {
     return __DIR__.'/.cikoko-integrated-services.php';
@@ -35,12 +35,12 @@ function cikoko_integrated_read():array {
     if(!is_file($path))return cikoko_integrated_default();
     $contents=@file_get_contents($path);
     $marker='<?php __halt_compiler(); ?>';
-    if($contents===false || !str_starts_with($contents,$marker)){
+    if($contents===false || strpos($contents,$marker)!==0){
         error_log('Cikoko integrated services store invalid.');
         return cikoko_integrated_default();
     }
     $decoded=json_decode(substr($contents,strlen($marker)),true);
-    return is_array($decoded)&&array_is_list($decoded)?$decoded:cikoko_integrated_default();
+    return is_array($decoded)?$decoded:cikoko_integrated_default();
 }
 function cikoko_integrated_https(string $url):bool {
     if($url==='')return true;
@@ -58,7 +58,7 @@ function cikoko_integrated_dispatch(string $action,string $method):void {
         if($method!=='GET')mobile_error('Metode tidak tersedia.',405);
         $all=cikoko_integrated_read();
         $items=($user['user_role']??'')==='admin'
-           ? $all : array_values(array_filter($all,static fn($a)=>($a['active']??true)!==false));
+           ? $all : array_values(array_filter($all,static function($a){return ($a['active']??true)!==false;}));
         mobile_json(['ok'=>true,'items'=>$items]);
     }
     if($action!=='integrated_services_save' || $method!=='POST'){
@@ -67,7 +67,7 @@ function cikoko_integrated_dispatch(string $action,string $method):void {
     if(($user['user_role']??'')!=='admin')mobile_error('Hanya Admin Utama dapat mengatur layanan.',403);
     $payload=mobile_body();
     $rows=$payload['items']??null;
-    if(!is_array($rows)||!array_is_list($rows)||count($rows)>60)mobile_error('Daftar layanan tidak valid.',422);
+    if(!is_array($rows)||count($rows)>60)mobile_error('Daftar layanan tidak valid.',422);
     $safe=[];$ids=[];
     foreach($rows as $row){
         if(!is_array($row))mobile_error('Isi layanan tidak valid.',422);
