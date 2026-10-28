@@ -135,7 +135,7 @@ class CikokoLetterCounters extends StatelessWidget {
     Row(children: [
       const Expanded(child: Text('Status Pelayanan Surat',
         style: TextStyle(fontWeight: FontWeight.w800, color: homeNavy, fontSize: 13.5))),
-      TextButton(onPressed:onTap, child:Text(guest?'Login →':'Riwayat →',
+      TextButton(onPressed:onTap, child:Text('Lihat Status →',
         style:const TextStyle(fontSize:11.2,fontWeight:FontWeight.w700))),
     ]),
     Row(children: [
