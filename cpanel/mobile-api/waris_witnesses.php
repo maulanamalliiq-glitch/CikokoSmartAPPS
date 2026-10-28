@@ -47,11 +47,10 @@ function cikoko_waris_witness_dispatch(string $action,string $method,PDO $db,arr
         $q=$db->prepare('SELECT requirement_code FROM aw_attachments WHERE application_id=? AND requirement_code IN ("saksi_1","saksi_2")');
         $q->execute([$applicationId]);
         $previous=$q->fetchAll(PDO::FETCH_COLUMN);
-        foreach($codes as $code){
-            if(in_array($code,$previous,true))throw new DomainException('KTP saksi sudah tersimpan. Dokumen lama tidak akan ditimpa.',409);
-        }
+        // Idempotent retry: previously saved witnesses remain untouched.
+        $newCodes=array_values(array_diff($codes,$previous));
         $insert=$db->prepare('INSERT INTO aw_attachments(application_id,requirement_code,original_name,storage_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?)');
-        foreach($codes as $code){
+        foreach($newCodes as $code){
             $file=$_FILES[$code];
             $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
             $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;
@@ -62,8 +61,10 @@ function cikoko_waris_witness_dispatch(string $action,string $method,PDO $db,arr
             $savedPaths[]=$path;
             $insert->execute([$applicationId,$code,mobile_text($file['name'],200),$storage,$mime,(int)$file['size']]);
         }
-        $history=$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES(?,?,?,?,?)');
-        $history->execute([$applicationId,$app['status'],$app['status'],$uid,'Pelengkapan KTP dua orang saksi: '.implode(', ',$codes)]);
+        if($newCodes){
+            $history=$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES(?,?,?,?,?)');
+            $history->execute([$applicationId,$app['status'],$app['status'],$uid,'Pelengkapan KTP dua orang saksi: '.implode(', ',$newCodes)]);
+        }
         $db->commit();
     }catch(DomainException $e){
         if($db->inTransaction())$db->rollBack();
@@ -76,6 +77,6 @@ function cikoko_waris_witness_dispatch(string $action,string $method,PDO $db,arr
         mobile_error('Dokumen saksi belum berhasil disimpan. Silakan coba kembali.',503);
     }
     // Inform the existing admin workflow without changing the request status.
-    mobile_emit('surat','KTP Saksi Ahli Waris dilengkapi','Periksa kelengkapan pengajuan '.$app['reference_no'],'admin');
-    mobile_json(['ok'=>true,'reference'=>$app['reference_no'],'uploaded_codes'=>$codes]);
+    if($newCodes)mobile_emit('surat','KTP Saksi Ahli Waris dilengkapi','Periksa kelengkapan pengajuan '.$app['reference_no'],'admin');
+    mobile_json(['ok'=>true,'reference'=>$app['reference_no'],'uploaded_codes'=>$newCodes,'already_available'=>array_values(array_intersect($codes,$previous))]);
 }
