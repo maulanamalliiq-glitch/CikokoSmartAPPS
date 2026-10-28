@@ -101,6 +101,8 @@ jobs:
           CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
           CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
           CIKOKO_KEY_ALIAS: androidkey
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           flutter build appbundle --release
           flutter build apk --release --split-per-abi --target-platform android-arm64
@@ -128,9 +130,11 @@ jobs:
             echo "::error::AAB signer is not the expected Play upload certificate."
             exit 1
           fi
-          # The AAB has already passed JAR signature verification and its
-          # signer matches the Play upload certificate. Publish it independently.
+          # A verified AAB is safe to publish even if the separate APK
+          # signing stage fails; this does not use the full Actions artifact quota.
           cp "$aab" build/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab
+          gh release upload "v2.5.34-build2534" \
+            build/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab --clobber
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           signed_apk="build/cikoko-downloads/Cikoko-v2534-RELEASE-arm64.apk"
           # Explicitly sign the APK with the same verified upload key instead of
