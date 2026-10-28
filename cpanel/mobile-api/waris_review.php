@@ -33,7 +33,8 @@ function waris_codes(int $childCount=10):array {
     $codes=['r1'=>'Surat Pengantar RT/RW','r2'=>'Surat Permohonan','r3'=>'Surat Pernyataan Keabsahan',
        'r4'=>'KTP, KK dan Akta Lahir Ahli Waris','r5'=>'Surat Kematian Pewaris',
        'r6'=>'Surat Nikah Pewaris','r7'=>'Akta Cerai (bila berlaku)',
-       'r8'=>'Surat Kematian Ahli Waris (bila berlaku)'];
+       'r8'=>'Surat Kematian Ahli Waris (bila berlaku)',
+       'saksi_1'=>'KTP Saksi Pertama','saksi_2'=>'KTP Saksi Kedua'];
     for($i=1;$i<=max(0,min(10,$childCount));$i++)$codes['child_'.$i]='Foto dokumen Anak ke-'.$i;
     return $codes;
 }
@@ -105,7 +106,7 @@ function waris_review_dispatch(string $action,string $method,PDO $db,array $u,st
     if(in_array($app['status'],['selesai','ditolak'],true))mobile_error('Permohonan yang ditutup tidak dapat meminta revisi baru.',409);
     $codes=$body['codes']??[];$reason=mobile_text($body['notes']??'',1000);
     $allowed=waris_codes(count(waris_children($app)));
-    if(!is_array($codes)||count($codes)<1||count($codes)>18||$reason==='')mobile_error('Pilih dokumen dan isi alasan perbaikan.',422);
+    if(!is_array($codes)||count($codes)<1||count($codes)>count($allowed)||$reason==='')mobile_error('Pilih dokumen dan isi alasan perbaikan.',422);
     foreach($codes as $code)if(!is_string($code)||!array_key_exists($code,$allowed))mobile_error('Dokumen perbaikan tidak dikenal.',422);
     $codes=array_values(array_unique($codes));
     try {
