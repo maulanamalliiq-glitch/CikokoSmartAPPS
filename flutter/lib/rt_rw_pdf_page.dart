@@ -21,7 +21,7 @@ class _RtRwPdfPageState extends State<RtRwPdfPage> {
     final response=await http.get(url,headers:widget.api.authHeaders())
       .timeout(const Duration(seconds:45));
     if(response.statusCode!=200 || !(response.headers['content-type']??'').contains('application/pdf')) {
-      String message='Surat PDF belum dapat dibuka.';
+      String message='Surat PDF belum dapat dibuka. Pastikan verifikasi RT dan RW telah selesai.';
       try{final data=jsonDecode(utf8.decode(response.bodyBytes));if(data is Map && data['error']!=null)message='${data['error']}';}catch(_){}
       throw ApiError(message);
     }
@@ -36,7 +36,7 @@ class _RtRwPdfPageState extends State<RtRwPdfPage> {
       if(!s.hasData) {
         if(s.hasError)return Center(child:Padding(padding:const EdgeInsets.all(18),child:Column(
           mainAxisSize:MainAxisSize.min,children:[
-            Text('${s.error}',textAlign:TextAlign.center),
+            Text(cikokoFormalMessage(s.error),textAlign:TextAlign.center),
             const SizedBox(height:12),
             FilledButton(onPressed:()=>setState(()=>file=fetch()),
               child:const Text('Muat Ulang')),
@@ -56,7 +56,7 @@ class _RtRwPdfPageState extends State<RtRwPdfPage> {
             onPressed:()async{
               try{await Printing.sharePdf(bytes:s.data!,filename:fileName);}
               catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content:Text('Gagal menyimpan PDF: $e')));}
+                SnackBar(content:Text('Dokumen belum dapat disimpan. Silakan coba kembali.')));}
             },
             icon:const Icon(Icons.download_outlined),
             label:const Text('Unduh / Simpan PDF'),
