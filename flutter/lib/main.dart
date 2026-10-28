@@ -54,7 +54,7 @@ class CikokoApp extends StatelessWidget {
              LinearProgressIndicator(value:value>0?value:null,minHeight:4,
                  borderRadius:BorderRadius.circular(5)),
            ]))))),
-     )),
+     ),
  ]),theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:pale,colorScheme:ColorScheme.fromSeed(seedColor:blue),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:navy),inputDecorationTheme:InputDecorationTheme(isDense:true,filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),cardTheme:CardThemeData(color:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),textTheme:const TextTheme(titleLarge:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:navy),titleMedium:TextStyle(fontSize:15,fontWeight:FontWeight.w700,color:navy),bodyMedium:TextStyle(fontSize:13.5)) ),home:const Entry());
 }
 class Entry extends StatefulWidget{const Entry({super.key});@override State<Entry> createState()=>_EntryState();}
