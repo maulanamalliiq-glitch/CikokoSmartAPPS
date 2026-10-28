@@ -12,6 +12,7 @@ import 'api.dart';
 import 'push.dart';
 import 'role_catalog.dart';
 import 'structured_drawer.dart';
+import 'integrated_services.dart';
 import 'admin_accounts.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
@@ -263,7 +264,8 @@ class _HomeState extends State<HomePage> {
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return feed('layanan');
+    case 'Layanan Online':return guest ? feed('layanan') : CikokoIntegratedServices(api:api);
+     case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
     case 'Galeri':return feed('galeri');
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
@@ -352,9 +354,20 @@ class _HomeState extends State<HomePage> {
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
-        TextButton(onPressed:()=>switchTo('Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
+        TextButton(onPressed:()=>switchTo(role=='warga'?'Layanan Online':'Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
-    if(role=='warga'||guest)
+    if(role=='warga')
+      LayoutBuilder(builder:(ctx,c)=>GridView.count(
+        crossAxisCount:c.maxWidth>700?3:2,
+        crossAxisSpacing:8,mainAxisSpacing:8,
+        childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        children:[
+          for(final item in cikokoDefaultIntegratedServices())
+            CikokoServiceTile(title:'${item['title']}',description:'${item['description']}',icon:Icons.account_balance_outlined,
+              accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
+        ],
+      ))
+    else if(guest)
       LayoutBuilder(builder:(ctx,c)=>GridView.count(
         crossAxisCount:c.maxWidth>700?3:2,
         crossAxisSpacing:8,mainAxisSpacing:8,
@@ -362,13 +375,11 @@ class _HomeState extends State<HomePage> {
         children:[
           CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
           CikokoServiceTile(title:'Surat Pengantar RT/RW',description:'Dikirim sesuai alamat warga',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Pengantar RT/RW')),
-          CikokoServiceTile(title:'Layanan PBB',description:'Informasi pajak daerah',icon:Icons.receipt_long_outlined,accent:const Color(0xff386bd9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Pengaduan',description:'Kirim pesan ke petugas',icon:Icons.support_agent_outlined,accent:const Color(0xffe88a25),onTap:()=>switchTo('Hubungi Kami')),
           CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
           CikokoServiceTile(title:'Layanan Lainnya',description:'Jelajahi semua layanan',icon:Icons.apps_outlined,accent:const Color(0xff54738d),onTap:()=>switchTo('Menu Cikoko')),
         ],
       ))
-    else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
+        else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
       shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
       gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount:c.maxWidth>680?3:2,mainAxisSpacing:8,crossAxisSpacing:8,
@@ -779,12 +790,12 @@ class _ReportState extends State<ReportForm>{final address=TextEditingController
 class HistoryPage extends StatefulWidget{const HistoryPage({super.key});@override State<HistoryPage> createState()=>_HistoryState();}
 class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? future;
  @override void initState(){super.initState();reload();}
- void reload(){setState(()=>future=api.call('history'));}
+ void reload(){setState((){future=api.call('history');});}
  @override Widget build(BuildContext c)=>FutureBuilder<Map<String,dynamic>>(future:future,builder:(c,s){
- if(s.hasError)return Center(child:Text('Riwayat belum tersedia: ${s.error}'));
+ if(s.hasError)return const Center(child:Padding(padding:EdgeInsets.all(18),child:Text('Riwayat pengajuan belum dapat ditampilkan. Silakan coba kembali.',textAlign:TextAlign.center)));
  if(!s.hasData)return const Center(child:CircularProgressIndicator());
  final rows=List<dynamic>.from(s.data!['items']??[]);
- return RefreshIndicator(onRefresh:()async{reload();},child:ListView(padding:const EdgeInsets.all(12),children:[
+ return RefreshIndicator(onRefresh:()async{reload();try{await future;}catch(_){/* Ditampilkan oleh FutureBuilder. */}},child:ListView(padding:const EdgeInsets.all(12),children:[
   for(final r in rows)Card(child:ListTile(
     leading:const CircleAvatar(child:Icon(Icons.description_outlined)),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
