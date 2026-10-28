@@ -73,7 +73,8 @@ class _LpjPageState extends State<LpjPage> {
  }
  bool get canCreate=>scope?['duty']==lpjDuties[widget.kind];
  String get region {
-  if(scope==null)return 'Jabatan wilayah belum terdaftar';
+  if(scope==null)return 'Jabatan LPJ belum terdaftar di server';
+  if(scope?['duty']=='admin')return 'Pemantauan semua wilayah RT/RW • Admin Utama';
   final rw=(scope?['rw']??'-').toString();
   final rt=(scope?['rt']??'').toString();
   return (rt.isEmpty?'RW '+rw:'RT '+rt+' / RW '+rw);
@@ -154,6 +155,8 @@ class _LpjPageState extends State<LpjPage> {
    const SizedBox(height:8),Text(region),
    const SizedBox(height:12),
    if(canCreate)FilledButton.icon(onPressed:()=>setState(()=>creating=true),icon:const Icon(Icons.add_circle_outline),label:const Text('Buat LPJ baru'))
+   else if(scope?['duty']=='admin')
+     const Card(child:ListTile(leading:Icon(Icons.visibility_outlined),title:Text('Pemantauan LPJ • hanya baca'),subtitle:Text('Admin Utama melihat LPJ seluruh wilayah. Hanya Bendahara berwenang mengirim, dan Ketua/Bendahara terkait yang menyetujui.')))
    else const Card(child:ListTile(leading:Icon(Icons.verified_user_outlined),title:Text('LPJ disusun oleh Bendahara'),subtitle:Text('Ketua RT/RW memeriksa dan menandatangani LPJ yang masuk sesuai wilayah.'))),
    const SizedBox(height:16),const Text('Daftar dan status LPJ',style:TextStyle(fontSize:16,fontWeight:FontWeight.w700)),
    if(records.isEmpty)const Card(child:ListTile(title:Text('Belum ada LPJ'),subtitle:Text('LPJ yang dikirim petugas berwenang akan tampil di sini.'))),
