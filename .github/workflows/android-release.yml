@@ -23,6 +23,26 @@ jobs:
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
+      - name: Reclaim runner disk for Android / AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk before cleanup:"
+          df -h /
+          for directory in \
+            /usr/share/dotnet \
+            /usr/local/share/powershell \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/lib/android/sdk/system-images \
+            /usr/local/lib/android/sdk/emulator; do
+            if [[ -d "$directory" ]]; then
+              echo "Removing unused Android-unrelated tools: $directory"
+              sudo rm -rf "$directory"
+            fi
+          done
+          echo "Disk after cleanup:"
+          df -h /
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -44,8 +64,8 @@ jobs:
         run: |
           flutter build apk --debug
           test -s build/app/outputs/flutter-apk/app-debug.apk
-          mkdir -p build/cikoko-downloads
-          cp build/app/outputs/flutter-apk/app-debug.apk build/cikoko-downloads/Cikoko-v2534-TEST.apk
+          mkdir -p "$GITHUB_WORKSPACE/cikoko-downloads"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2534-TEST.apk"
       - name: Publish test APK immediately to GitHub Release
         shell: bash
         env:
@@ -54,7 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="v2.5.34-build2534"
-          apk="flutter/build/cikoko-downloads/Cikoko-v2534-TEST.apk"
+          apk="cikoko-downloads/Cikoko-v2534-TEST.apk"
           test -s "$apk"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "$apk" --clobber
@@ -65,6 +85,16 @@ jobs:
       - name: Run Flutter tests before Play release
         working-directory: flutter
         run: flutter test
+      - name: Clear debug build outputs before release AAB
+        working-directory: flutter
+        shell: bash
+        run: |
+          echo "Disk before Flutter cleanup:"
+          df -h /
+          flutter clean
+          flutter pub get
+          echo "Disk after Flutter cleanup:"
+          df -h /
       - name: Restore Play upload signing key if configured
         shell: bash
         env:
@@ -104,16 +134,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          flutter build appbundle --release
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-          test -s build/app/outputs/bundle/release/app-release.aab
-          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          # Self-signed Play upload certificates trigger jarsigner -strict exit code 4.
-          # Verify the JAR signature without strict certificate-chain trust, then
-          # independently compare BOTH output signers to the known Play upload key.
           set -euo pipefail
+          echo "Free disk before release AAB:"
+          df -h /
+          flutter build appbundle --release
           aab="build/app/outputs/bundle/release/app-release.aab"
-          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$aab"
+          # Self-signed upload certificates are expected. Verify the JAR
+          # signature and the exact known Play upload signing certificate.
           expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
           if ! jarsigner -verify "$aab" > /tmp/cikoko-aab-verify.log 2>&1; then
             tail -n 35 /tmp/cikoko-aab-verify.log
@@ -132,11 +160,21 @@ jobs:
           fi
           # A verified AAB is safe to publish even if the separate APK
           # signing stage fails; this does not use the full Actions artifact quota.
-          cp "$aab" build/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab
+          cp "$aab" "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab"
           gh release upload "v2.5.34-build2534" \
-            build/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab --clobber
+            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2534-PLAY-SIGNED.aab" --clobber
+          # Signed AAB is safely published. Recover space before APK build.
+          echo "Disk before AAB output cleanup:"
+          df -h /
+          flutter clean
+          flutter pub get
+          echo "Disk after AAB output cleanup:"
+          df -h /
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$apk"
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
-          signed_apk="build/cikoko-downloads/Cikoko-v2534-RELEASE-arm64.apk"
+          signed_apk="$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2534-RELEASE-arm64.apk"
           # Explicitly sign the APK with the same verified upload key instead of
           # trusting the APK produced by Flutter/Gradle to use that key.
           # Passwords are read from protected environment variables, not argv.
@@ -161,7 +199,7 @@ jobs:
         run: |
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab build/cikoko-downloads/Cikoko-v2534-UNSIGNED-NOT-FOR-PLAY.aab
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2534-UNSIGNED-NOT-FOR-PLAY.aab"
       - name: Publish APK and AAB directly to GitHub Release (no Artifacts quota)
         shell: bash
         env:
@@ -170,8 +208,8 @@ jobs:
         run: |
           set -euo pipefail
           tag="v2.5.34-build2534"
-          files=(flutter/build/cikoko-downloads/*)
-          test -s "flutter/build/cikoko-downloads/Cikoko-v2534-TEST.apk"
+          files=(cikoko-downloads/*)
+          test -s "cikoko-downloads/Cikoko-v2534-TEST.apk"
           cat > /tmp/cikoko-release-notes.md <<'NOTES'
           Cikoko SmartApp v2.5.34 (versionCode 2534)
 
