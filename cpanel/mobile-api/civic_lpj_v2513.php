@@ -37,6 +37,19 @@ function lpj_scope(PDO $db,array $u):?array {
     $role=(string)$u['user_role'];$uid=(string)$u['user_id'];
     if(in_array($role,['admin','admin_kelurahan','lurah'],true))
         return ['duty'=>'admin','rt'=>'','rw'=>'','user_id'=>$uid];
+    // Khusus Bendahara: mobile_auth() sudah memverifikasi token, status
+    // aktif, dan role di portal_users. Ambil penugasan aktif sesuai ID dan
+    // jabatan token; jangan bergantung pada pencarian akun kedua.
+    // Ketentuan ini tidak mengubah otorisasi RT, RW, LMK atau admin.
+    if(in_array($role,['bendahara_rt','bendahara_rw'],true)) {
+        $q=$db->prepare('SELECT user_id,duty,rt,rw FROM civic_officers WHERE user_id=? AND duty=? AND active=1 LIMIT 1');
+        $q->execute([$uid,$role]);
+        $r=$q->fetch();
+        if(!$r)return null;
+        $rw=lpj_area($r['rw']??null);
+        $rt=$role==='bendahara_rt'?lpj_area($r['rt']??null):'';
+        return ['duty'=>$role,'rt'=>$rt,'rw'=>$rw,'user_id'=>$uid];
+    }
     $p=cikoko_user_by_id($uid);
     if(!$p || empty($p['active']))return null;
     $q=$db->prepare('SELECT user_id,duty,rt,rw FROM civic_officers WHERE user_id=? AND active=1 LIMIT 1');
