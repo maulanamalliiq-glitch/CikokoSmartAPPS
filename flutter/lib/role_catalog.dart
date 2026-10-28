@@ -37,6 +37,8 @@ const roleFeatures = <String,RoleFeature>{
   'ppsu': RoleFeature('Laporan PPSU','Foto kegiatan kebersihan dan pekerjaan','Laporan PPSU',capability:'report:ppsu'),
   'bakti': RoleFeature('Kerja Bakti','Dokumentasi kerja bakti wilayah','Laporan Kerja Bakti',capability:'report:kerja_bakti'),
   'verify': RoleFeature('Verifikasi Laporan','Tinjau dan ubah status permohonan','Verifikasi Laporan',capability:'reports:view'),
+  'verify_waris': RoleFeature('Verifikasi Ahli Waris','Verifikasi khusus dokumen Surat Ahli Waris','Verifikasi Ahli Waris',capability:'reports:view'),
+  'verify_kegiatan': RoleFeature('Laporan Kegiatan','Pantau dan verifikasi laporan kegiatan selain Ahli Waris','Laporan Kegiatan Admin',capability:'reports:view'),
   'chat_admin': RoleFeature('Pesan Masuk','Balas percakapan warga','Pesan Masuk',capability:'chat:reply'),
   'news_add': RoleFeature('Tambah Berita','Publikasikan berita dari aplikasi','Tambah Berita',capability:'content:create'),
   'announce_add': RoleFeature('Tambah Pengumuman','Publikasikan pengumuman baru','Tambah Pengumuman',capability:'content:create'),
@@ -57,7 +59,7 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['bendahara_manage','accounts_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['bendahara_manage','accounts_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
