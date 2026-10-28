@@ -673,12 +673,13 @@ class _PhotoState extends State<PhotoInput> {
     ])));
 }
 class WarisForm extends StatefulWidget{const WarisForm({super.key});@override State<WarisForm> createState()=>_WarisState();}
-class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingController>{};final files=<String,List<String>>{};int children=0;bool sending=false;double progress=0;bool agree=false;
+class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingController>{};final files=<String,List<String>>{};int children=0;bool sending=false;double progress=0;bool agree=false;String? savedReference;bool completed=false;
  TextEditingController v(String id)=>inputs.putIfAbsent(id,()=>TextEditingController());
  String? photoFor(String id)=>files[id]?.isNotEmpty==true?files[id]!.first:null;
  @override void dispose(){for(final x in inputs.values){x.dispose();}super.dispose();}
  static const names=<String,String>{'name':'Nama pemohon','nik':'NIK pemohon (16 digit)','phone':'Nomor HP','address':'Alamat lengkap','relation':'Hubungan dengan pewaris','deceased_name':'Nama almarhum / almarhumah','birthplace':'Tempat lahir pewaris','birthdate':'Tanggal lahir (YYYY-MM-DD)','marriage_date':'Tanggal menikah (YYYY-MM-DD)','deathdate':'Tanggal meninggal (YYYY-MM-DD)','marital_status':'Status perkawinan','heirs':'Daftar ahli waris'};
  static const requiredPhotos=<String,String>{'r1':'Surat pengantar RT/RW','r2':'Surat permohonan','r3':'Surat pernyataan keabsahan','r4_ktp':'KTP Ahli Waris','r4_kk':'KK Ahli Waris','r4_akta':'Akta Lahir Ahli Waris','r5':'Surat kematian','r6':'Surat nikah'};
+ static const witnessPhotos=<String,String>{'saksi_1':'KTP Saksi Pertama','saksi_2':'KTP Saksi Kedua'};
  static const optionalPhotos=<String,String>{'r7':'Akta cerai (jika bercerai)','r8':'Surat kematian ahli waris (jika ada)'};
  static const childPhotos=<String,String>{'ktp':'KTP','kk':'KK','akta':'Akta Lahir'};
  Future<void> showIncomplete(List<String> problems)async{
@@ -709,8 +710,28 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
    return date.year==parts[0]&&date.month==parts[1]&&date.day==parts[2] &&
      !date.isAfter(DateTime.now())&&date.year>=1850;
  }
- Future<void> send()async{
-   if(sending)return;
+ Future<void> uploadWitnessDocuments(String reference)async{
+    final witnessFiles=<String,List<String>>{};
+    for(final e in witnessPhotos.entries){
+      final path=photoFor(e.key);
+      if(path!=null)witnessFiles[e.key]=[path];
+    }
+    if(witnessFiles.length!=witnessPhotos.length)throw ApiError('Mohon lengkapi kedua foto KTP saksi.');
+    await api.upload('waris_add_witnesses',{'reference':reference},witnessFiles,
+      progress:(p){if(mounted)setState(()=>progress=p);});
+  }
+  Future<void> send()async{
+    if(sending||completed)return;
+    if(savedReference!=null){
+      setState((){sending=true;progress=0;});
+      try{
+        await uploadWitnessDocuments(savedReference!);
+        if(mounted){setState(()=>completed=true);notify(context,'KTP kedua saksi berhasil melengkapi pengajuan '+savedReference!);}
+      }catch(_){
+        await showIncomplete(['Pengajuan '+savedReference!+' sudah tersimpan. KTP saksi belum dapat ditambahkan. Coba lagi, atau lengkapi melalui Riwayat Pengajuan.']);
+      }finally{if(mounted)setState(()=>sending=false);}
+      return;
+    }
    final missing=<String>[];
    for(final key in const ['name','nik','phone','address','relation',
        'deceased_name','heirs']){
@@ -730,8 +751,8 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
        missing.add((names[key]??key)+' harus dipilih dari kalender dan tidak boleh melewati hari ini.');
      }
    }
-   for(final entry in requiredPhotos.entries){
-     final path=photoFor(entry.key);
+   for(final entry in {...requiredPhotos,...witnessPhotos}.entries){
+      final path=photoFor(entry.key);
      if(path==null)missing.add('Foto '+entry.value+' belum dipilih (Kamera atau Galeri).');
      else if(!await File(path).exists())missing.add('Foto '+entry.value+' tidak ditemukan; pilih ulang fotonya.');
    }
@@ -766,7 +787,11 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
        optionalPhotos.keys.where((key)=>photoFor(key)!=null).length;
      final maxFiles=(capability['max_file_uploads'] as num?)?.toInt()??0;
      final staged=capability['staged_uploads']==true;
-     final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),
+     final mainPhotos=<String,List<String>>{
+        for(final e in files.entries)
+          if(!witnessPhotos.containsKey(e.key))e.key:e.value,
+      };
+      final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),
        'declaration':'1','child_count':children.toString(),
        'document_format':'split_v1'};
      late final Map<String,dynamic> response;
@@ -776,8 +801,8 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
        final draftKey=List.generate(16,
          (_)=>random.nextInt(256).toRadixString(16).padLeft(2,'0')).join();
        final photos=<MapEntry<String,String>>[
-         for(final entry in files.entries)
-           for(final path in entry.value)MapEntry(entry.key,path),
+         for(final entry in mainPhotos.entries)
+            for(final path in entry.value)MapEntry(entry.key,path),
        ];
        const batchSize=8;
        final steps=(photos.length+batchSize-1)~/batchSize;
@@ -801,10 +826,13 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
          throw ApiError('Server hanya menerima '+maxFiles.toString()+
            ' foto per permintaan. Perbarui API cPanel agar mendukung unggah bertahap tanpa perubahan hosting.');
        }
-       response=await api.upload('waris',data,files,
+       response=await api.upload('waris',data,mainPhotos,
          progress:(value){if(mounted)setState(()=>progress=value);});
      }
-     if(mounted)notify(context,'Permohonan diterima. Nomor: '+(response['reference']??'-').toString());
+           savedReference='${response['reference']??''}'.trim();
+      if(savedReference!.isEmpty)throw ApiError('Nomor pengajuan belum tersedia. Periksa Riwayat Pengajuan.');
+      await uploadWitnessDocuments(savedReference!);
+      if(mounted){setState(()=>completed=true);notify(context,'Permohonan dan KTP saksi berhasil disimpan. Nomor: '+savedReference!);}
    }catch(e){
      final raw=e.toString();
      final text=raw.contains('Endpoint tidak tersedia')||
@@ -813,7 +841,9 @@ class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingContr
         'Formulir HP sudah terpisah, tetapi server perlu Patch Ahli Waris terbaru. '
         'Foto yang sudah dipilih tetap berada dalam formulir.'
        :raw;
-     await showIncomplete([text]);
+     await showIncomplete([savedReference!=null
+        ?'Pengajuan '+savedReference!+' sudah tersimpan. KTP saksi belum berhasil ditambahkan. Jangan mengirim pengajuan baru. Gunakan Coba Lengkapi KTP Saksi atau buka Riwayat.'
+        :text]);
    }finally{if(mounted)setState(()=>sending=false);}
  }
  @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(12),children:[const Card(child:Padding(padding:EdgeInsets.all(16),child:Text('Permohonan Pencatatan Ahli Waris\nSemua data dan foto dokumen akan diperiksa petugas. Pastikan foto terbaca.',style:TextStyle(color:navy,fontWeight:FontWeight.w600)))),Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Identitas Pemohon dan Pewaris',style:Theme.of(c).textTheme.titleMedium),const SizedBox(height:14),for(final e in names.entries)Field(e.value,v(e.key),lines:e.key=='heirs'||e.key=='address'?3:1,date:const ['birthdate','marriage_date','deathdate'].contains(e.key),keyboard:e.key=='nik'?TextInputType.number:e.key=='phone'?TextInputType.phone:TextInputType.text)]))),const SizedBox(height:12),Text('Foto Persyaratan Wajib',style:Theme.of(c).textTheme.titleMedium),for(final e in requiredPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:12),Text('Dokumen Kondisional',style:Theme.of(c).textTheme.titleMedium),for(final e in optionalPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:14),Row(children:[Expanded(child:Text('Data Anak (maksimal 10)',style:Theme.of(c).textTheme.titleMedium)),OutlinedButton(onPressed:children>=10?null:()=>setState(()=>children++),child:const Text('+ Tambah Anak'))]),for(var i=1;i<=children;i++)Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[Field('Nama anak ke-$i',v('child_name_$i')),for(final e in childPhotos.entries)PhotoInput(key:ValueKey('child_${i}_${e.key}'),label:'${e.value} anak ke-$i',currentPath:photoFor('child_${i}_${e.key}'),onChanged:(f)=>setState(()=>files['child_${i}_${e.key}']=[f]))]))),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),title:const Text('Saya menyatakan seluruh data dan foto dokumen sesuai keadaan sebenarnya.',style:TextStyle(fontSize:12))),if(sending)...[LinearProgressIndicator(value:progress),Padding(padding:const EdgeInsets.all(8),child:Text('Mengirim ${(progress*100).toStringAsFixed(0)}%'))],FilledButton.icon(onPressed:sending?null:send,icon:const Icon(Icons.send),label:const Padding(padding:EdgeInsets.all(12),child:Text('Kirim Permohonan Ahli Waris'))),const SizedBox(height:24)]);
