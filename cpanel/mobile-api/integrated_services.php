@@ -77,7 +77,7 @@ function cikoko_integrated_dispatch(string $action,string $method):void {
         $url=trim((string)($row['url']??''));
         $logo=trim((string)($row['logo_url']??''));
         if(!preg_match('/^[a-zA-Z0-9_-]{1,45}$/',$id) || isset($ids[$id])
-           || $name==='' || mb_strlen($name)>80 || mb_strlen($desc)>300
+           || $name==='' || mobile_strlen($name)>80 || mobile_strlen($desc)>300
            || !cikoko_integrated_https($url) || !cikoko_integrated_https($logo)){
             mobile_error('Periksa kembali judul, logo dan tautan HTTPS pada layanan.',422);
         }
