@@ -174,7 +174,7 @@ function lpj_api(string $action,string $method,PDO $db,array $u):void {
         $payload=lpj_payload($fields);$json=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         $digest=hash('sha256',$json);$rt=$kind==='lpj_rt'?$scope['rt']:'';$rw=$scope['rw'];
         $person=cikoko_user_by_id($uid);$owner=mobile_text($person['name']??$u['username'],160);
-        $status=str_starts_with($kind,'lpj_lmk')?'menunggu_lmk':'menunggu_bendahara';
+        $status=strpos($kind,'lpj_lmk')===0?'menunggu_lmk':'menunggu_bendahara';
         $db->beginTransaction();
         try {
             $q=$db->prepare('SELECT * FROM cikoko_lpj_docs WHERE kind=? AND period=? AND rt=? AND rw=? AND owner_id=? FOR UPDATE');
@@ -273,13 +273,15 @@ function lpj_api(string $action,string $method,PDO $db,array $u):void {
 /** Minimal A4 PDF without vendor dependencies. Approval is an audit entry, NOT a certified TTE. */
 function lpj_pdf(array $d,array $approvals):void {
     $p=$d['payload'];$kind=$d['kind'];$period=$d['period'];
-    $title=match($kind) {
-        'lpj_rt','lpj_rw'=>'LAPORAN PENGGUNAAN UANG PENYELENGGARAAN TUGAS DAN FUNGSI RUKUN TETANGGA DAN RUKUN WARGA',
-        'lpj_lmk_a'=>'LAPORAN PENGGUNAAN BIAYA OPERASIONAL LMK',
-        default=>'LAPORAN PENGGUNAAN BIAYA KEGIATAN SESUAI TUGAS LMK',
-    };
-    $type=match($kind) {'lpj_rt'=>'RT '.$d['rt'].' / RW '.$d['rw'],'lpj_rw'=>'RW '.$d['rw'],default=>'LMK Kelurahan Cikoko'};
-    $money=static fn($n):string=>'Rp '.number_format((int)$n,0,',','.');
+    // Compatible with PHP 7.x web runtimes (even if the CLI is PHP 8.x).
+    if($kind==='lpj_rt' || $kind==='lpj_rw')
+        $title='LAPORAN PENGGUNAAN UANG PENYELENGGARAAN TUGAS DAN FUNGSI RUKUN TETANGGA DAN RUKUN WARGA';
+    elseif($kind==='lpj_lmk_a')$title='LAPORAN PENGGUNAAN BIAYA OPERASIONAL LMK';
+    else $title='LAPORAN PENGGUNAAN BIAYA KEGIATAN SESUAI TUGAS LMK';
+    if($kind==='lpj_rt')$type='RT '.$d['rt'].' / RW '.$d['rw'];
+    elseif($kind==='lpj_rw')$type='RW '.$d['rw'];
+    else $type='LMK Kelurahan Cikoko';
+    $money=static function($n):string {return 'Rp '.number_format((int)$n,0,',','.');};
     $lines=[
         $title,'',
         'BULAN & TAHUN : '.$period,
@@ -327,7 +329,7 @@ function lpj_pdf(array $d,array $approvals):void {
         $objects[$pid]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents '.$cid.' 0 R >>';
         $objects[$cid]='<< /Length '.strlen($stream)." >>\nstream\n".$stream."endstream";
     }
-    $objects[2]='<< /Type /Pages /Count '.count($pageIds).' /Kids ['.implode(' ',array_map(static fn($i)=>$i.' 0 R',$pageIds)).'] >>';
+    $objects[2]='<< /Type /Pages /Count '.count($pageIds).' /Kids ['.implode(' ',array_map(static function($i){return $i.' 0 R';},$pageIds)).'] >>';
     ksort($objects);
     $out="%PDF-1.4\n";$offset=[0];$max=max(array_keys($objects));
     for($i=1;$i<=$max;$i++){$offset[$i]=strlen($out);$out.=$i." 0 obj\n".$objects[$i]."\nendobj\n";}
