@@ -150,7 +150,7 @@ class CikokoLetterCounters extends StatelessWidget {
             borderRadius:BorderRadius.circular(11)),
           child:Row(children:[
             Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start, children:[
-              Text(guest||counts==null?'—':'${counts![pair.$1]??0}',style:TextStyle(
+              Text(counts==null?'—':'${counts![pair.$1]??0}',style:TextStyle(
                 color:pair.$3,fontSize:19,fontWeight:FontWeight.w900)),
               const SizedBox(height:2),
               Text(pair.$2,maxLines:1,overflow:TextOverflow.ellipsis,
