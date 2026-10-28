@@ -33,9 +33,6 @@ jobs:
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: Run Flutter tests
-        working-directory: flutter
-        run: flutter test
       - name: Build test APK
         working-directory: flutter
         run: |
@@ -43,6 +40,25 @@ jobs:
           test -s build/app/outputs/flutter-apk/app-debug.apk
           mkdir -p build/cikoko-downloads
           cp build/app/outputs/flutter-apk/app-debug.apk build/cikoko-downloads/Cikoko-v2534-TEST.apk
+      - name: Publish test APK immediately to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v2.5.34-build2534"
+          apk="flutter/build/cikoko-downloads/Cikoko-v2534-TEST.apk"
+          test -s "$apk"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.34 (2534) APK + AAB" --notes "APK TEST v2534 sudah tersedia. APK bertanda tangan Play Store dan AAB akan ditambahkan jika pemeriksaan build release berhasil. Gunakan APK TEST hanya untuk pengujian, bukan pembaruan langsung Play Store."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}'
+      - name: Run Flutter tests before Play release
+        working-directory: flutter
+        run: flutter test
       - name: Restore Play upload signing key if configured
         shell: bash
         env:
