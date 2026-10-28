@@ -82,6 +82,25 @@ class _LpjPageState extends State<LpjPage> {
  void addExpense(){if(expenses.length>=60)return;setState(()=>expenses.add(_Expense()));}
  void removeExpense(int index){setState((){final e=expenses.removeAt(index);e.dispose();});}
  int? amountValue(String s)=>RegExp(r'^[0-9]{1,12}$').hasMatch(s.trim())?int.tryParse(s.trim()):null;
+ String rupiah(int v){
+  final str=v.toString(),b=StringBuffer();
+  for(var i=0;i<str.length;i++){if(i>0&&(str.length-i)%3==0)b.write('.');b.write(str[i]);}
+  return 'Rp '+b.toString();
+ }
+ int get spentPreview=>expenses.fold<int>(0,(sum,e)=>sum+(amountValue(e.amount.text)??0));
+ Widget financialSummary(){
+  final total=(amountValue(opening.text)??0)+(amountValue(income.text)??0),spent=spentPreview;
+  return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+   const Text('REKAPITULASI LPJ',style:TextStyle(fontWeight:FontWeight.bold,fontSize:16)),
+   const SizedBox(height:10),
+   Text('JUMLAH PENERIMAAN (saldo + penerimaan): '+rupiah(total)),
+   const SizedBox(height:6),Text('JUMLAH PENGELUARAN: '+rupiah(spent)),
+   const Divider(),
+   Text('SISA UANG PENYELENGGARAAN (saldo bulan berikutnya): '+rupiah(total-spent),
+    style:TextStyle(fontWeight:FontWeight.bold,color:spent>total?Colors.red:null)),
+   if(spent>total)const Padding(padding:EdgeInsets.only(top:8),child:Text('Pengeluaran melebihi jumlah penerimaan. Periksa rincian!',style:TextStyle(color:Colors.red))),
+  ])));
+ }
  Future<void> submit()async{
   final p=period.text.trim(),o=amountValue(opening.text),i=amountValue(income.text);
   if(!RegExp(r'^20[0-9]{2}-(0[1-9]|1[0-2])$').hasMatch(p)||o==null||i==null){
@@ -117,26 +136,46 @@ class _LpjPageState extends State<LpjPage> {
  Widget moneyInput(String label,TextEditingController controller)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(
   controller:controller,keyboardType:TextInputType.number,
   inputFormatters:[FilteringTextInputFormatter.digitsOnly],
+  onChanged:(_)=>setState((){}),
   decoration:InputDecoration(labelText:label,prefixText:'Rp ',border:const OutlineInputBorder()),
  ));
  Widget form()=>ListView(padding:const EdgeInsets.all(14),children:[
   Text(lpjLabels[widget.kind]??'LPJ',style:Theme.of(context).textTheme.titleLarge),
   const SizedBox(height:4),Text('Wilayah dari akun: '+region),
   const SizedBox(height:16),
-  TextField(controller:period,decoration:const InputDecoration(labelText:'Periode (YYYY-MM)',border:OutlineInputBorder())),
+  const Text('Sesuai format LPJ RT/RW Kelurahan Cikoko • A4 potret',style:TextStyle(fontWeight:FontWeight.w600)),
   const SizedBox(height:12),
-  moneyInput('Saldo awal bulan',opening),
+  TextField(controller:period,decoration:const InputDecoration(labelText:'BULAN & TAHUN (YYYY-MM)',helperText:'Contoh: 2026-01 = JANUARI 2026',border:OutlineInputBorder())),
+  const SizedBox(height:12),
+  const Text('I. SALDO BULAN LALU',style:TextStyle(fontWeight:FontWeight.bold)),
+  const SizedBox(height:8),
+  moneyInput('Saldo bulan sebelumnya',opening),
+  const Text('II. PENERIMAAN UANG PENYELENGGARAAN BULAN INI',style:TextStyle(fontWeight:FontWeight.bold)),
+  const SizedBox(height:8),
   moneyInput('Penerimaan bulan ini',income),
-  Row(children:[const Expanded(child:Text('Rincian pengeluaran',style:TextStyle(fontSize:16,fontWeight:FontWeight.bold))),
+  Text('Nominal dalam contoh format '+(widget.kind=='lpj_rt'?'RT: Rp 2.500.000':'RW: Rp 3.125.000')+'. Pastikan sesuai penerimaan sebenarnya.',style:Theme.of(context).textTheme.bodySmall),
+  Align(alignment:Alignment.centerLeft,child:TextButton.icon(
+   onPressed:()=>setState(()=>income.text=widget.kind=='lpj_rt'?'2500000':'3125000'),
+   icon:const Icon(Icons.edit_note_outlined),label:const Text('Isi nominal acuan (dapat diubah)'))),
+  const SizedBox(height:12),
+  financialSummary(),
+  const SizedBox(height:12),
+  const Text('III. PENGELUARAN',style:TextStyle(fontWeight:FontWeight.bold)),
+  const SizedBox(height:6),
+  Row(children:[const Expanded(child:Text('NO. | KEGIATAN | JUMLAH | KETERANGAN',style:TextStyle(fontSize:13,fontWeight:FontWeight.bold))),
    TextButton.icon(onPressed:expenses.length>=60?null:addExpense,icon:const Icon(Icons.add),label:const Text('Tambah'))]),
   for(var n=0;n<expenses.length;n++)
    Card(key:ObjectKey(expenses[n]),child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[
     Row(children:[Expanded(child:Text('Pengeluaran '+(n+1).toString())),IconButton(onPressed:()=>removeExpense(n),icon:const Icon(Icons.delete_outline),tooltip:'Hapus pengeluaran')]),
     TextField(controller:expenses[n].activity,decoration:const InputDecoration(labelText:'Nama kegiatan / pengeluaran')),
     const SizedBox(height:10),moneyInput('Nominal',expenses[n].amount),
-    TextField(controller:expenses[n].notes,maxLines:2,decoration:const InputDecoration(labelText:'Keterangan (opsional)')),
+    TextField(controller:expenses[n].notes,maxLines:2,decoration:const InputDecoration(labelText:'Keterangan / bukti pengeluaran (opsional)')),
    ]))),
   const SizedBox(height:16),
+  financialSummary(),
+  const SizedBox(height:10),
+  const Text('PDF cetak memuat kolom tanda tangan Ketua RT/RW dan Bendahara Pengeluaran serta tembusan Lurah. Pengesahan tetap melalui PIN petugas berwenang.'),
+  const SizedBox(height:12),
   FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send_outlined),label:Text(sending?'Mengirim...':'Kirim LPJ')),
   const SizedBox(height:6),
   OutlinedButton(onPressed:sending?null:()=>setState(()=>creating=false),child:const Text('Kembali ke daftar')),
