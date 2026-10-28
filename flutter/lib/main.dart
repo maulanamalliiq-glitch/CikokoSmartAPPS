@@ -1,6 +1,8 @@
 import 'profile_editor.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,11 +12,17 @@ import 'api.dart';
 import 'push.dart';
 import 'role_catalog.dart';
 import 'structured_drawer.dart';
+import 'admin_accounts.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
 import 'document_detail.dart';
+import 'surat_identifier.dart';
 import 'home_widgets.dart';
+import 'public_letters.dart';
 import 'v211_features.dart';
+import 'rt_rw_letters.dart';
+import 'rt_rw_signer_page.dart';
+import 'lpj_pages.dart';
 
 const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -32,7 +40,7 @@ class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPag
 class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
- Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
+ Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
  @override
  Widget build(BuildContext context) {
    final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
@@ -64,6 +72,8 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                        'password': 'Password',
                        'confirm': 'Ulangi password',
                        'address': 'Alamat lengkap',
+                       'rt': 'RT (contoh: 02)',
+                       'rw': 'RW (contoh: 05)',
                        'phone': 'Nomor telepon',
                        'email': 'Email',
                      }.entries)
@@ -72,7 +82,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                          child: TextField(
                            controller: ctrl(entry.key),
                            obscureText: entry.key == 'password' || entry.key == 'confirm',
-                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : entry.key == 'phone' ? TextInputType.phone : TextInputType.text,
+                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : (entry.key == 'phone' || entry.key == 'rt' || entry.key == 'rw') ? TextInputType.number : TextInputType.text,
                            decoration: InputDecoration(labelText: entry.value),
                          ),
                        )
@@ -149,31 +159,20 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
-      if(!guest && role=='warga') {
-        try {
-          final history=await api.call('history');
-          final rows=List<dynamic>.from(history['items']??[]);
-          final counts={'masuk':0,'proses':0,'selesai':0};
-          for (final record in rows) {
-            final status='${record['status']??''}'.toLowerCase();
-            final key=status=='masuk'?'masuk':status=='selesai'?'selesai':'proses';
-            counts[key]=counts[key]!+1;
-          }
-          if(mounted)setState(()=>letterCounts=counts);
-        } catch (_) {if(mounted)setState(()=>letterCounts=null);}
-      }
-      if(role!='warga'){
-        try{
-          final result=await api.call('public_letter_status');
-          final raw=Map<String,dynamic>.from(result['counts'] as Map);
-          if(mounted)setState(()=>letterCounts={for(final key in ['masuk','proses','selesai']) key:int.tryParse('${raw[key]??0}')??0});
-        }catch(_){if(mounted)setState(()=>letterCounts=null);}
-      }
+      // This is public letter service-wide data, not the user's private history.
+      try {
+        final summary=await api.call('public_letter_status');
+        final raw=Map<String,dynamic>.from(summary['counts'] as Map);
+        if(mounted)setState(()=>letterCounts={
+          for(final key in ['masuk','proses','selesai'])
+            key:(raw[key] as num?)?.toInt()??0,
+        });
+      }catch(_){if(mounted)setState(()=>letterCounts=null);}
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Ahli Waris'||route=='Verifikasi Kegiatan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route=='Surat Pengantar RT/RW'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Verifikasi Ahli Waris'||route=='Laporan Kegiatan Admin'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -186,16 +185,17 @@ class _HomeState extends State<HomePage> {
     setState(() {
       section=s;
       if(s=='Dashboard'){nav=2;}
+      else if(s=='Berita & Kegiatan'){nav=1;}
       else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Ahli Waris'||s=='Verifikasi Kegiatan'){nav=1;}
+      else if(s=='Riwayat'||s=='Verifikasi Laporan'||s=='Verifikasi Ahli Waris'||s=='Laporan Kegiatan Admin'){nav=1;}
       else if(s=='Notifikasi'){nav=2;}
       else {nav=0;}
     });
   }
   void selectNav(int value){
     if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Ahli Waris':'Riwayat'):'Riwayat');return;}
+    if(value==1){switchTo('Berita & Kegiatan');return;}
     if(value==2){switchTo('Dashboard');return;}
     if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
@@ -204,15 +204,16 @@ class _HomeState extends State<HomePage> {
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
-    'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
-    'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
-    'Verifikasi Ahli Waris'=>Icons.description_outlined,'Verifikasi Kegiatan'=>Icons.fact_check_outlined,
+    'Surat Ahli Waris'=>Icons.description_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
+    'Surat Wilayah'=>Icons.fact_check_outlined,'Wilayah Ketua RT/RW'=>Icons.location_city_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
+    'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,'Laporan Kegiatan Admin'=>Icons.assignment_turned_in_outlined,'Verifikasi Ahli Waris'=>Icons.verified_user_outlined,
+    'Laporan LPJ RT'=>Icons.receipt_long_outlined,'Laporan LPJ RW'=>Icons.receipt_long_outlined,'Laporan LPJ LMK'=>Icons.receipt_long_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
     'Tambah Berita'=>Icons.post_add_outlined,'Tambah Pengumuman'=>Icons.add_alert_outlined,
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
-    'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Riwayat'=>Icons.history,
+    'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Kelola Akun Petugas'=>Icons.manage_accounts_outlined,'Manajemen Bendahara RT/RW'=>Icons.account_balance_wallet_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
     'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
     _=>Icons.category_outlined};
@@ -250,7 +251,7 @@ class _HomeState extends State<HomePage> {
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
       const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
-      const NavigationDestination(icon:Icon(Icons.assignment_outlined),selectedIcon:Icon(Icons.assignment_turned_in),label:'Aktivitas'),
+      const NavigationDestination(icon:Icon(Icons.newspaper_outlined),selectedIcon:Icon(Icons.newspaper),label:'Berita'),
       const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
       const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
       const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
@@ -265,8 +266,17 @@ class _HomeState extends State<HomePage> {
     case 'Layanan Online':return feed('layanan');
     case 'Galeri':return feed('galeri');
     case 'Surat Ahli Waris':return const WarisForm();
+    case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
+    case 'Surat Wilayah':return RtRwLettersPage(api:api);
+    case 'TTD & Stempel':return RtRwSignerPage(api:api);
+    case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
     case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
     case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
+    case 'Laporan LPJ RT':return LpjPage(api:api,kind:'lpj_rt');
+    case 'Laporan LPJ RW':return LpjPage(api:api,kind:'lpj_rw');
+    case 'Laporan LPJ LMK':return LpjLmkMenu(onOpen:switchTo);
+    case 'Laporan LPJ LMK A':return LpjPage(api:api,kind:'lpj_lmk_a');
+    case 'Laporan LPJ LMK B':return LpjPage(api:api,kind:'lpj_lmk_b');
     case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
     case 'Laporan LMK':return const ReportForm(kind:'lmk');
     case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
@@ -279,14 +289,21 @@ class _HomeState extends State<HomePage> {
     case 'Notifikasi':return eventList();
     case 'Inovasi':return InnovationPage(api:api);
     case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
-    case 'Verifikasi Ahli Waris':return const AdminReports(kind:'waris');
-    case 'Verifikasi Kegiatan':return const AdminReports(kind:'report');
-    case 'Verifikasi Laporan':return const AdminReports(kind:'waris');
+    case 'Verifikasi Laporan':return const AdminReports();
+    case 'Verifikasi Ahli Waris':return role=='admin' ? const AdminReports(onlyKind:'waris',allowWarisDate:true) : const Center(child:Text('Khusus Admin Utama.'));
+    case 'Laporan Kegiatan Admin':return role=='admin' ? const AdminReports(onlyKind:'report') : const Center(child:Text('Khusus Admin Utama.'));
     case 'Tambah Berita':return MobileEditor(api:api,mode:'berita');
     case 'Tambah Pengumuman':return MobileEditor(api:api,mode:'pengumuman');
     case 'Tambah Arsip Ahli Waris':return ArchiveEditorPage(api:api);
     case 'Arsip Ahli Waris':return ArchiveList(api:api);
     case 'Hak Akses Role':return RolePermissionPage(api:api);
+    case 'Kelola Akun Petugas':return AdminAccountsPage(api:api);
+    case 'Manajemen Bendahara RT/RW':
+      // UI tidak membuka menu sensitif untuk role lain; server tetap
+      // mewajibkan autentikasi Admin Utama di setiap request.
+      return role == 'admin' && capabilities['role:manage'] == true
+          ? AdminAccountsPage(api:api, bendaharaOnly:true)
+          : const Center(child:Text('Hanya Admin Utama yang dapat mengelola Bendahara.'));
     default: return featureUnavailable(section);
   }}
   Widget featureUnavailable(String name) => Center(child:Padding(padding:const EdgeInsets.all(22),child:Card(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.construction_outlined,size:44,color:blue),const SizedBox(height:16),Text(name,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:10),const Text('Halaman ini tercantum dalam rancangan role, tetapi modul data dan API belum tersedia. Tidak ada perubahan data yang dilakukan.',textAlign:TextAlign.center),const SizedBox(height:18),FilledButton(onPressed:()=>switchTo('Dashboard'),child:const Text('Kembali ke Beranda'))])))));
@@ -296,28 +313,6 @@ class _HomeState extends State<HomePage> {
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
     const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
-  void showLetterPie(){
-    final data=letterCounts??{'masuk':0,'proses':0,'selesai':0};
-    final values=[data['masuk']??0,data['proses']??0,data['selesai']??0];
-    final total=values.fold<int>(0,(a,b)=>a+b);
-    showDialog<void>(context:context,builder:(dialog)=>Dialog(child:Padding(
-      padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[
-        const Text('Status Pelayanan Surat',style:TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
-        const SizedBox(height:14),SizedBox(width:210,height:210,child:CustomPaint(
-          painter:_LetterPiePainter(values),child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[
-            Text('$total',style:const TextStyle(fontSize:30,fontWeight:FontWeight.w800)),
-            const Text('Total surat',style:TextStyle(fontSize:11,color:Colors.blueGrey)),
-          ])))),const SizedBox(height:12),
-        for(final item in [
-          ('Surat Masuk',values[0],const Color(0xff2467ba)),
-          ('Diproses',values[1],const Color(0xffd58823)),
-          ('Selesai',values[2],const Color(0xff17875a)),
-        ]) Padding(padding:const EdgeInsets.symmetric(vertical:4),child:Row(children:[
-          CircleAvatar(radius:5,backgroundColor:item.$3),const SizedBox(width:8),
-          Expanded(child:Text(item.$1)),Text('${item.$2} • ${total==0?0:(item.$2*100/total).round()}%'),
-        ])),const SizedBox(height:8),TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Tutup')),
-      ]))));
-  }
   Future<void> showOfficeProfile() async {
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,
       showDragHandle:true,builder:(sheetContext)=>SafeArea(child:Padding(
@@ -333,7 +328,7 @@ class _HomeState extends State<HomePage> {
   }
   List<RoleFeature> get homeShortcuts {
     if(role=='warga'||guest){
-      final wanted=['Layanan Online','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
+      final wanted=['Layanan Online','Surat Pengantar RT/RW','Surat Ahli Waris','Laporan Jumantik','Riwayat','Berita & Kegiatan','Pengumuman'];
       return wanted.map((route)=>roleFeatures.values.firstWhere((f)=>f.route==route)).toList();
     }
     return modules.take(6).toList();
@@ -349,8 +344,11 @@ class _HomeState extends State<HomePage> {
         trailing:TextButton(onPressed:openLogin,child:const Text('Masuk',style:TextStyle(fontSize:11))),
       ),
     )),
-    if(guest||role=='warga'||isStaff)Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:showLetterPie)),
+    if(guest||role=='warga'||role=='admin')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
+      counts:letterCounts,onStatusTap:(category)=>
+          role=='admin' && category=='all'
+            ? showPublicLetterPie(context,api)
+            : showPublicLetterStatus(context,api,category:category))),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
@@ -363,7 +361,7 @@ class _HomeState extends State<HomePage> {
         childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
         children:[
           CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Surat Keterangan',description:'Ahli waris dan lainnya',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Ahli Waris')),
+          CikokoServiceTile(title:'Surat Pengantar RT/RW',description:'Dikirim sesuai alamat warga',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Pengantar RT/RW')),
           CikokoServiceTile(title:'Layanan PBB',description:'Informasi pajak daerah',icon:Icons.receipt_long_outlined,accent:const Color(0xff386bd9),onTap:()=>switchTo('Layanan Online')),
           CikokoServiceTile(title:'Pengaduan',description:'Kirim pesan ke petugas',icon:Icons.support_agent_outlined,accent:const Color(0xffe88a25),onTap:()=>switchTo('Hubungi Kami')),
           CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
@@ -465,8 +463,9 @@ class _HomeState extends State<HomePage> {
     if(!mounted)return;
     final category='${event['category']??''}';
     if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
+    if(category=='rt_rw_surat'||category=='rt_rw_status'){switchTo(isStaff?'Surat Wilayah':'Surat Pengantar RT/RW');return;}
     if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
-      switchTo(isStaff?'Verifikasi Ahli Waris':'Riwayat');return;
+      switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
     }
     await showDialog<void>(context:context,builder:(c)=>AlertDialog(
       title:Text('${event['title']??'Notifikasi'}'),content:Text('${event['message']??''}'),
@@ -482,45 +481,129 @@ class _HomeState extends State<HomePage> {
     )),if(events.isEmpty)const ListTile(title:Text('Belum ada notifikasi.'))]);
  Widget profilePage()=>guest?Center(child:Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.person_outline,size:42,color:blue),const Text('Silakan masuk untuk mengelola profil.'),FilledButton(onPressed:openLogin,child:const Text('Masuk'))])))):CikokoProfileEditor(api:api);
 }
-class Field extends StatelessWidget{final String label;final TextEditingController ctrl;final int lines;final TextInputType keyboard;const Field(this.label,this.ctrl,{super.key,this.lines=1,this.keyboard=TextInputType.text});@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:ctrl,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label,alignLabelWithHint:lines>1)));}
+class Field extends StatelessWidget {
+  final String label;
+  final TextEditingController ctrl;
+  final int lines;
+  final TextInputType keyboard;
+  final bool date;
+  const Field(this.label,this.ctrl,{super.key,this.lines=1,
+    this.keyboard=TextInputType.text,this.date=false});
+
+  Future<void> chooseDate(BuildContext context) async {
+    final today=DateTime.now();
+    final parsed=DateTime.tryParse(ctrl.text);
+    final initial=parsed!=null && !parsed.isAfter(today) && parsed.year>=1850
+      ? parsed : DateTime(today.year-25);
+    final picked=await showDatePicker(context:context,initialDate:initial,
+      firstDate:DateTime(1850),lastDate:today,helpText:label);
+    if(picked!=null)ctrl.text=picked.year.toString().padLeft(4,'0')+'-'
+      +picked.month.toString().padLeft(2,'0')+'-'
+      +picked.day.toString().padLeft(2,'0');
+  }
+
+  @override Widget build(BuildContext c)=>Padding(
+    padding:const EdgeInsets.only(bottom:12),
+    child:TextField(
+      controller:ctrl,maxLines:lines,
+      keyboardType:date?TextInputType.datetime:keyboard,
+      readOnly:date,
+      onTap:date?()=>chooseDate(c):null,
+      inputFormatters:!date && keyboard==TextInputType.number
+        ?[FilteringTextInputFormatter.digitsOnly]:null,
+      decoration:InputDecoration(
+        labelText:label,alignLabelWithHint:lines>1,
+        suffixIcon:date?IconButton(
+          icon:const Icon(Icons.calendar_month_outlined),
+          tooltip:'Pilih tanggal',
+          onPressed:()=>chooseDate(c),
+        ):null,
+      ),
+    ),
+  );
+}
 class PhotoInput extends StatefulWidget {
   final String label;
   final void Function(String path) onChanged;
-  const PhotoInput({super.key,required this.label,required this.onChanged});
+  final String? currentPath;
+  const PhotoInput({super.key,required this.label,required this.onChanged,this.currentPath});
   @override State<PhotoInput> createState()=>_PhotoState();
 }
 class _PhotoState extends State<PhotoInput> {
   String? selectedPath, selectedName;
   bool selecting=false;
+  @override void initState(){
+    super.initState();
+    selectedPath=widget.currentPath;
+  }
+  @override void didUpdateWidget(PhotoInput oldWidget){
+    super.didUpdateWidget(oldWidget);
+    if(oldWidget.currentPath!=widget.currentPath){
+      selectedPath=widget.currentPath;
+    }
+  }
   Future<void> pick(ImageSource source) async {
     if(selecting)return;
     setState(()=>selecting=true);
-    try {
-      final file=await ImagePicker().pickImage(source:source,maxWidth:1900,maxHeight:2400,imageQuality:78,requestFullMetadata:false);
+    try{
+      final file=await ImagePicker().pickImage(source:source,
+        maxWidth:1900,maxHeight:2400,imageQuality:82,requestFullMetadata:false);
       if(file==null)return;
-      var newPath=file.path;
-      try {
-        final original=File(file.path);
-        if(await original.length()>1550000) {
-          for(final quality in [78,67,55]) {
-            final compressed=await FlutterImageCompress.compressWithFile(file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
-            if(compressed==null)break;
-            final output=File('${Directory.systemTemp.path}/cikoko_${DateTime.now().microsecondsSinceEpoch}.jpg');
-            await output.writeAsBytes(compressed,flush:true);
-            newPath=output.path;
-            if(compressed.length<=1550000)break;
-          }
+
+      // Picker paths can be recycled or deleted after subsequent camera picks.
+      // Always make a unique app-owned copy BEFORE returning to the form.
+      final root=await getTemporaryDirectory();
+      final folder=Directory(root.path+'/cikoko_waris_photos');
+      if(!await folder.exists())await folder.create(recursive:true);
+      final unique=DateTime.now().microsecondsSinceEpoch.toString()+'_'
+        +Random.secure().nextInt(0x7fffffff).toRadixString(16);
+      final lower=file.name.toLowerCase();
+      var bytes=await File(file.path).readAsBytes();
+      // Convert unsupported camera formats and large files to JPEG.
+      if(bytes.length>1550000 ||
+          !(lower.endsWith('.png')||lower.endsWith('.webp')||
+            lower.endsWith('.jpg')||lower.endsWith('.jpeg'))){
+        for(final quality in [80,68,55]){
+          final compressed=await FlutterImageCompress.compressWithFile(
+            file.path,quality:quality,format:CompressFormat.jpeg,keepExif:false);
+          if(compressed==null)break;
+          bytes=compressed;
+          if(bytes.length<=1550000)break;
         }
-      }catch(_) { /* Gunakan foto asli jika kompresi tidak didukung. */ }
+      }
+      final isJpeg=bytes.length>=3&&bytes[0]==0xff&&bytes[1]==0xd8;
+      final isPng=bytes.length>=4&&bytes[0]==0x89&&bytes[1]==0x50;
+      final isWebp=bytes.length>=12 &&
+        String.fromCharCodes(bytes.sublist(8,12))=='WEBP';
+      if(!isJpeg&&!isPng&&!isWebp)throw const FormatException(
+        'Foto harus JPG, PNG atau WebP.');
+      final savedExt=isJpeg?'.jpg':isPng?'.png':'.webp';
+      final out=File(folder.path+'/'+unique+savedExt);
+      await out.writeAsBytes(bytes,flush:true);
+      if(!await out.exists()||await out.length()<100){
+        throw const FileSystemException('Foto belum berhasil disimpan.');
+      }
       if(!mounted)return;
-      setState(() {
-        selectedPath=newPath;
-        final original=file.name;
-        selectedName=source==ImageSource.camera ? 'Foto Kamera - ${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.jpg' : original;
+      final previous=selectedPath;
+      setState((){
+        selectedPath=out.path;
+        selectedName=source==ImageSource.camera
+          ?'Foto Kamera - '+DateTime.now().day.toString()+'-'
+            +DateTime.now().month.toString()+'-'+DateTime.now().year.toString()+savedExt
+          :file.name;
       });
-      widget.onChanged(newPath);
-    }catch(e) {if(mounted)notify(context,'Gagal mengambil foto: $e',error:true);}
-    finally {if(mounted)setState(()=>selecting=false);}
+      widget.onChanged(out.path);
+      // Do not remove other documents; only replace this field's old copy.
+      if(previous!=null&&previous!=out.path) {
+        final f=File(previous);
+        if(await f.exists())await f.delete();
+      }
+    }catch(e){
+      if(mounted)notify(context,'Foto '+widget.label+' tidak dapat disimpan: '+e.toString(),
+        error:true);
+    }finally{
+      if(mounted)setState(()=>selecting=false);
+    }
   }
   @override Widget build(BuildContext c)=>Card(
     child:Padding(padding:const EdgeInsets.all(10),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -536,7 +619,7 @@ class _PhotoState extends State<PhotoInput> {
             OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.camera),icon:const Icon(Icons.camera_alt_outlined,size:16),label:const Text('Kamera',style:TextStyle(fontSize:12))),
             OutlinedButton.icon(onPressed:selecting?null:()=>pick(ImageSource.gallery),icon:const Icon(Icons.photo_library_outlined,size:16),label:const Text('Galeri',style:TextStyle(fontSize:12))),
           ]),
-          Text(selectedName??'Belum ada foto',maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
+          Text(selectedName??(selectedPath==null?'Belum ada foto':'Foto sudah dipilih'),maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
         ]))
       ]),
     ])));
@@ -544,13 +627,148 @@ class _PhotoState extends State<PhotoInput> {
 class WarisForm extends StatefulWidget{const WarisForm({super.key});@override State<WarisForm> createState()=>_WarisState();}
 class _WarisState extends State<WarisForm>{final inputs=<String,TextEditingController>{};final files=<String,List<String>>{};int children=0;bool sending=false;double progress=0;bool agree=false;
  TextEditingController v(String id)=>inputs.putIfAbsent(id,()=>TextEditingController());
+ String? photoFor(String id)=>files[id]?.isNotEmpty==true?files[id]!.first:null;
  @override void dispose(){for(final x in inputs.values){x.dispose();}super.dispose();}
  static const names=<String,String>{'name':'Nama pemohon','nik':'NIK pemohon (16 digit)','phone':'Nomor HP','address':'Alamat lengkap','relation':'Hubungan dengan pewaris','deceased_name':'Nama almarhum / almarhumah','birthplace':'Tempat lahir pewaris','birthdate':'Tanggal lahir (YYYY-MM-DD)','marriage_date':'Tanggal menikah (YYYY-MM-DD)','deathdate':'Tanggal meninggal (YYYY-MM-DD)','marital_status':'Status perkawinan','heirs':'Daftar ahli waris'};
- static const requiredPhotos=<String,String>{'r1':'Surat pengantar RT/RW','r2':'Surat permohonan','r3':'Surat pernyataan keabsahan','r4':'KTP, KK, akta lahir ahli waris','r5':'Surat kematian','r6':'Surat nikah'};
+ static const requiredPhotos=<String,String>{'r1':'Surat pengantar RT/RW','r2':'Surat permohonan','r3':'Surat pernyataan keabsahan','r4_ktp':'KTP Ahli Waris','r4_kk':'KK Ahli Waris','r4_akta':'Akta Lahir Ahli Waris','r5':'Surat kematian','r6':'Surat nikah'};
  static const optionalPhotos=<String,String>{'r7':'Akta cerai (jika bercerai)','r8':'Surat kematian ahli waris (jika ada)'};
- Future<void> send()async{if(sending)return;for(final k in ['name','nik','phone','address','relation','deceased_name','heirs']){if(v(k).text.trim().isEmpty){notify(context,'Lengkapi ${names[k]}',error:true);return;}}if(!RegExp(r'^\d{16}$').hasMatch(v('nik').text)){notify(context,'NIK harus 16 digit',error:true);return;}for(final k in requiredPhotos.keys){if((files[k]??[]).isEmpty){notify(context,'Upload ${requiredPhotos[k]}',error:true);return;}}for(var i=1;i<=children;i++){if((files['child_$i']??[]).isEmpty){notify(context,'Upload dokumen anak ke-$i',error:true);return;}}if(!agree){notify(context,'Setujui pernyataan data',error:true);return;}
- setState((){sending=true;progress=0;});try{final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),'declaration':'1','child_count':'$children'};final response=await api.upload('waris',data,files,progress:(v){if(mounted)setState(()=>progress=v);});if(mounted){notify(context,'Terkirim. Nomor: ${response['reference']}');setState(()=>sending=false);}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>sending=false);}}
- @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(12),children:[const Card(child:Padding(padding:EdgeInsets.all(16),child:Text('Permohonan Pencatatan Ahli Waris\nSemua data dan foto dokumen akan diperiksa petugas. Pastikan foto terbaca.',style:TextStyle(color:navy,fontWeight:FontWeight.w600)))),Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Identitas Pemohon dan Pewaris',style:Theme.of(c).textTheme.titleMedium),const SizedBox(height:14),for(final e in names.entries)Field(e.value,v(e.key),lines:e.key=='heirs'||e.key=='address'?3:1,keyboard:e.key=='nik'?TextInputType.number:TextInputType.text)]))),const SizedBox(height:12),Text('Foto Persyaratan Wajib',style:Theme.of(c).textTheme.titleMedium),for(final e in requiredPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,onChanged:(f)=>files[e.key]=[f]),const SizedBox(height:12),Text('Dokumen Kondisional',style:Theme.of(c).textTheme.titleMedium),for(final e in optionalPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,onChanged:(f)=>files[e.key]=[f]),const SizedBox(height:14),Row(children:[Expanded(child:Text('Data Anak (maksimal 10)',style:Theme.of(c).textTheme.titleMedium)),OutlinedButton(onPressed:children>=10?null:()=>setState(()=>children++),child:const Text('+ Tambah Anak'))]),for(var i=1;i<=children;i++)Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[Field('Nama anak ke-$i',v('child_name_$i')),PhotoInput(key:ValueKey('child_$i'),label:'Foto KTP, KK dan akta lahir anak ke-$i',onChanged:(f)=>files['child_$i']=[f])]))),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),title:const Text('Saya menyatakan seluruh data dan foto dokumen sesuai keadaan sebenarnya.',style:TextStyle(fontSize:12))),if(sending)...[LinearProgressIndicator(value:progress),Padding(padding:const EdgeInsets.all(8),child:Text('Mengirim ${(progress*100).toStringAsFixed(0)}%'))],FilledButton.icon(onPressed:sending?null:send,icon:const Icon(Icons.send),label:const Padding(padding:EdgeInsets.all(12),child:Text('Kirim Permohonan Ahli Waris'))),const SizedBox(height:24)]);
+ static const childPhotos=<String,String>{'ktp':'KTP','kk':'KK','akta':'Akta Lahir'};
+ Future<void> showIncomplete(List<String> problems)async{
+   if(!mounted)return;
+   await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
+     title:const Text('Pengajuan Ahli Waris Belum Lengkap'),
+     content:ConstrainedBox(constraints:const BoxConstraints(maxHeight:370),
+       child:SingleChildScrollView(child:Column(
+         mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,
+         children:[
+           const Text('Mohon lengkapi atau perbaiki bagian berikut sebelum mengirim:'),
+           const SizedBox(height:12),
+           for(var i=0;i<problems.length;i++)Padding(
+             padding:const EdgeInsets.only(bottom:8),
+             child:Text((i+1).toString()+'. '+problems[i],
+               style:const TextStyle(fontSize:13))),
+         ],
+       ))),
+     actions:[FilledButton(onPressed:()=>Navigator.pop(dialog),
+       child:const Text('Perbaiki Isian'))],
+   ));
+ }
+ bool validDate(String value){
+   if(!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value))return false;
+   final parts=value.split('-').map(int.tryParse).toList();
+   if(parts.any((part)=>part==null))return false;
+   final date=DateTime(parts[0]!,parts[1]!,parts[2]!);
+   return date.year==parts[0]&&date.month==parts[1]&&date.day==parts[2] &&
+     !date.isAfter(DateTime.now())&&date.year>=1850;
+ }
+ Future<void> send()async{
+   if(sending)return;
+   final missing=<String>[];
+   for(final key in const ['name','nik','phone','address','relation',
+       'deceased_name','heirs']){
+     if(v(key).text.trim().isEmpty)missing.add('Isian '+(names[key]??key)+' masih kosong.');
+   }
+   final nik=v('nik').text.trim();
+   if(nik.isNotEmpty&&!RegExp(r'^\d{16}$').hasMatch(nik)){
+     missing.add('NIK pemohon harus tepat 16 digit angka.');
+   }
+   final phone=v('phone').text.trim();
+   if(phone.isNotEmpty&&!RegExp(r'^\+?[0-9]{8,16}$').hasMatch(phone)){
+     missing.add('Nomor HP harus 8–16 digit angka, boleh diawali tanda +.');
+   }
+   for(final key in const ['birthdate','marriage_date','deathdate']){
+     final date=v(key).text.trim();
+     if(date.isNotEmpty&&!validDate(date)){
+       missing.add((names[key]??key)+' harus dipilih dari kalender dan tidak boleh melewati hari ini.');
+     }
+   }
+   for(final entry in requiredPhotos.entries){
+     final path=photoFor(entry.key);
+     if(path==null)missing.add('Foto '+entry.value+' belum dipilih (Kamera atau Galeri).');
+     else if(!await File(path).exists())missing.add('Foto '+entry.value+' tidak ditemukan; pilih ulang fotonya.');
+   }
+   for(var i=1;i<=children;i++){
+     if(v('child_name_'+i.toString()).text.trim().isEmpty){
+       missing.add('Nama anak ke-'+i.toString()+' belum diisi.');
+     }
+     for(final entry in childPhotos.entries){
+       final key='child_'+i.toString()+'_'+entry.key;
+       final path=photoFor(key);
+       if(path==null)missing.add('Foto '+entry.value+' anak ke-'+i.toString()+' belum dipilih.');
+       else if(!await File(path).exists())missing.add('Foto '+entry.value+' anak ke-'+i.toString()+' hilang; pilih ulang.');
+     }
+   }
+   for(final entry in optionalPhotos.entries){
+     final path=photoFor(entry.key);
+     if(path!=null&&!await File(path).exists()){
+       missing.add('Foto '+entry.value+' tidak ditemukan; pilih ulang atau kosongkan.');
+     }
+   }
+   if(!agree)missing.add('Centang pernyataan kebenaran data dan foto dokumen.');
+   if(missing.isNotEmpty){await showIncomplete(missing);return;}
+
+   setState((){sending=true;progress=0;});
+   try{
+     // Reject an outdated cPanel before sending potentially sensitive documents.
+     final capability=await api.call('waris_format');
+     if(capability['upload_format']!='split_v1'){
+       throw ApiError('Server cPanel belum mendukung KTP, KK, dan Akta Lahir secara terpisah. Pasang patch API Ahli Waris terbaru.');
+     }
+     final count=requiredPhotos.length+children*childPhotos.length+
+       optionalPhotos.keys.where((key)=>photoFor(key)!=null).length;
+     final maxFiles=(capability['max_file_uploads'] as num?)?.toInt()??0;
+     final staged=capability['staged_uploads']==true;
+     final data=<String,String>{for(final e in inputs.entries)e.key:e.value.text.trim(),
+       'declaration':'1','child_count':children.toString(),
+       'document_format':'split_v1'};
+     late final Map<String,dynamic> response;
+     if(staged){
+       // Shared hosting may limit each POST to 20 files. Send 8 per request.
+       final random=Random.secure();
+       final draftKey=List.generate(16,
+         (_)=>random.nextInt(256).toRadixString(16).padLeft(2,'0')).join();
+       final photos=<MapEntry<String,String>>[
+         for(final entry in files.entries)
+           for(final path in entry.value)MapEntry(entry.key,path),
+       ];
+       const batchSize=8;
+       final steps=(photos.length+batchSize-1)~/batchSize;
+       for(var i=0;i<photos.length;i+=batchSize){
+         final chunk=photos.skip(i).take(batchSize);
+         final subset=<String,List<String>>{
+           for(final photo in chunk)photo.key:[photo.value],
+         };
+         final batch=i~/batchSize;
+         await api.upload('waris_stage',{'draft_key':draftKey},subset,
+           progress:(value){
+             if(mounted)setState(()=>progress=(batch+value)/steps*0.95);
+           });
+       }
+       data['draft_key']=draftKey;
+       response=await api.upload('waris',data,{},progress:(value){
+         if(mounted)setState(()=>progress=0.95+0.05*value);
+       });
+     }else{
+       if(maxFiles>0&&count>maxFiles){
+         throw ApiError('Server hanya menerima '+maxFiles.toString()+
+           ' foto per permintaan. Perbarui API cPanel agar mendukung unggah bertahap tanpa perubahan hosting.');
+       }
+       response=await api.upload('waris',data,files,
+         progress:(value){if(mounted)setState(()=>progress=value);});
+     }
+     if(mounted)notify(context,'Permohonan diterima. Nomor: '+(response['reference']??'-').toString());
+   }catch(e){
+     final raw=e.toString();
+     final text=raw.contains('Endpoint tidak tersedia')||
+        raw.contains('Persyaratan foto belum lengkap: r4')
+       ?'Server cPanel masih menggunakan format dokumen Ahli Waris lama (r4). '
+        'Formulir HP sudah terpisah, tetapi server perlu Patch Ahli Waris terbaru. '
+        'Foto yang sudah dipilih tetap berada dalam formulir.'
+       :raw;
+     await showIncomplete([text]);
+   }finally{if(mounted)setState(()=>sending=false);}
+ }
+ @override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.all(12),children:[const Card(child:Padding(padding:EdgeInsets.all(16),child:Text('Permohonan Pencatatan Ahli Waris\nSemua data dan foto dokumen akan diperiksa petugas. Pastikan foto terbaca.',style:TextStyle(color:navy,fontWeight:FontWeight.w600)))),Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Identitas Pemohon dan Pewaris',style:Theme.of(c).textTheme.titleMedium),const SizedBox(height:14),for(final e in names.entries)Field(e.value,v(e.key),lines:e.key=='heirs'||e.key=='address'?3:1,date:const ['birthdate','marriage_date','deathdate'].contains(e.key),keyboard:e.key=='nik'?TextInputType.number:e.key=='phone'?TextInputType.phone:TextInputType.text)]))),const SizedBox(height:12),Text('Foto Persyaratan Wajib',style:Theme.of(c).textTheme.titleMedium),for(final e in requiredPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:12),Text('Dokumen Kondisional',style:Theme.of(c).textTheme.titleMedium),for(final e in optionalPhotos.entries)PhotoInput(key:ValueKey(e.key),label:e.value,currentPath:photoFor(e.key),onChanged:(f)=>setState(()=>files[e.key]=[f])),const SizedBox(height:14),Row(children:[Expanded(child:Text('Data Anak (maksimal 10)',style:Theme.of(c).textTheme.titleMedium)),OutlinedButton(onPressed:children>=10?null:()=>setState(()=>children++),child:const Text('+ Tambah Anak'))]),for(var i=1;i<=children;i++)Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(children:[Field('Nama anak ke-$i',v('child_name_$i')),for(final e in childPhotos.entries)PhotoInput(key:ValueKey('child_${i}_${e.key}'),label:'${e.value} anak ke-$i',currentPath:photoFor('child_${i}_${e.key}'),onChanged:(f)=>setState(()=>files['child_${i}_${e.key}']=[f]))]))),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),title:const Text('Saya menyatakan seluruh data dan foto dokumen sesuai keadaan sebenarnya.',style:TextStyle(fontSize:12))),if(sending)...[LinearProgressIndicator(value:progress),Padding(padding:const EdgeInsets.all(8),child:Text('Mengirim ${(progress*100).toStringAsFixed(0)}%'))],FilledButton.icon(onPressed:sending?null:send,icon:const Icon(Icons.send),label:const Padding(padding:EdgeInsets.all(12),child:Text('Kirim Permohonan Ahli Waris'))),const SizedBox(height:24)]);
 }
 class ReportForm extends StatefulWidget{final String kind;const ReportForm({super.key,required this.kind});@override State<ReportForm> createState()=>_ReportState();}
 class _ReportState extends State<ReportForm>{final address=TextEditingController(),phone=TextEditingController(),notes=TextEditingController();String? photo;bool sending=false;double progress=0;
@@ -572,7 +790,14 @@ class _HistoryState extends State<HistoryPage>{Future<Map<String,dynamic>>? futu
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontSize:13,fontWeight:FontWeight.w700)),
     subtitle:Text('${r['reference']??''} • ${r['status']??''}\n${r['created_at']??''}',style:const TextStyle(fontSize:11)),
     trailing:const Icon(Icons.chevron_right),
-    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??(r['reference']!=null?'waris':'report')}',onChanged:reload),
+    onTap:(){
+      final row=Map<String,dynamic>.from(r);
+      final id=cikokoPositiveId(row);
+      final ref=cikokoWarisReference(row);
+      if(id==null && ref==null){notify(context,'Nomor pengajuan tidak diterima dari server. Pastikan API V2525 aktif.',error:true);reload();return;}
+      showCikokoDocument(context,api,id:id??0,reference:ref??'',
+        kind:cikokoDocumentKind(row),onChanged:reload);
+    },
   )),if(rows.isEmpty)const ListTile(title:Text('Belum ada riwayat pengajuan.'))]));});
 }
 class ChatPage extends StatefulWidget{const ChatPage({super.key});@override State<ChatPage> createState()=>_ChatState();}
@@ -618,64 +843,105 @@ class _AdminReplySheetState extends State<AdminReplySheet>{
      SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send),label:Text(sending?'Mengirim...':'Kirim Balasan'))),
    ]));
 }
-class _LetterPiePainter extends CustomPainter{
- final List<int> values;
- const _LetterPiePainter(this.values);
- @override void paint(Canvas canvas,Size size){
-  final rect=Rect.fromLTWH(8,8,size.width-16,size.height-16);
-  final total=values.fold<int>(0,(a,b)=>a+b);
-  final colors=[const Color(0xff2467ba),const Color(0xffd58823),const Color(0xff17875a)];
-  if(total==0){canvas.drawArc(rect,0,6.283185307,true,Paint()..color=Colors.blueGrey.shade100);}
-  else {var start=-1.5707963268;for(var i=0;i<values.length;i++){
-    final sweep=values[i]/total*6.283185307;
-    canvas.drawArc(rect,start,sweep,true,Paint()..color=colors[i]);start+=sweep;
-  }}
-  canvas.drawCircle(Offset(size.width/2,size.height/2),size.width*.29,Paint()..color=Colors.white);
- }
- @override bool shouldRepaint(covariant _LetterPiePainter old)=>old.values.toString()!=values.toString();
-}
 class AdminReports extends StatefulWidget{
- final String kind;
- const AdminReports({super.key,required this.kind});
+ final String? onlyKind;
+ final bool allowWarisDate;
+ const AdminReports({super.key,this.onlyKind,this.allowWarisDate=false});
  @override State<AdminReports> createState()=>_AdminReportsState();
 }
-class _AdminReportsState extends State<AdminReports>{
- List<dynamic> rows=[];
+class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
  @override void initState(){super.initState();load();}
- Future<void> load()async{
-  try{final d=await api.call('admin_reports');
-   if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]).where((r)=>r is Map && '${r['kind']}'==widget.kind).toList());
-  }catch(e){if(mounted)notify(context,'$e',error:true);}
- }
+ Future<void> load()async{try{
+ final d=await api.call('admin_reports');
+ final list=List<dynamic>.from(d['items']??[]);
+ if(mounted)setState(()=>rows=list.where((item)=>widget.onlyKind==null||
+  cikokoDocumentKind(Map<String,dynamic>.from(item as Map))==widget.onlyKind).toList());
+ }catch(e){if(mounted)notify(context,'$e',error:true);}}
  Future<void> update(Map<String,dynamic> r,String status)async{
-  try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}
-  catch(e){if(mounted)notify(context,'$e',error:true);}
- }
- Future<void> changeUploadDate(Map<String,dynamic> r)async{
-  final initial=DateTime.tryParse('${r['created_at']??''}')??DateTime.now();
-  final now=DateTime.now();
-  final chosen=await showDatePicker(context:context,initialDate:initial.isAfter(now)?now:initial,firstDate:DateTime(2000),lastDate:now);
-  if(chosen==null)return;
+  final kind=cikokoDocumentKind(r);
+  final id=cikokoPositiveId(r);
+  final ref=cikokoWarisReference(r);
+  if(id==null && ref==null){
+    if(mounted)notify(context,'Server belum mengirim ID pengajuan. Pastikan API V2525 aktif lalu muat ulang.',error:true);
+    await load();return;
+  }
   try{
-   await api.call('admin_waris_upload_date',body:{'id':r['id'],'date':'${chosen.year.toString().padLeft(4,'0')}-${chosen.month.toString().padLeft(2,'0')}-${chosen.day.toString().padLeft(2,'0')}'});
-   await load();if(mounted)notify(context,'Tanggal upload ahli waris diperbarui');
+    await api.call('status',body:{
+      'kind':kind,'id':id??ref,'status':status,
+      if(ref!=null)'reference_no':ref,
+    });
+    await load();
   }catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
+
+ Future<void> editWarisDate(Map<String,dynamic> row)async{
+  if(!widget.allowWarisDate||api.profile?['role']!='admin'||cikokoDocumentKind(row)!='waris')return;
+  final id=cikokoPositiveId(row);
+  if(id==null){notify(context,'ID Ahli Waris tidak tersedia.',error:true);return;}
+  final raw=(row['created_at']??'').toString();
+  final oldDate=raw.length>=10?raw.substring(0,10):'';
+  final today=DateTime.now();
+  final old=DateTime.tryParse(oldDate)??today;
+  final selected=await showDatePicker(
+   context:context,firstDate:DateTime(2000),
+   lastDate:DateTime(today.year,today.month,today.day),
+   initialDate:old.year<2000?DateTime(2000):old.isAfter(today)?today:old,
+   helpText:'Tanggal Pengajuan Ahli Waris');
+  if(selected==null||!mounted)return;
+  final date=selected.year.toString().padLeft(4,'0')+'-'+
+   selected.month.toString().padLeft(2,'0')+'-'+selected.day.toString().padLeft(2,'0');
+  if(date==oldDate){notify(context,'Tanggal tidak berubah.');return;}
+  final yes=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+   title:const Text('Ubah Tanggal Pengajuan'),
+   content:Text('Nomor: '+(row['reference']??'-').toString()+
+    '\nTanggal sebelumnya: '+oldDate+'\nTanggal baru: '+date+
+    '\n\nPerubahan hanya untuk tanggal pengajuan surat ini. Tanggal foto/lampiran dan status tidak diubah. Riwayat akan dicatat.'),
+   actions:[
+    TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Batal')),
+    FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Simpan')),
+   ],
+  ));
+  if(yes!=true||!mounted)return;
+  setState(()=>busy=true);
+  try{
+   final result=await api.call('admin_waris_date',body:{'id':id,'date':date});
+   await load();
+   if(mounted)notify(context,(result['message']??'Tanggal diperbarui').toString());
+  }catch(e){if(mounted)notify(context,'Gagal mengubah tanggal: $e',error:true);}
+  finally{if(mounted)setState(()=>busy=false);}
  }
  @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
-  Padding(padding:const EdgeInsets.all(8),child:Text(widget.kind=='waris'?'Verifikasi khusus surat ahli waris.':'Daftar laporan kegiatan selain surat ahli waris.',style:const TextStyle(fontSize:12,color:Colors.blueGrey))),
+  Padding(padding:const EdgeInsets.all(8),child:Text(
+   widget.onlyKind=='waris'?'Verifikasi Ahli Waris':
+   widget.onlyKind=='report'?'Laporan Kegiatan':'Verifikasi Laporan',
+   style:const TextStyle(fontSize:20,color:navy,fontWeight:FontWeight.bold))),
+  if(widget.onlyKind=='waris')const Padding(
+   padding:EdgeInsets.symmetric(horizontal:8,vertical:4),
+   child:Text('Khusus Ahli Waris. Admin Utama dapat mengatur progres dan tanggal pengajuan.')),
+  if(widget.onlyKind=='report')const Padding(
+   padding:EdgeInsets.symmetric(horizontal:8,vertical:4),
+   child:Text('Laporan kegiatan selain Ahli Waris.')),
+  const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
   for(final r in rows)Card(child:ListTile(
-    leading:Icon(widget.kind=='waris'?Icons.description_outlined:Icons.fact_check_outlined,color:blue),
+    leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
-    subtitle:Text('${r['status']} • ${r['name']??''}\nUpload: ${r['created_at']??'-'}',style:const TextStyle(fontSize:11)),
-    isThreeLine:true,
-    onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??'report'}',onChanged:load),
-    trailing:PopupMenuButton<String>(tooltip:'Opsi permohonan',onSelected:(action){
-      if(action=='edit_date'){changeUploadDate(Map<String,dynamic>.from(r));}
-      else{update(Map<String,dynamic>.from(r),action);}
-    },itemBuilder:(_)=>[
-      if(widget.kind=='waris' && '${api.profile?['role']??''}'=='admin')
-        const PopupMenuItem(value:'edit_date',child:Text('Edit tanggal upload')),
-      for(final status in ['masuk','proses','revisi','selesai','ditolak']) PopupMenuItem(value:status,child:Text(status)),
-    ]),
-  )),if(rows.isEmpty)ListTile(title:Text(widget.kind=='waris'?'Belum ada surat ahli waris.':'Belum ada laporan kegiatan.'))]));
+    subtitle:Text('${r['status']} • ${r['name']??''}'+'\nTanggal: '+(r['created_at']??'-').toString(),style:const TextStyle(fontSize:11)),
+    onTap:(){
+      final row=Map<String,dynamic>.from(r);
+      final id=cikokoPositiveId(row);
+      final ref=cikokoWarisReference(row);
+      if(id==null && ref==null){notify(context,'Server belum mengirim ID surat. Pastikan API V2525 aktif.',error:true);load();return;}
+      showCikokoDocument(context,api,id:id??0,reference:ref??'',kind:cikokoDocumentKind(row),onChanged:load);
+    },
+    trailing:PopupMenuButton<String>(tooltip:'Tindakan Admin',enabled:!busy,
+      onSelected:(value)=>value=='edit_date'
+       ? editWarisDate(Map<String,dynamic>.from(r))
+       : update(Map<String,dynamic>.from(r),value),
+      itemBuilder:(_)=>[
+       if(widget.allowWarisDate&&api.profile?['role']=='admin'&&cikokoDocumentKind(Map<String,dynamic>.from(r))=='waris')
+        const PopupMenuItem<String>(value:'edit_date',child:Text('Ubah Tanggal Pengajuan')),
+       for(final status in ['masuk','proses','revisi','selesai','ditolak'])
+        PopupMenuItem<String>(value:status,child:Text('Status: '+status)),
+      ]),
+  )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
 }
