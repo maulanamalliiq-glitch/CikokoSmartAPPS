@@ -101,6 +101,10 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
       }).toList();
       final filtered=rows.where((e)=>category=='all'||e['bucket']==category).toList();
       if(filtered.isEmpty){
+        if(s.data!['complete']==false)return const Center(child:Padding(
+          padding:EdgeInsets.all(18),
+          child:Text('Sebagian data status surat sedang diperbarui. Silakan mencoba kembali.',
+            textAlign:TextAlign.center)));
         final raw=Map<String,dynamic>.from(s.data!['counts'] as Map? ??{});
         final reported=category=='all'
             ? ['masuk','proses','selesai'].fold<int>(0,(total,k)=>total+(int.tryParse('${raw[k]??0}')??0))
@@ -133,8 +137,8 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
                 style:const TextStyle(fontSize:13,fontWeight:FontWeight.bold)),
               subtitle:Text('${data['title']??'Surat'} • ${data['status']??''}',
                 style:const TextStyle(fontSize:11)),
-              trailing:const Icon(Icons.chevron_right),
-              onTap:()=>showNumber(data),
+
+              // Informasi publik hanya nomor, jenis surat, dan status.
             ));
           }));
     })),
