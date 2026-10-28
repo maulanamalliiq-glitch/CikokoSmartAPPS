@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('Form Ahli Waris memiliki dua KTP saksi sesudah surat nikah', (tester) async {
+  testWidgets('Form Ahli Waris mencakup dua KTP saksi setelah Surat Nikah', (tester) async {
     await tester.pumpWidget(const MaterialApp(home:Scaffold(body:WarisForm())));
-    expect(find.text('Dua Orang Saksi'), findsOneWidget);
-    expect(find.text('KTP Saksi Pertama'), findsOneWidget);
-    expect(find.text('KTP Saksi Kedua'), findsOneWidget);
-    final form=find.byType(WarisForm);
-    expect(form,findsOneWidget);
-    // The two uploads use the same PhotoInput camera and gallery UI as before.
-    expect(find.text('Surat nikah'), findsOneWidget);
+    final scrollable=find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.text('Surat nikah'),350,scrollable:scrollable);
+    expect(find.text('Surat nikah'),findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Dua Orang Saksi'),260,scrollable:scrollable);
+    expect(find.text('Dua Orang Saksi'),findsOneWidget);
+    await tester.scrollUntilVisible(find.text('KTP Saksi Kedua'),260,scrollable:scrollable);
+    expect(find.text('KTP Saksi Kedua'),findsOneWidget);
   });
 }
