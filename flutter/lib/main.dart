@@ -161,11 +161,18 @@ class _HomeState extends State<HomePage> {
           if(mounted)setState(()=>letterCounts=counts);
         } catch (_) {if(mounted)setState(()=>letterCounts=null);}
       }
+      if(role!='warga'){
+        try{
+          final result=await api.call('public_letter_status');
+          final raw=Map<String,dynamic>.from(result['counts'] as Map);
+          if(mounted)setState(()=>letterCounts={for(final key in ['masuk','proses','selesai']) key:int.tryParse('${raw[key]??0}')??0});
+        }catch(_){if(mounted)setState(()=>letterCounts=null);}
+      }
     }catch(e){if(mounted)notify(context,'$e',error:true);}
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Ahli Waris'||route=='Verifikasi Kegiatan'||route=='Hubungi Kami';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -180,14 +187,14 @@ class _HomeState extends State<HomePage> {
       if(s=='Dashboard'){nav=2;}
       else if(s=='Inovasi'){nav=3;}
       else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Laporan'){nav=1;}
+      else if(s=='Riwayat'||s=='Verifikasi Ahli Waris'||s=='Verifikasi Kegiatan'){nav=1;}
       else if(s=='Notifikasi'){nav=2;}
       else {nav=0;}
     });
   }
   void selectNav(int value){
     if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Laporan':'Riwayat'):'Riwayat');return;}
+    if(value==1){switchTo(isStaff?(capabilities['reports:view']==true?'Verifikasi Ahli Waris':'Riwayat'):'Riwayat');return;}
     if(value==2){switchTo('Dashboard');return;}
     if(value==3){switchTo('Inovasi');return;}
     switchTo('Profil');
@@ -198,6 +205,7 @@ class _HomeState extends State<HomePage> {
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,
+    'Verifikasi Ahli Waris'=>Icons.description_outlined,'Verifikasi Kegiatan'=>Icons.fact_check_outlined,
     'Laporan FKDM'=>Icons.shield_outlined,'Laporan LMK'=>Icons.groups_outlined,
     'Laporan Posyandu'=>Icons.medical_services_outlined,'Laporan Dasawisma'=>Icons.family_restroom_outlined,
     'Laporan PPSU'=>Icons.cleaning_services_outlined,'Laporan Kerja Bakti'=>Icons.volunteer_activism_outlined,
@@ -254,7 +262,9 @@ class _HomeState extends State<HomePage> {
     case 'Notifikasi':return eventList();
     case 'Inovasi':return InnovationPage(api:api);
     case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
-    case 'Verifikasi Laporan':return const AdminReports();
+    case 'Verifikasi Ahli Waris':return const AdminReports(kind:'waris');
+    case 'Verifikasi Kegiatan':return const AdminReports(kind:'report');
+    case 'Verifikasi Laporan':return const AdminReports(kind:'waris');
     case 'Tambah Berita':return MobileEditor(api:api,mode:'berita');
     case 'Tambah Pengumuman':return MobileEditor(api:api,mode:'pengumuman');
     case 'Tambah Arsip Ahli Waris':return ArchiveEditorPage(api:api);
@@ -269,6 +279,28 @@ class _HomeState extends State<HomePage> {
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
     const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
+  void showLetterPie(){
+    final data=letterCounts??{'masuk':0,'proses':0,'selesai':0};
+    final values=[data['masuk']??0,data['proses']??0,data['selesai']??0];
+    final total=values.fold<int>(0,(a,b)=>a+b);
+    showDialog<void>(context:context,builder:(dialog)=>Dialog(child:Padding(
+      padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[
+        const Text('Status Pelayanan Surat',style:TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
+        const SizedBox(height:14),SizedBox(width:210,height:210,child:CustomPaint(
+          painter:_LetterPiePainter(values),child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[
+            Text('$total',style:const TextStyle(fontSize:30,fontWeight:FontWeight.w800)),
+            const Text('Total surat',style:TextStyle(fontSize:11,color:Colors.blueGrey)),
+          ])))),const SizedBox(height:12),
+        for(final item in [
+          ('Surat Masuk',values[0],const Color(0xff2467ba)),
+          ('Diproses',values[1],const Color(0xffd58823)),
+          ('Selesai',values[2],const Color(0xff17875a)),
+        ]) Padding(padding:const EdgeInsets.symmetric(vertical:4),child:Row(children:[
+          CircleAvatar(radius:5,backgroundColor:item.$3),const SizedBox(width:8),
+          Expanded(child:Text(item.$1)),Text('${item.$2} • ${total==0?0:(item.$2*100/total).round()}%'),
+        ])),const SizedBox(height:8),TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Tutup')),
+      ]))));
+  }
   Future<void> showOfficeProfile() async {
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,
       showDragHandle:true,builder:(sheetContext)=>SafeArea(child:Padding(
@@ -300,8 +332,8 @@ class _HomeState extends State<HomePage> {
         trailing:TextButton(onPressed:openLogin,child:const Text('Masuk',style:TextStyle(fontSize:11))),
       ),
     )),
-    if(guest||role=='warga')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,guest:guest,onTap:()=>guest?openLogin():switchTo('Riwayat'))),
+    if(guest||role=='warga'||isStaff)Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
+      counts:letterCounts,guest:guest,onTap:showLetterPie)),
     Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
       mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
@@ -417,7 +449,7 @@ class _HomeState extends State<HomePage> {
     final category='${event['category']??''}';
     if(category=='chat'){switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');return;}
     if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
-      switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
+      switchTo(isStaff?'Verifikasi Ahli Waris':'Riwayat');return;
     }
     await showDialog<void>(context:context,builder:(c)=>AlertDialog(
       title:Text('${event['title']??'Notifikasi'}'),content:Text('${event['message']??''}'),
@@ -569,18 +601,64 @@ class _AdminReplySheetState extends State<AdminReplySheet>{
      SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send),label:Text(sending?'Mengirim...':'Kirim Balasan'))),
    ]));
 }
-class AdminReports extends StatefulWidget{const AdminReports({super.key});@override State<AdminReports> createState()=>_AdminReportsState();}
-class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool busy=false;
+class _LetterPiePainter extends CustomPainter{
+ final List<int> values;
+ const _LetterPiePainter(this.values);
+ @override void paint(Canvas canvas,Size size){
+  final rect=Rect.fromLTWH(8,8,size.width-16,size.height-16);
+  final total=values.fold<int>(0,(a,b)=>a+b);
+  final colors=[const Color(0xff2467ba),const Color(0xffd58823),const Color(0xff17875a)];
+  if(total==0){canvas.drawArc(rect,0,6.283185307,true,Paint()..color=Colors.blueGrey.shade100);}
+  else {var start=-1.5707963268;for(var i=0;i<values.length;i++){
+    final sweep=values[i]/total*6.283185307;
+    canvas.drawArc(rect,start,sweep,true,Paint()..color=colors[i]);start+=sweep;
+  }}
+  canvas.drawCircle(Offset(size.width/2,size.height/2),size.width*.29,Paint()..color=Colors.white);
+ }
+ @override bool shouldRepaint(covariant _LetterPiePainter old)=>old.values.toString()!=values.toString();
+}
+class AdminReports extends StatefulWidget{
+ final String kind;
+ const AdminReports({super.key,required this.kind});
+ @override State<AdminReports> createState()=>_AdminReportsState();
+}
+class _AdminReportsState extends State<AdminReports>{
+ List<dynamic> rows=[];
  @override void initState(){super.initState();load();}
- Future<void> load()async{try{final d=await api.call('admin_reports');if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]));}catch(e){if(mounted)notify(context,'$e',error:true);}}
- Future<void> update(Map<String,dynamic> r,String status)async{try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}catch(e){if(mounted)notify(context,'$e',error:true);}}
+ Future<void> load()async{
+  try{final d=await api.call('admin_reports');
+   if(mounted)setState(()=>rows=List<dynamic>.from(d['items']??[]).where((r)=>r is Map && '${r['kind']}'==widget.kind).toList());
+  }catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
+ Future<void> update(Map<String,dynamic> r,String status)async{
+  try{await api.call('status',body:{'kind':r['kind'],'id':r['id'],'status':status});await load();}
+  catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
+ Future<void> changeUploadDate(Map<String,dynamic> r)async{
+  final initial=DateTime.tryParse('${r['created_at']??''}')??DateTime.now();
+  final now=DateTime.now();
+  final chosen=await showDatePicker(context:context,initialDate:initial.isAfter(now)?now:initial,firstDate:DateTime(2000),lastDate:now);
+  if(chosen==null)return;
+  try{
+   await api.call('admin_waris_upload_date',body:{'id':r['id'],'date':'${chosen.year.toString().padLeft(4,'0')}-${chosen.month.toString().padLeft(2,'0')}-${chosen.day.toString().padLeft(2,'0')}'});
+   await load();if(mounted)notify(context,'Tanggal upload ahli waris diperbarui');
+  }catch(e){if(mounted)notify(context,'$e',error:true);}
+ }
  @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(12),children:[
-  const Padding(padding:EdgeInsets.all(8),child:Text('Ketuk surat untuk membuka data, progres, dan meminta kelengkapan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey))),
+  Padding(padding:const EdgeInsets.all(8),child:Text(widget.kind=='waris'?'Verifikasi khusus surat ahli waris.':'Daftar laporan kegiatan selain surat ahli waris.',style:const TextStyle(fontSize:12,color:Colors.blueGrey))),
   for(final r in rows)Card(child:ListTile(
-    leading:const Icon(Icons.fact_check_outlined,color:blue),
+    leading:Icon(widget.kind=='waris'?Icons.description_outlined:Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
-    subtitle:Text('${r['status']} • ${r['name']??''}',style:const TextStyle(fontSize:11)),
+    subtitle:Text('${r['status']} • ${r['name']??''}\nUpload: ${r['created_at']??'-'}',style:const TextStyle(fontSize:11)),
+    isThreeLine:true,
     onTap:()=>showCikokoDocument(context,api,id:int.parse('${r['id']}'),kind:'${r['kind']??'report'}',onChanged:load),
-    trailing:PopupMenuButton<String>(tooltip:'Ubah status',onSelected:(status)=>update(Map<String,dynamic>.from(r),status),itemBuilder:(_)=>['masuk','proses','revisi','selesai','ditolak'].map((status)=>PopupMenuItem(value:status,child:Text(status))).toList()),
-  )),if(rows.isEmpty)const ListTile(title:Text('Belum ada permohonan.'))]));
+    trailing:PopupMenuButton<String>(tooltip:'Opsi permohonan',onSelected:(action){
+      if(action=='edit_date'){changeUploadDate(Map<String,dynamic>.from(r));}
+      else{update(Map<String,dynamic>.from(r),action);}
+    },itemBuilder:(_)=>[
+      if(widget.kind=='waris' && '${api.profile?['role']??''}'=='admin')
+        const PopupMenuItem(value:'edit_date',child:Text('Edit tanggal upload')),
+      for(final status in ['masuk','proses','revisi','selesai','ditolak']) PopupMenuItem(value:status,child:Text(status)),
+    ]),
+  )),if(rows.isEmpty)ListTile(title:Text(widget.kind=='waris'?'Belum ada surat ahli waris.':'Belum ada laporan kegiatan.'))]));
 }
