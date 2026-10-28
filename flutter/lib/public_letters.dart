@@ -84,7 +84,7 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
     Expanded(child:FutureBuilder<Map<String,dynamic>>(future:request,builder:(ctx,s){
       if(s.hasError)return Center(child:Padding(padding:const EdgeInsets.all(16),
         child:Column(mainAxisSize:MainAxisSize.min,children:[
-          Text('Status surat belum tersedia. ${s.error}',textAlign:TextAlign.center),
+          const Text('Informasi status surat belum dapat ditampilkan. Silakan coba kembali.',textAlign:TextAlign.center),
           const SizedBox(height:12),
           OutlinedButton.icon(onPressed:reload,icon:const Icon(Icons.refresh),
             label:const Text('Coba lagi')),
@@ -96,11 +96,28 @@ class _PublicLetterStatusState extends State<PublicLetterStatusSheet>{
           'reference':data['reference_no']??data['reference']??'-',
           'bucket':data['category']??data['bucket']??'proses',
           'status':data['status']??'Belum diketahui',
-          'title':'Surat Pengantar RT/RW',
+          'title':data['title']??'Pelayanan Surat',
         };
       }).toList();
       final filtered=rows.where((e)=>category=='all'||e['bucket']==category).toList();
-      if(filtered.isEmpty)return const Center(child:Text('Belum ada pengajuan dalam kategori ini.'));
+      if(filtered.isEmpty){
+        final raw=Map<String,dynamic>.from(s.data!['counts'] as Map? ??{});
+        final reported=category=='all'
+            ? ['masuk','proses','selesai'].fold<int>(0,(total,k)=>total+(int.tryParse('${raw[k]??0}')??0))
+            : int.tryParse('${raw[category]??0}')??0;
+        return Center(child:Padding(padding:const EdgeInsets.all(22),child:Column(mainAxisSize:MainAxisSize.min,children:[
+          const Icon(Icons.mark_email_read_outlined,size:42,color:Color(0xff2467ba)),
+          const SizedBox(height:12),
+          Text(reported>0
+              ?'Terdapat $reported pengajuan pada kategori ini, tetapi daftar nomor surat belum tersedia dari layanan server.'
+              :'Tidak ada pengajuan pada kategori ini. Pilih Semua untuk melihat seluruh status.',
+              textAlign:TextAlign.center),
+          const SizedBox(height:10),
+          if(reported>0)const Text('Jumlah tetap tercatat. Data ahli waris dan laporan lain tidak diubah.',
+              textAlign:TextAlign.center,style:TextStyle(color:Colors.blueGrey,fontSize:11)),
+          TextButton(onPressed:()=>setState(()=>category='all'),child:const Text('Lihat Semua')),
+        ])));
+      }
       return RefreshIndicator(onRefresh:()async{reload();await request;},
         child:ListView.builder(
           padding:const EdgeInsets.all(12),itemCount:filtered.length+1,
