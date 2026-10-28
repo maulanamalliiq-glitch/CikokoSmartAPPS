@@ -112,7 +112,7 @@ Future<void> showCikokoWarisRequirements(
                         if(group.allowApply)...[
                           const SizedBox(height:12),
                           SizedBox(width:double.infinity,child:FilledButton.icon(
-                            icon:const Icon(Icons.edit_document),
+                            icon:const Icon(Icons.edit_note),
                             label:const Text('Ajukan Surat'),
                             onPressed:(){
                               Navigator.of(popup).pop();
