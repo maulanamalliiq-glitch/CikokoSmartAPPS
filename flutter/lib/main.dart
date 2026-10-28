@@ -148,6 +148,7 @@ class _HomeState extends State<HomePage> {
   String section='Dashboard';
   int nav=2;
   List<dynamic> items=[],events=[];
+  List<Map<String,dynamic>> activeServices=cikokoDefaultIntegratedServices();
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
@@ -184,6 +185,13 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
+      if(role=='warga'){
+        try{
+          final data=await api.call('integrated_services');
+          final all=List<dynamic>.from(data['items']??[]);
+          if(mounted)setState(()=>activeServices=all.map((e)=>Map<String,dynamic>.from(e as Map)).toList());
+        }catch(_){/* Katalog bawaan tetap tersedia saat koneksi terputus. */}
+      }
       // This is public letter service-wide data, not the user's private history.
       try {
         final summary=await api.call('public_letter_status');
@@ -386,7 +394,7 @@ class _HomeState extends State<HomePage> {
         crossAxisSpacing:8,mainAxisSpacing:8,
         childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
         children:[
-          for(final item in cikokoDefaultIntegratedServices())
+          for(final item in activeServices)
             CikokoServiceTile(title:'${item['title']}',description:'${item['description']}',icon:Icons.account_balance_outlined,
               accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
         ],
