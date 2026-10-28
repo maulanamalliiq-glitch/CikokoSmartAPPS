@@ -84,8 +84,36 @@ jobs:
           flutter build apk --release --split-per-abi --target-platform android-arm64
           test -s build/app/outputs/bundle/release/app-release.aab
           test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          jarsigner -verify -strict build/app/outputs/bundle/release/app-release.aab
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          # Self-signed Play upload certificates trigger jarsigner -strict exit code 4.
+          # Verify the JAR signature without strict certificate-chain trust, then
+          # independently compare BOTH output signers to the known Play upload key.
+          set -euo pipefail
+          aab="build/app/outputs/bundle/release/app-release.aab"
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          if ! jarsigner -verify "$aab" > /tmp/cikoko-aab-verify.log 2>&1; then
+            tail -n 35 /tmp/cikoko-aab-verify.log
+            echo "::error::AAB signature verification failed."
+            exit 1
+          fi
+          if ! grep -q "jar verified" /tmp/cikoko-aab-verify.log; then
+            tail -n 35 /tmp/cikoko-aab-verify.log
+            echo "::error::AAB did not report a verified JAR signature."
+            exit 1
+          fi
+          aab_fingerprint=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
+          if [[ "$aab_fingerprint" != "$expected" ]]; then
+            echo "::error::AAB signer is not the expected Play upload certificate."
+            exit 1
+          fi
+          apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs "$apk" > /tmp/cikoko-apk-verify.log
+          apk_fingerprint=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/cikoko-apk-verify.log | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
+          if [[ "$apk_fingerprint" != "$expected" ]]; then
+            echo "::error::APK signer is not the expected Play upload certificate."
+            exit 1
+          fi
+          echo "AAB and APK signatures verified and match the expected Play upload key."
           cp build/app/outputs/bundle/release/app-release.aab build/cikoko-downloads/Cikoko-v2533-PLAY-SIGNED.aab
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/cikoko-downloads/Cikoko-v2533-RELEASE-arm64.apk
       - name: Build clearly labeled unsigned AAB if no upload key
