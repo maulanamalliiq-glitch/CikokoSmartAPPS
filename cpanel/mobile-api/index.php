@@ -277,6 +277,10 @@ if($action==='history'){
  foreach($rows as &$entry){$entry=cikoko_v2525_identity_row($entry,($entry['kind']??'report')==='waris'?'waris':'report');}unset($entry);
  mobile_json(['ok'=>true,'api_build'=>'V2525-HARDCHECK-ID','items'=>array_slice($rows,0,100)]);
 }
+if($action==='admin_waris_date') {
+ require_once __DIR__.'/admin_waris_date.php';
+ cikoko_admin_waris_date($method,$db,$u);
+}
 if($action==='admin_reports'){
  mobile_need($u,'reports:view');$rows=$db->query('SELECT id,kind AS title,user_name AS name,"report" AS kind,status,created_at FROM mobile_reports ORDER BY id DESC LIMIT 100')->fetchAll();
  try{$rows=array_merge($rows,$db->query('SELECT id,reference_no AS reference,applicant_name AS name,"waris" AS kind,status,created_at FROM aw_applications ORDER BY id DESC LIMIT 100')->fetchAll());}catch(Throwable $e){}
