@@ -44,8 +44,8 @@ function cikoko_waris_witness_dispatch(string $action,string $method,PDO $db,arr
         if(!hash_equals((string)$app['account_id'],$uid))throw new DomainException('Hanya pemohon yang dapat melengkapi dokumen.',403);
         if((string)$app['status']==='ditolak')throw new DomainException('Pengajuan yang ditolak tidak dapat ditambahkan lampiran.',409);
         $applicationId=(int)$app['id'];
-        $q=$db->prepare('SELECT requirement_code FROM aw_attachments WHERE application_id=? AND requirement_code IN ("saksi_1","saksi_2")');
-        $q->execute([$applicationId]);
+        $q=$db->prepare('SELECT requirement_code FROM aw_attachments WHERE application_id=? AND requirement_code IN (?,?)');
+        $q->execute([$applicationId,'saksi_1','saksi_2']);
         $previous=$q->fetchAll(PDO::FETCH_COLUMN);
         // Idempotent retry: previously saved witnesses remain untouched.
         $newCodes=array_values(array_diff($codes,$previous));
