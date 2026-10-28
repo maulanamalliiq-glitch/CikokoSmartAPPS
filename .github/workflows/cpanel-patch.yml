@@ -38,10 +38,7 @@ jobs:
             '5. Push saat aplikasi ditutup memerlukan Firebase service account dan cron aktif.' \
             > build/cpanel-v2500/BACA_DULU_PATCH_V2500.txt
           cd build/cpanel-v2500 && zip -r -q ../CIKOKO_V2500_CPANEL_PATCH.zip .
-      - name: Publish cPanel patch artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: CIKOKO-V2500-CPANEL-WEBSITE-AND-SQL
-          path: build/CIKOKO_V2500_CPANEL_PATCH.zip
-          retention-days: 14
-          if-no-files-found: error
+      - name: Verify patch package without Actions Artifacts quota
+        run: |
+          test -s build/CIKOKO_V2500_CPANEL_PATCH.zip
+          echo 'PHP checks passed. ZIP was generated but not published as a quota-limited artifact.'
