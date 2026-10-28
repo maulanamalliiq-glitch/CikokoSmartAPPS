@@ -55,7 +55,7 @@ function waris_stage_upload(PDO $db,string $uid,string $draft):void {
   if(!is_dir($folder)&&!mkdir($folder,0750,true))mobile_error('Folder dokumen Ahli Waris belum tersedia.',503);
   $uploaded=[];
   foreach($_FILES as $code=>$f){
-    if(!isset($allowed[$code])||in_array($code,['r4'],true)||str_ends_with($code,'_old')||
+    if(!isset($allowed[$code])||in_array($code,['r4'],true)||substr($code,-4)==='_old'||
        !is_array($f)||is_array($f['name']??null)||
        ($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK||
        !is_uploaded_file($f['tmp_name']??'')||($f['size']??0)<100||
