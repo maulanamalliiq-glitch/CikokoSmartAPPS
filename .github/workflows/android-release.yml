@@ -7,6 +7,12 @@ on:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
 
+# Keep only the latest v2534 build running to prevent older commits
+# from replacing the downloadable APK in the same GitHub Release.
+concurrency:
+  group: cikoko-android-2534-${{ github.ref }}
+  cancel-in-progress: true
+
 # Release uploads are separate from GitHub Actions artifact quota.
 permissions:
   contents: write
