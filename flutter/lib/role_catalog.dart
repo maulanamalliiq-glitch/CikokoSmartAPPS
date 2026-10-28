@@ -20,6 +20,7 @@ const roleFeatures = <String,RoleFeature>{
   'services': RoleFeature('Layanan Masyarakat','Pilih pelayanan yang dibutuhkan','Layanan Online'),
   'gallery': RoleFeature('Galeri','Dokumentasi kegiatan Cikoko','Galeri'),
   'waris': RoleFeature('Surat Ahli Waris','Ajukan surat secara daring','Surat Ahli Waris',capability:'waris:create'),
+  'waris_requirements': RoleFeature('Persyaratan Ahli Waris','Daftar dokumen persyaratan pelayanan','Persyaratan Ahli Waris'),
   'surat_pengantar': RoleFeature('Surat Pengantar RT/RW','Pengajuan otomatis sesuai RT/RW profil','Surat Pengantar RT/RW'),
   'ttd_stempel': RoleFeature('TTD & Stempel','Unggah tanda tangan dan cap petugas yang berwenang','TTD & Stempel'),
   'surat_wilayah': RoleFeature('Surat Wilayah','Verifikasi permohonan dari wilayah tugas','Surat Wilayah'),
@@ -80,7 +81,7 @@ const roleMenus = <String,List<String>>{
  'pkk':['dasawisma','history','announcements'],
  'posyandu':['posyandu','kegiatan','history','news','announcements'],
  'ppsu':['ppsu','bakti','kegiatan','history','news','announcements'],
- 'warga':['surat_pengantar','services','waris','jumantik','history','news','announcements','gallery'],
+ 'warga':['surat_pengantar','services','waris','waris_requirements','jumantik','history','news','announcements','gallery'],
 };
 List<RoleFeature> modulesForRole(String role, Map<String,bool> caps) {
  return (roleMenus[role]??roleMenus['warga']!).map((key)=>roleFeatures[key]!).where((feature)=>feature.capability==null || caps[feature.capability]==true).toList();
