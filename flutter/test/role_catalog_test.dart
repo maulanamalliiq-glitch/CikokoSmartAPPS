@@ -50,6 +50,30 @@ void main() {
        .any((f)=>f.route=='Laporan LPJ RW'),isTrue);
  });
 
+ test('Admin Utama memantau LPJ RT/RW, Bendahara hanya wilayah jabatan', () {
+   final admin=modulesForRole('admin', {'role:manage':true});
+   expect(admin.where((f)=>f.route=='Laporan LPJ RT').length,1);
+   expect(admin.where((f)=>f.route=='Laporan LPJ RW').length,1);
+   // Tampilan LPJ tidak memerlukan izin laporan kegiatan umum.
+   final adminNoCaps=modulesForRole('admin', {});
+   expect(adminNoCaps.any((f)=>f.route=='Laporan LPJ RT'),isTrue);
+   expect(adminNoCaps.any((f)=>f.route=='Laporan LPJ RW'),isTrue);
+   final bendaharaRt=modulesForRole('bendahara_rt', {});
+   final bendaharaRw=modulesForRole('bendahara_rw', {});
+   expect(bendaharaRt.any((f)=>f.route=='Laporan LPJ RT'),isTrue);
+   expect(bendaharaRt.any((f)=>f.route=='Laporan LPJ RW'),isFalse);
+   expect(bendaharaRw.any((f)=>f.route=='Laporan LPJ RW'),isTrue);
+   expect(bendaharaRw.any((f)=>f.route=='Laporan LPJ RT'),isFalse);
+   expect(modulesForRole('warga', {'reports:view':true})
+       .any((f)=>f.route=='Laporan LPJ RT'),isFalse);
+   expect(modulesForRole('warga', {'reports:view':true})
+       .any((f)=>f.route=='Laporan LPJ RW'),isFalse);
+   expect(modulesForRole('asn', {'reports:view':true})
+       .any((f)=>f.route=='Laporan LPJ RT'),isFalse);
+   expect(modulesForRole('admin_kelurahan', {'reports:view':true})
+       .any((f)=>f.route=='Laporan LPJ RT'),isFalse);
+ });
+
  test('RT RW dan LMK mendapat LPJ sesuai role tanpa menu kegiatan lama', () {
    final rt=modulesForRole('rt',{});
    final rw=modulesForRole('rw',{});
