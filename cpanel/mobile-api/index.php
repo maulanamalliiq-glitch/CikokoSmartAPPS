@@ -29,6 +29,11 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+if(in_array($action,['integrated_services','integrated_services_save'],true)){
+ require_once __DIR__.'/integrated_services.php';
+ cikoko_integrated_dispatch($action,$method);
+}
+
 
 if($action==='login'&&$method==='POST'){
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
