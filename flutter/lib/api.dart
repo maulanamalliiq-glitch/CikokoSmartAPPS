@@ -18,7 +18,7 @@ class CikokoRequestProgress {
   static final ValueNotifier<double?> value=ValueNotifier<double?>(null);
   static int _current=0;
   static int begin(){final id=++_current;value.value=0;return id;}
-  static void update(int id,double progress){if(id==_current)value.value=progress.clamp(0.0,0.95);}
+  static void update(int id,double progress){if(id==_current)value.value=progress.clamp(0.0,0.95).toDouble();}
   static void finish(int id,{required bool success}){
     if(id!=_current)return;
     value.value=success?1:null;
