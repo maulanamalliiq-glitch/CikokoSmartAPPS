@@ -31,7 +31,29 @@ final api=CikokoApi();
 void main(){WidgetsFlutterBinding.ensureInitialized();runApp(const CikokoApp());}
 class CikokoApp extends StatelessWidget {
  const CikokoApp({super.key});
- @override Widget build(BuildContext c)=>MaterialApp(title:'Cikoko',debugShowCheckedModeBanner:false,theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:pale,colorScheme:ColorScheme.fromSeed(seedColor:blue),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:navy),inputDecorationTheme:InputDecorationTheme(isDense:true,filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),cardTheme:CardThemeData(color:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),textTheme:const TextTheme(titleLarge:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:navy),titleMedium:TextStyle(fontSize:15,fontWeight:FontWeight.w700,color:navy),bodyMedium:TextStyle(fontSize:13.5)) ),home:const Entry());
+ @override Widget build(BuildContext c)=>MaterialApp(title:'Cikoko',debugShowCheckedModeBanner:false,
+ builder:(ctx,child)=>Stack(children:[
+   if(child!=null)child,
+   ValueListenableBuilder<double?>(valueListenable:CikokoRequestProgress.value,
+     builder:(context,value,_)=>value==null?const SizedBox.shrink():Positioned(
+       top:MediaQuery.paddingOf(context).top+6,left:18,right:18,
+       child:Material(elevation:5,borderRadius:BorderRadius.circular(12),
+         color:Colors.white,child:Padding(padding:const EdgeInsets.symmetric(horizontal:13,vertical:10),
+           child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+             Row(children:[
+               Icon(value==1?Icons.check_circle:Icons.sync,
+                 color:value==1?Colors.green:blue,size:17),
+               const SizedBox(width:8),
+               Expanded(child:Text(value==1?'Proses berhasil diselesaikan':value>0?'Sedang mengirim data':'Permintaan sedang diproses',
+                 style:const TextStyle(fontSize:12,fontWeight:FontWeight.w600))),
+               if(value>0)Text('${(100*value).round()}%',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),
+             ]),
+             const SizedBox(height:7),
+             LinearProgressIndicator(value:value>0?value:null,minHeight:4,
+                 borderRadius:BorderRadius.circular(5)),
+           ])))),
+     )),
+ ]),theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:pale,colorScheme:ColorScheme.fromSeed(seedColor:blue),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:navy),inputDecorationTheme:InputDecorationTheme(isDense:true,filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),cardTheme:CardThemeData(color:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),textTheme:const TextTheme(titleLarge:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:navy),titleMedium:TextStyle(fontSize:15,fontWeight:FontWeight.w700,color:navy),bodyMedium:TextStyle(fontSize:13.5)) ),home:const Entry());
 }
 class Entry extends StatefulWidget{const Entry({super.key});@override State<Entry> createState()=>_EntryState();}
 class _EntryState extends State<Entry>{bool loading=true;@override void initState(){super.initState();api.restore().whenComplete((){if(mounted)setState(()=>loading=false);});}
@@ -118,7 +140,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
  }
 
 }
-void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(text),backgroundColor:error?Colors.red.shade700:navy));}
+void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(error?cikokoFormalMessage(text):text),backgroundColor:error?Colors.red.shade700:navy));}
 class HomePage extends StatefulWidget{final VoidCallback onLogout,onAuthenticated;const HomePage({super.key,required this.onLogout,required this.onAuthenticated});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage> {
   String section='Dashboard';
