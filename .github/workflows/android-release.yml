@@ -184,10 +184,18 @@ jobs:
             --ks-pass env:CIKOKO_STORE_PASSWORD \
             --key-pass env:CIKOKO_KEY_PASSWORD \
             --out "$signed_apk" "$apk"
+          # Verification checks the APK's cryptographic signature first.
+          # Then read the SHA-256 value from the certificate line, tolerating
+          # apksigner output differences in spacing, colons and label format.
           "$apksigner" verify --verbose --print-certs "$signed_apk" > /tmp/cikoko-apk-verify.log
-          apk_fingerprint=$(sed -n -E 's/^[[:space:]]*Signer #1 certificate SHA-256 digest:[[:space:]]*([0-9a-fA-F:]+).*$/\1/p' /tmp/cikoko-apk-verify.log | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          echo "APK signer certificate fingerprints:"
+          grep -iE 'certificate.*SHA.?256' /tmp/cikoko-apk-verify.log || true
+          apk_cert_lines=$(grep -iE 'certificate.*SHA.?256' /tmp/cikoko-apk-verify.log || true)
+          apk_fingerprint=$(printf '%s\n' "$apk_cert_lines" |
+            grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' |
+            head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]' || true)
           if [[ -z "$apk_fingerprint" || "$apk_fingerprint" != "$expected" ]]; then
-            echo "::error::APK certificate verification failed after explicit signing."
+            echo "::error::APK certificate verification did not match the configured Play upload key."
             echo "Expected SHA-256: $expected"
             echo "Actual SHA-256: ${apk_fingerprint:-NOT_FOUND}"
             exit 1
