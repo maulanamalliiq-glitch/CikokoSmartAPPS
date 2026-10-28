@@ -28,6 +28,7 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
   final reason=TextEditingController();
   final Set<String> selected={};
   final Map<String,String> replacementPhotos={};
+  final Map<String,String> witnessPhotos={};
   bool submitting=false;
   double progress=0;
   @override void initState(){super.initState();reload();}
@@ -63,6 +64,27 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
       selected.clear();reason.clear();widget.onChanged?.call();reload();message('Permintaan perbaikan dikirim ke warga.');
     }catch(e){message('$e',error:true);}finally{if(mounted)setState(()=>submitting=false);}
   }
+  Future<void> uploadMissingWitnesses()async{
+    final applicationId=resolvedApplicationId??widget.id;
+    if(applicationId<=0){message('Nomor pengajuan belum tersedia.',error:true);return;}
+    final info=await request;
+    final docs=List<dynamic>.from(info['documents']??[]);
+    final existing=docs.map((d)=>'${d['requirement_code']??''}').toSet();
+    final missing=['saksi_1','saksi_2'].where((c)=>!existing.contains(c)).toList();
+    if(missing.isEmpty){message('KTP kedua saksi sudah tersimpan.');reload();return;}
+    if(missing.any((code)=>!witnessPhotos.containsKey(code))){
+      message('Pilih kedua foto KTP saksi yang belum tersedia.',error:true);return;
+    }
+    setState((){submitting=true;progress=0;});
+    try{
+      await widget.api.upload('waris_add_witnesses',{'application_id':'$applicationId'},
+        {for(final code in missing)code:[witnessPhotos[code]!] },
+        progress:(p){if(mounted)setState(()=>progress=p);});
+      witnessPhotos.clear();widget.onChanged?.call();reload();
+      message('KTP saksi berhasil ditambahkan tanpa mengganti nomor pengajuan.');
+    }catch(e){message(cikokoFormalMessage(e),error:true);}
+    finally{if(mounted)setState(()=>submitting=false);}
+  }
   Future<void> uploadCorrections()async{
     if(replacementPhotos.isEmpty){message('Pilih dokumen yang akan diunggah ulang.',error:true);return;}
     final id=resolvedApplicationId??widget.id;
@@ -93,6 +115,14 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
       final isWaris=widget.kind=='waris';
       final canReview=data['can_review']==true;
       final isOwner=data['is_owner']==true&&status=='revisi';
+      final isExistingOwner=data['is_owner']==true;
+      final uploadedCodes=docs.map((d)=>'${d['requirement_code']??''}').toSet();
+      final missingWitnesses=<String,String>{
+        if(!uploadedCodes.contains('saksi_1'))'saksi_1':'KTP Saksi Pertama',
+        if(!uploadedCodes.contains('saksi_2'))'saksi_2':'KTP Saksi Kedua',
+      };
+      final pendingCodes=pending.map((p)=>'${p['requirement_code']??''}').toSet();
+      final witnessInCorrection=missingWitnesses.keys.any(pendingCodes.contains);
       final stages=['masuk','proses','selesai'];
       final step=status=='selesai'?3:status=='masuk'?1:2;
       return ListView(padding:const EdgeInsets.fromLTRB(16,10,16,24),children:[
@@ -124,6 +154,19 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
             subtitle:Text(v(f['original_name']),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10)),
             onTap:()=>showDialog<void>(context:context,builder:(c)=>Dialog(child:Column(mainAxisSize:MainAxisSize.min,children:[IconButton(onPressed:()=>Navigator.pop(c),icon:const Icon(Icons.close)),InteractiveViewer(child:Image.network('${CikokoApi.root}?action=waris_attachment&id=${f['id']}',headers:{'Authorization':'Bearer ${widget.api.token}'},fit:BoxFit.contain))]))),
           )),
+          if(isExistingOwner&&status!='ditolak'&&missingWitnesses.isNotEmpty&&!witnessInCorrection)...[
+            section('Lengkapi Dua Orang Saksi'),
+            const Text('KTP saksi yang belum ada dapat ditambahkan ke pengajuan ini tanpa membuat permohonan baru.',
+              style:TextStyle(fontSize:12,color:Colors.blueGrey)),
+            for(final entry in missingWitnesses.entries)CorrectionPhotoPicker(
+              key:ValueKey('missing_${entry.key}'),label:entry.value,
+              onSelected:(path)=>witnessPhotos[entry.key]=path),
+            if(submitting)...[LinearProgressIndicator(value:progress),
+              Text('Mengunggah ${(progress*100).round()}%')],
+            FilledButton.icon(onPressed:submitting?null:uploadMissingWitnesses,
+              icon:const Icon(Icons.upload_file_outlined),
+              label:const Text('Tambahkan KTP Saksi ke Pengajuan Ini')),
+          ],
           section('Kelengkapan Dokumen'),
           if(corrections.isEmpty)const Text('Belum ada permintaan perbaikan dokumen.',style:TextStyle(fontSize:12,color:Colors.blueGrey)),
           for(final p in corrections)Card(color:p['resolved_at']==null?Colors.orange.shade50:Colors.green.shade50,child:ListTile(dense:true,leading:Icon(p['resolved_at']==null?Icons.warning_amber_rounded:Icons.check_circle_outline,color:p['resolved_at']==null?Colors.orange:Colors.green),title:Text('${labels[p['requirement_code']]??p['requirement_code']}'),subtitle:Text('${p['reason']}\n${p['resolved_at']==null?'Belum diperbaiki':'Foto perbaikan telah dikirim'}'))),
