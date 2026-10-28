@@ -13,6 +13,7 @@ import 'push.dart';
 import 'role_catalog.dart';
 import 'structured_drawer.dart';
 import 'integrated_services.dart';
+import 'waris_requirements.dart';
 import 'admin_accounts.dart';
 import 'mobile_editor.dart';
 import 'permission_editor.dart';
@@ -159,7 +160,7 @@ class _HomeState extends State<HomePage> {
   String get roleLabel=>role=='guest'?'Portal Publik':(roleNames[role]??role.toUpperCase());
   bool get isStaff=>role!='warga'&&role!='guest';
   bool get isAdmin=>capabilities['reports:view']==true;
-  List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
+  List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['waris_requirements']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
   @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh,onOpen:(message){
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
@@ -214,6 +215,11 @@ class _HomeState extends State<HomePage> {
     if(loggedIn==true&&mounted){widget.onAuthenticated();}
   }
   void switchTo(String s) {
+    if(s=='Persyaratan Ahli Waris'){
+      showCikokoWarisRequirements(context,
+        onApply:(){if(mounted)switchTo('Surat Ahli Waris');});
+      return;
+    }
     if(guest&&_needsLogin(s)){openLogin();return;}
     setState(() {
       section=s;
@@ -237,7 +243,7 @@ class _HomeState extends State<HomePage> {
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
-    'Surat Ahli Waris'=>Icons.description_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
+    'Surat Ahli Waris'=>Icons.description_outlined,'Persyaratan Ahli Waris'=>Icons.fact_check_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
     'Surat Wilayah'=>Icons.fact_check_outlined,'Wilayah Ketua RT/RW'=>Icons.location_city_outlined,'Laporan Jumantik'=>Icons.bug_report_outlined,
     'Jumantik Warga'=>Icons.bug_report_outlined,'Laporan Kegiatan'=>Icons.assignment_outlined,'Laporan Kegiatan Admin'=>Icons.assignment_turned_in_outlined,'Verifikasi Ahli Waris'=>Icons.verified_user_outlined,
     'Laporan LPJ RT'=>Icons.receipt_long_outlined,'Laporan LPJ RW'=>Icons.receipt_long_outlined,'Laporan LPJ LMK'=>Icons.receipt_long_outlined,
@@ -373,8 +379,7 @@ class _HomeState extends State<HomePage> {
       color:const Color(0xffe9f1fa),borderRadius:BorderRadius.circular(11),
       child:ListTile(dense:true,contentPadding:const EdgeInsets.symmetric(horizontal:10),
         leading:const Icon(Icons.lock_open_outlined,color:blue,size:20),
-        title:const Text('Layanan publik tanpa login',style:TextStyle(fontSize:11.5,fontWeight:FontWeight.w700)),
-        subtitle:const Text('Login hanya saat mengajukan surat atau laporan.',style:TextStyle(fontSize:10.5)),
+        title:const Text('Silakan login untuk menikmati lebih banyak layanan.',style:TextStyle(fontSize:11.5,fontWeight:FontWeight.w700)),
         trailing:TextButton(onPressed:openLogin,child:const Text('Masuk',style:TextStyle(fontSize:11))),
       ),
     )),
