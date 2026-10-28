@@ -17,7 +17,8 @@ void main() {
     final letters = groups.singleWhere((g) => g.id == 'surat');
     final staff = groups.singleWhere((g) => g.id == 'petugas');
 
-    expect(report.features.any((f) => f.route == 'Verifikasi Kegiatan'), isTrue);
+    expect(report.features.any((f) => f.route == 'Laporan Kegiatan Admin'), isTrue);
+    expect(report.features.any((f) => f.route == 'Laporan LPJ RT'), isTrue);
     expect(letters.features.any((f) => f.route == 'Verifikasi Ahli Waris'), isTrue);
     expect(staff.features.any((f) => f.route == 'Hak Akses Role'), isTrue);
     expect(report.features.any((f) => f.route == 'Verifikasi Ahli Waris'), isFalse);
@@ -43,7 +44,7 @@ void main() {
 
   testWidgets('Laporan Wilayah bisa dibuka dan ditutup', (tester) async {
     final modules = [
-      const RoleFeature('Laporan Kegiatan','Periksa kegiatan','Verifikasi Kegiatan'),
+      const RoleFeature('Laporan Kegiatan','Periksa kegiatan','Laporan Kegiatan Admin'),
       const RoleFeature('Verifikasi Ahli Waris','Periksa surat','Verifikasi Ahli Waris'),
     ];
     String? opened;
@@ -69,7 +70,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Laporan Kegiatan'), findsOneWidget);
     await tester.tap(find.text('Laporan Kegiatan'));
-    expect(opened, 'Verifikasi Kegiatan');
+    expect(opened, 'Laporan Kegiatan Admin');
     await tester.tap(find.text('Laporan Wilayah'));
     await tester.pumpAndSettle();
     expect(find.text('Laporan Kegiatan'), findsNothing);
