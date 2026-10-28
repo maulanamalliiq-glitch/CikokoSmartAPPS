@@ -20,7 +20,7 @@ function cikoko_v2525_reference_from_input(array $b):string {
   $v=$b[$field]??null;
   if(!is_scalar($v))continue;
   $ref=trim((string)$v);
-  if(str_starts_with($ref,'waris:'))$ref=substr($ref,6);
+  if(substr($ref,0,6)==='waris:')$ref=substr($ref,6);
   if(preg_match('/^AW-[A-Z0-9-]{6,80}$/i',$ref))return $ref;
  }
  return '';
@@ -29,7 +29,7 @@ function cikoko_v2525_identifier(PDO $db,$raw,string $kind):int {
  if(!is_scalar($raw))return 0;
  $s=trim((string)$raw);
  if(ctype_digit($s)&&(int)$s>0)return (int)$s;
- if(str_starts_with($s,'waris:'))$s=substr($s,6);
+ if(substr($s,0,6)==='waris:')$s=substr($s,6);
  if($kind==='waris'&&preg_match('/^AW-[A-Z0-9-]{6,80}$/i',$s)){
   $q=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=? LIMIT 1');
   $q->execute([$s]);return (int)($q->fetchColumn()?:0);
