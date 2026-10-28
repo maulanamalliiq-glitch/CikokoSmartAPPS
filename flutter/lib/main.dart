@@ -35,9 +35,11 @@ class CikokoApp extends StatelessWidget {
  builder:(ctx,child)=>Stack(children:[
    if(child!=null)child,
    ValueListenableBuilder<double?>(valueListenable:CikokoRequestProgress.value,
-     builder:(context,value,_)=>value==null?const SizedBox.shrink():Positioned(
-       top:MediaQuery.paddingOf(context).top+6,left:18,right:18,
-       child:Material(elevation:5,borderRadius:BorderRadius.circular(12),
+     builder:(context,value,_)=>value==null?const SizedBox.shrink():Align(
+       alignment:Alignment.topCenter,
+       child:Padding(
+         padding:EdgeInsets.fromLTRB(18,MediaQuery.paddingOf(context).top+6,18,0),
+         child:Material(elevation:5,borderRadius:BorderRadius.circular(12),
          color:Colors.white,child:Padding(padding:const EdgeInsets.symmetric(horizontal:13,vertical:10),
            child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
              Row(children:[
@@ -51,7 +53,7 @@ class CikokoApp extends StatelessWidget {
              const SizedBox(height:7),
              LinearProgressIndicator(value:value>0?value:null,minHeight:4,
                  borderRadius:BorderRadius.circular(5)),
-           ])))),
+           ]))))),
      )),
  ]),theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:pale,colorScheme:ColorScheme.fromSeed(seedColor:blue),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:navy),inputDecorationTheme:InputDecorationTheme(isDense:true,filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),cardTheme:CardThemeData(color:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),textTheme:const TextTheme(titleLarge:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:navy),titleMedium:TextStyle(fontSize:15,fontWeight:FontWeight.w700,color:navy),bodyMedium:TextStyle(fontSize:13.5)) ),home:const Entry());
 }
