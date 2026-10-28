@@ -39,29 +39,80 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2500-TEST-APK
+          name: Cikoko-v2532-TEST-APK
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
-      - name: Build release AAB and APK for secure offline signing
+      - name: Restore Play Store upload key when configured
+        env:
+          CIKOKO_KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [[ -z "$CIKOKO_KEYSTORE_B64" || -z "$CIKOKO_STORE_PASSWORD" || -z "$CIKOKO_KEY_PASSWORD" ]]; then
+            echo "CIKOKO_SIGN_READY=false" >> "$GITHUB_ENV"
+            echo "::warning::Upload signing secrets missing. Play Store AAB cannot be produced."
+            exit 0
+          fi
+          printf '%s' "$CIKOKO_KEYSTORE_B64" | base64 --decode > flutter/android/cikoko_upload.jks
+          test -s flutter/android/cikoko_upload.jks
+          keytool -list -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey >/dev/null
+          echo "CIKOKO_SIGN_READY=true" >> "$GITHUB_ENV"
+      - name: Verify upload certificate fingerprint
+        if: env.CIKOKO_SIGN_READY == 'true'
+        env:
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+        shell: bash
+        run: |
+          actual=$(keytool -list -v -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey | grep -m1 'SHA256:' | sed 's/.*SHA256: //' | tr -d ':' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Upload certificate differs from previously documented certificate. Stopping release for Play safety."
+            exit 1
+          fi
+      - name: Build Play-signed AAB and ARM64 APK
+        if: env.CIKOKO_SIGN_READY == 'true'
         working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
         run: |
           flutter build appbundle --release
           flutter build apk --release --split-per-abi --target-platform android-arm64
           test -s build/app/outputs/bundle/release/app-release.aab
           test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-      - name: Stage unsigned release outputs and Android signer
-        run: |
-          mkdir -p flutter/build/offline-release
-          cp flutter/build/app/outputs/bundle/release/app-release.aab flutter/build/offline-release/Cikoko-v2500-unsigned.aab
-          cp flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk flutter/build/offline-release/Cikoko-v2500-arm64-unsigned.apk
-          SIGNER=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' -type f | sort -V | tail -n 1)
-          test -n "$SIGNER"
-          cp "$SIGNER" flutter/build/offline-release/apksigner.jar
-      - name: Upload offline signing artifacts (unsigned, not for Play Store)
+          jarsigner -verify build/app/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+      - name: Upload Play Store signed AAB and release APK
+        if: env.CIKOKO_SIGN_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2500-OFFLINE-SIGNING-APK-AAB
+          name: Cikoko-v2532-PLAY-SIGNED-APK-AAB
+          path: |
+            flutter/build/app/outputs/bundle/release/app-release.aab
+            flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Build unsigned AAB for offline signing if secrets unavailable
+        if: env.CIKOKO_SIGN_READY != 'true'
+        working-directory: flutter
+        run: |
+          flutter build appbundle --release
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          mkdir -p build/offline-release
+          cp build/app/outputs/bundle/release/app-release.aab build/offline-release/Cikoko-v2532-NOT-FOR-PLAY.aab
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/offline-release/Cikoko-v2532-arm64-unsigned.apk
+      - name: Upload unsigned offline signing files (NOT FOR PLAY)
+        if: env.CIKOKO_SIGN_READY != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2532-OFFLINE-SIGNING-NOT-FOR-PLAY
           path: flutter/build/offline-release/
           if-no-files-found: error
           retention-days: 7
+      - name: Clean up private upload key
+        if: always()
+        run: rm -f flutter/android/cikoko_upload.jks
