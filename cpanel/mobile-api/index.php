@@ -52,6 +52,10 @@ if($action==='register'&&$method==='POST'){
  if(!db_write('portal_users',$users))mobile_error('Data akun gagal disimpan',503);
  mobile_json(['ok'=>true,'message'=>'Akun sudah aktif']);
 }
+if($action==='public_letter_status' && $method==='GET'){
+ require_once __DIR__.'/public_letter_status_v2536.php';
+ cikoko_public_letter_status_v2536();
+}
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
