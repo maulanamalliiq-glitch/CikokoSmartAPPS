@@ -139,8 +139,8 @@ Future<void> showPublicLetterPie(BuildContext context,CikokoApi api){
        TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Tutup'))]);
      if(!s.hasData)return const SizedBox(height:200,child:Center(child:CircularProgressIndicator()));
      final raw=Map<String,dynamic>.from(s.data!['counts'] as Map? ??{});
-     int num(String k){final v=raw[k];return math.max(0,v is num?v.toInt():int.tryParse(v.toString())??0);}
-     final masuk=num('masuk'),proses=num('proses'),selesai=num('selesai');
+     int bucketCount(String k){final v=raw[k];return math.max(0,v is num?v.toInt():int.tryParse(v.toString())??0);}
+     final masuk=bucketCount('masuk'),proses=bucketCount('proses'),selesai=bucketCount('selesai');
      final total=masuk+proses+selesai;
      final groups=[
       ('masuk','Surat Masuk',masuk,blue),
