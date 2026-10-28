@@ -57,7 +57,7 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['bendahara_manage','accounts_manage','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['bendahara_manage','accounts_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
