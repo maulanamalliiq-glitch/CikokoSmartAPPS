@@ -9,6 +9,19 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
+
+// Tampilkan hanya tanggal (tanpa jam) dari nilai created_at.
+String cikokoDateOnly(dynamic raw){
+  final s='$raw';
+  if(s.length>=10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(s)){
+    final y=s.substring(0,4); final m=int.tryParse(s.substring(5,7))??0; final d=s.substring(8,10);
+    const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    if(m>=1&&m<=12) return '$d ${months[m-1]} $y';
+    return s.substring(0,10);
+  }
+  return s;
+}
+
 import 'push.dart';
 import 'role_catalog.dart';
 import 'structured_drawer.dart';
@@ -1011,7 +1024,7 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
   for(final r in rows)Card(child:ListTile(
     leading:const Icon(Icons.fact_check_outlined,color:blue),
     title:Text('${r['title']??r['reference']??'Pengajuan'}',style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),
-    subtitle:Text('${r['status']} • ${r['name']??''}'+'\nTanggal: '+(r['created_at']??'-').toString(),style:const TextStyle(fontSize:11)),
+    subtitle:Text('${r['status']} • ${r['name']??''}'+'\nTanggal: '+cikokoDateOnly(r['created_at']??'-'),style:const TextStyle(fontSize:11)),
     onTap:(){
       final row=Map<String,dynamic>.from(r);
       final id=cikokoPositiveId(row);

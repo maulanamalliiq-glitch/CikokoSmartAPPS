@@ -4,6 +4,19 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'api.dart';
 
+// Tampilkan hanya tanggal (tanpa jam) dari nilai created_at.
+String cikokoDateOnly(dynamic raw){
+  final s='$raw';
+  if(s.length>=10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(s)){
+    final y=s.substring(0,4); final m=int.tryParse(s.substring(5,7))??0; final d=s.substring(8,10);
+    const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    if(m>=1&&m<=12) return '$d ${months[m-1]} $y';
+    return s.substring(0,10);
+  }
+  return s;
+}
+
+
 // Bottom sheet preview: only details returned by authenticated PHP endpoint.
 Future<void> showCikokoDocument(BuildContext context, CikokoApi api, {required int id, required String kind, String reference='', VoidCallback? onChanged}) {
   return showModalBottomSheet<void>(
@@ -144,7 +157,7 @@ class _DocumentDetailState extends State<DocumentDetailSheet> {
           pair('Pelapor',detail['user_name']),pair('Jenis Laporan',detail['kind']),pair('Alamat',detail['address']),pair('Keterangan',detail['notes']),
         ],
         section('Riwayat Progres'),
-        for(final t in timeline)Card(margin:const EdgeInsets.only(bottom:7),child:ListTile(dense:true,leading:const Icon(Icons.timeline,color:Colors.blue),title:Text(v(t['new_status']).toUpperCase(),style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12)),subtitle:Text('${v(t['created_at'])}\n${v(t['notes'])}',style:const TextStyle(fontSize:11)))),
+        for(final t in timeline)Card(margin:const EdgeInsets.only(bottom:7),child:ListTile(dense:true,leading:const Icon(Icons.timeline,color:Colors.blue),title:Text(v(t['new_status']).toUpperCase(),style:const TextStyle(fontWeight:FontWeight.w700,fontSize:12)),subtitle:Text('${cikokoDateOnly(t['created_at'])}\n${v(t['notes']).replaceAll(RegExp(r' 00:00:00'),'')}',style:const TextStyle(fontSize:11)))),
         if(timeline.isEmpty)const Text('Belum ada riwayat perubahan status.'),
         if(isWaris)...[
           section('Dokumen yang Dikirim'),
