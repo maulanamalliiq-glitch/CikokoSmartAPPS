@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
+const String cikokoPlayStoreUrl=''; // TODO: isi URL Play Store aplikasi Cikoko
 
 void civicMessage(BuildContext context,String message){
  if(!context.mounted)return;
@@ -150,8 +151,37 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
  @override void dispose(){comment.dispose();super.dispose();}
  void reload(){comments=widget.api.callWithQuery('v211_comments',{'id':id});}
  Future<void> send()async{if(widget.api.token==null){civicMessage(context,'Silakan masuk ke akun Anda untuk memberikan komentar.');return;}if(comment.text.trim().isEmpty)return;try{await widget.api.call('v211_comment_add',body:{'news_id':id,'body':comment.text.trim(),'parent_id':replyTo??0});if(mounted){comment.clear();setState((){replyTo=null;reload();});civicMessage(context,'Komentar telah dikirim.');}}catch(e){if(mounted)civicMessage(context,'Komentar belum dapat diterima. Mohon gunakan bahasa yang santun.');}}
- Future<void> share(String service)async{final url='https://datawebs.my.id/berita-galeri.php?id=$id';if(service=='copy'||service=='instagram'){await Clipboard.setData(ClipboardData(text:url));if(mounted)civicMessage(context,'Tautan berita berhasil disalin.');return;}
- final u=service=='wa'?'https://wa.me/?text=${Uri.encodeComponent(url)}':'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(url)}';await launchUrl(Uri.parse(u),mode:LaunchMode.externalApplication);}
+ Future<void> share(String service)async{
+  final urlBerita='https://datawebs.my.id/berita-galeri.php?id=$id';
+  Map<String,dynamic> item;
+  try{
+    final res=await article;
+    item=Map<String,dynamic>.from(res['item']??widget.preview);
+  }catch(_){
+    item=Map<String,dynamic>.from(widget.preview);
+  }
+  final judul='${item['title']??widget.preview['title']??'Berita Kelurahan Cikoko'}'.trim();
+  var ringkasan='${item['body']??widget.preview['body']??''}'.replaceAll(RegExp(r'<[^>]*>'),' ').replaceAll('&nbsp;',' ').replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#039;',"'").replaceAll(RegExp(r'\s+'),' ').trim();
+  if(ringkasan.length>200){ringkasan='${ringkasan.substring(0,200).trim()}…';}
+  final buf=StringBuffer();
+  buf.writeln('*$judul*');
+  if(ringkasan.isNotEmpty){buf.writeln();buf.writeln(ringkasan);}
+  buf.writeln();
+  buf.writeln('Baca selengkapnya: $urlBerita');
+  if(cikokoPlayStoreUrl.isNotEmpty){buf.writeln();buf.writeln('Unduh aplikasi Cikoko di Play Store: $cikokoPlayStoreUrl');}
+  final teksKaya=buf.toString().trim();
+  if(service=='copy'||service=='instagram'){
+    await Clipboard.setData(ClipboardData(text:teksKaya));
+    if(mounted)civicMessage(context,'Tautan dan cuplikan berita disalin.');
+    return;
+  }
+  if(service=='wa'){
+    await launchUrl(Uri.parse('https://wa.me/?text=${Uri.encodeComponent(teksKaya)}'),mode:LaunchMode.externalApplication);
+  }else{
+    final quote=Uri.encodeComponent(judul);
+    await launchUrl(Uri.parse('https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(urlBerita)}&quote=$quote'),mode:LaunchMode.externalApplication);
+  }
+ }
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
   if(photos.isNotEmpty)...[
     SizedBox(

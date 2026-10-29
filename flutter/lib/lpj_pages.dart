@@ -17,6 +17,18 @@ const lpjDuties = <String,String>{
   'lpj_lmk_a': 'lmk',
   'lpj_lmk_b': 'lmk',
 };
+const lpjReferenceAmount = <String,int>{
+  'lpj_rt': 2500000,
+  'lpj_rw': 3125000,
+  'lpj_lmk_a': 1000000,
+  'lpj_lmk_b': 1500000,
+};
+const lpjReferenceLabel = <String,String>{
+  'lpj_rt': 'RT: Rp 2.500.000',
+  'lpj_rw': 'RW: Rp 3.125.000',
+  'lpj_lmk_a': 'LMK Modul A: Rp 1.000.000',
+  'lpj_lmk_b': 'LMK Modul B: Rp 1.500.000',
+};
 
 class LpjLmkMenu extends StatelessWidget {
   final void Function(String route) onOpen;
@@ -143,7 +155,7 @@ class _LpjPageState extends State<LpjPage> {
   Text(lpjLabels[widget.kind]??'LPJ',style:Theme.of(context).textTheme.titleLarge),
   const SizedBox(height:4),Text('Wilayah dari akun: '+region),
   const SizedBox(height:16),
-  const Text('Sesuai format LPJ RT/RW Kelurahan Cikoko • A4 potret',style:TextStyle(fontWeight:FontWeight.w600)),
+  Text(widget.kind.startsWith('lpj_lmk')?'Sesuai format LPJ LMK Kelurahan Cikoko • A4 potret':'Sesuai format LPJ RT/RW Kelurahan Cikoko • A4 potret',style:const TextStyle(fontWeight:FontWeight.w600)),
   const SizedBox(height:12),
   TextField(controller:period,decoration:const InputDecoration(labelText:'BULAN & TAHUN (YYYY-MM)',helperText:'Contoh: 2026-01 = JANUARI 2026',border:OutlineInputBorder())),
   const SizedBox(height:12),
@@ -153,9 +165,9 @@ class _LpjPageState extends State<LpjPage> {
   const Text('II. PENERIMAAN UANG PENYELENGGARAAN BULAN INI',style:TextStyle(fontWeight:FontWeight.bold)),
   const SizedBox(height:8),
   moneyInput('Penerimaan bulan ini',income),
-  Text('Nominal dalam contoh format '+(widget.kind=='lpj_rt'?'RT: Rp 2.500.000':'RW: Rp 3.125.000')+'. Pastikan sesuai penerimaan sebenarnya.',style:Theme.of(context).textTheme.bodySmall),
+  Text('Nominal dalam contoh format '+(lpjReferenceLabel[widget.kind]??'sesuai ketentuan wilayah')+'. Pastikan sesuai penerimaan sebenarnya.',style:Theme.of(context).textTheme.bodySmall),
   Align(alignment:Alignment.centerLeft,child:TextButton.icon(
-   onPressed:()=>setState(()=>income.text=widget.kind=='lpj_rt'?'2500000':'3125000'),
+   onPressed:()=>setState(()=>income.text=lpjReferenceAmount[widget.kind]?.toString()??income.text),
    icon:const Icon(Icons.edit_note_outlined),label:const Text('Isi nominal acuan (dapat diubah)'))),
   const SizedBox(height:12),
   financialSummary(),
@@ -174,7 +186,7 @@ class _LpjPageState extends State<LpjPage> {
   const SizedBox(height:16),
   financialSummary(),
   const SizedBox(height:10),
-  const Text('PDF cetak memuat kolom tanda tangan Ketua RT/RW dan Bendahara Pengeluaran serta tembusan Lurah. Pengesahan tetap melalui PIN petugas berwenang.'),
+  Text(widget.kind.startsWith('lpj_lmk')?'PDF cetak memuat kolom tanda tangan Anggota LMK. Pengesahan tetap melalui PIN petugas berwenang.':'PDF cetak memuat kolom tanda tangan Ketua RT/RW dan Bendahara Pengeluaran serta tembusan Lurah. Pengesahan tetap melalui PIN petugas berwenang.'),
   const SizedBox(height:12),
   FilledButton.icon(onPressed:sending?null:submit,icon:const Icon(Icons.send_outlined),label:Text(sending?'Mengirim...':'Kirim LPJ')),
   const SizedBox(height:6),
@@ -196,7 +208,7 @@ class _LpjPageState extends State<LpjPage> {
    if(canCreate)FilledButton.icon(onPressed:()=>setState(()=>creating=true),icon:const Icon(Icons.add_circle_outline),label:const Text('Buat LPJ baru'))
    else if(scope?['duty']=='admin')
      const Card(child:ListTile(leading:Icon(Icons.visibility_outlined),title:Text('Pemantauan LPJ • hanya baca'),subtitle:Text('Admin Utama melihat LPJ seluruh wilayah. Hanya Bendahara berwenang mengirim, dan Ketua/Bendahara terkait yang menyetujui.')))
-   else const Card(child:ListTile(leading:Icon(Icons.verified_user_outlined),title:Text('LPJ disusun oleh Bendahara'),subtitle:Text('Ketua RT/RW memeriksa dan menandatangani LPJ yang masuk sesuai wilayah.'))),
+   else Card(child:ListTile(leading:const Icon(Icons.verified_user_outlined),title:const Text('LPJ disusun oleh Bendahara'),subtitle:Text(widget.kind.startsWith('lpj_lmk')?'Anggota LMK memeriksa dan menandatangani LPJ yang masuk sesuai ketentuan.':'Ketua RT/RW memeriksa dan menandatangani LPJ yang masuk sesuai wilayah.'))),
    const SizedBox(height:16),const Text('Daftar dan status LPJ',style:TextStyle(fontSize:16,fontWeight:FontWeight.w700)),
    if(records.isEmpty)const Card(child:ListTile(title:Text('Belum ada LPJ'),subtitle:Text('LPJ yang dikirim petugas berwenang akan tampil di sini.'))),
    for(final doc in records)
@@ -238,8 +250,8 @@ class _LpjDetailPageState extends State<LpjDetailPage>{
   finally{if(mounted)setState(()=>loading=false);}
  }
  String get expectedSigner=>switch((doc?['status']??'').toString()){
-  'menunggu_ketua'=>widget.kind=='lpj_rt'?'rt':'rw',
-  'menunggu_bendahara'=>widget.kind=='lpj_rt'?'bendahara_rt':'bendahara_rw',
+  'menunggu_ketua'=>widget.kind=='lpj_rt'?'rt':widget.kind=='lpj_rw'?'rw':'lmk',
+  'menunggu_bendahara'=>widget.kind=='lpj_rt'?'bendahara_rt':widget.kind=='lpj_rw'?'bendahara_rw':'lmk',
   'menunggu_lmk'=>'lmk',
   _=>'',
  };
