@@ -981,7 +981,7 @@ class _AdminReportsState extends State<AdminReports>{List<dynamic> rows=[];bool 
    title:const Text('Ubah Tanggal Pengajuan'),
    content:Text('Nomor: '+(row['reference']??'-').toString()+
     '\nTanggal sebelumnya: '+oldDate+'\nTanggal baru: '+date+
-    '\n\nTanggal pengajuan surat ini akan diubah. Riwayat progres (progres) turut diperbarui otomatis agar tanggal masuk sesuai. Status surat tetap dipertahankan.'),
+    '\n\nTanggal pengajuan surat ini akan diubah. SELURUH tanggal di Riwayat Progres (progres) digeser otomatis mengikuti tanggal pengajuan baru. Status surat tetap dipertahankan.'),
    actions:[
     TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Batal')),
     FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Simpan')),
