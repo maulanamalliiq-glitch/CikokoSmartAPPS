@@ -14,6 +14,18 @@ String cikokoFormalMessage(Object? error){
   }
   return msg;
 }
+
+// Tampilkan tanggal format Indonesia (09 Agu 2026), tanpa jam.
+String cikokoDateOnly(dynamic raw){
+  final s='$raw';
+  if(s.length>=10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(s)){
+    final y=s.substring(0,4); final m=int.tryParse(s.substring(5,7))??0; final d=s.substring(8,10);
+    const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    if(m>=1&&m<=12) return '$d ${months[m-1]} $y';
+    return s.substring(0,10);
+  }
+  return s;
+}
 class CikokoRequestProgress {
   static final ValueNotifier<double?> value=ValueNotifier<double?>(null);
   static int _current=0;
