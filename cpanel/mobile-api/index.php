@@ -228,4 +228,25 @@ if($action==='status'&&$method==='POST'){
  }
  if($kind==='waris'){waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Status Ahli Waris: '.ucfirst($status),'Periksa rincian dan progres surat Anda.','personal',(string)$owner);}else{mobile_emit('progres_surat','Status permohonan: '.ucfirst($status),'Periksa rincian permohonan pada aplikasi','personal',(string)$owner);}mobile_json(['ok'=>true]);
 }
+if($action==='admin_waris_date'&&$method==='POST'){
+ mobile_need($u,'reports:verify');
+ $b=mobile_body();if(!$b && !empty($_POST))$b=$_POST;
+ $id=(int)($b['id']??0);$date=trim((string)($b['date']??''));
+ if($id<1)mobile_error('ID permohonan tidak valid.',422);
+ if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4))||strtotime($date)>time()+86400)mobile_error('Format tanggal tidak valid atau masih di masa depan.',422);
+ $db->beginTransaction();
+ try{
+  $st=$db->prepare('SELECT id,account_id,status,reference_no,created_at FROM aw_applications WHERE id=? FOR UPDATE');$st->execute([$id]);$app=$st->fetch(PDO::FETCH_ASSOC);if(!$app)throw new RuntimeException('Permohonan tidak ditemukan.');
+  $old=(string)($app['created_at']??'');$oldDate=strlen($old)>=10?substr($old,0,10):'';
+  if($oldDate===$date)throw new RuntimeException('Tanggal pengajuan tidak berubah.');
+  $time=(strlen($old)>=19?substr($old,11,8):'00:00:00');$newDt=$date.' '.$time;
+  $db->prepare('UPDATE aw_applications SET created_at=? WHERE id=?')->execute([$newDt,$id]);
+  $h=$db->prepare('SELECT id FROM aw_history WHERE application_id=? AND previous_status IS NULL ORDER BY id ASC LIMIT 1');$h->execute([$id]);$firstId=(int)$h->fetchColumn();
+  if($firstId>0)$db->prepare('UPDATE aw_history SET created_at=? WHERE id=?')->execute([$newDt,$firstId]);
+  $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES(?,?,?,?,?)')->execute([$id,$app['status'],$app['status'],$uid,'Tanggal pengajuan diubah admin: '.$oldDate.' → '.$date]);
+  $db->commit();
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();mobile_error($e->getMessage(),422);}
+ try{waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Tanggal pengajuan diperbarui','Tanggal pengajuan Ahli Waris diubah menjadi '.$date.'. Riwayat progres turut diperbarui otomatis.','personal',(string)$app['account_id']);}catch(Throwable $e){error_log('admin_waris_date notify: '.$e->getMessage());}
+ mobile_json(['ok'=>true,'message'=>'Tanggal pengajuan diperbarui. Riwayat progres (progres) turut disesuaikan otomatis.']);
+}
 mobile_error('Endpoint tidak tersedia',404);
