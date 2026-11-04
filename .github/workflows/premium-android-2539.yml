@@ -1,4 +1,4 @@
-name: Premium UI 2539 - Isolated Android QA Build
+name: Premium UI 2539 - Release ARM64 APK and Play AAB
 on:
   push:
     branches:
@@ -47,13 +47,6 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test
-      - name: Build installable debug APK for QA
-        working-directory: flutter
-        run: |
-          flutter build apk --debug
-          test -s build/app/outputs/flutter-apk/app-debug.apk
-          mkdir -p ../premium-outputs
-          cp build/app/outputs/flutter-apk/app-debug.apk ../premium-outputs/Cikoko-Premium-2539-TEST.apk
       - name: Verify Play signing secrets are configured
         env:
           CIKOKO_KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
@@ -104,6 +97,33 @@ jobs:
           expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
           test "$actual" = "$expected"
           cp "$aab" ../premium-outputs/Cikoko-Premium-2539-PLAY-SIGNED.aab
+      - name: Build compact ARM64 release APK
+        if: env.SIGN_READY == 'true'
+        working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          test -s "$apk"
+          output="../premium-outputs/Cikoko-Premium-2539-RELEASE-arm64.apk"
+          apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$apksigner" sign \
+            --ks "$CIKOKO_KEYSTORE_PATH" \
+            --ks-key-alias "$CIKOKO_KEY_ALIAS" \
+            --ks-pass env:CIKOKO_STORE_PASSWORD \
+            --key-pass env:CIKOKO_KEY_PASSWORD \
+            --out "$output" "$apk"
+          "$apksigner" verify --verbose --print-certs "$output" > /tmp/cikoko-premium-apk-signature.log
+          actual=$(grep -iE 'certificate.*SHA.?256' /tmp/cikoko-premium-apk-signature.log | grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          test "$actual" = "$expected"
+          ls -lh "$output"
       - name: Upload isolated QA outputs (never replace production release)
         if: always()
         uses: actions/upload-artifact@v4
