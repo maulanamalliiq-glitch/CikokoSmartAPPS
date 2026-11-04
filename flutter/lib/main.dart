@@ -1,3 +1,4 @@
+import 'design_system.dart';
 import 'profile_editor.dart';
 import 'dart:async';
 import 'dart:io';
@@ -28,8 +29,8 @@ import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
 import 'lpj_pages.dart';
 
-const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
-const sky=Color(0xffdceeff), ink=Color(0xff18334f);
+const navy=CikokoDesign.navy, blue=CikokoDesign.royal, pale=CikokoDesign.canvas;
+const sky=Color(0xffe6f0ff), ink=CikokoDesign.ink;
 final api=CikokoApi();
 void main(){WidgetsFlutterBinding.ensureInitialized();runApp(const CikokoApp());}
 class CikokoApp extends StatelessWidget {
@@ -58,7 +59,7 @@ class CikokoApp extends StatelessWidget {
                  borderRadius:BorderRadius.circular(5)),
            ]))))),
      ),
- ]),theme:ThemeData(useMaterial3:true,scaffoldBackgroundColor:pale,colorScheme:ColorScheme.fromSeed(seedColor:blue),appBarTheme:const AppBarTheme(backgroundColor:Colors.white,foregroundColor:navy),inputDecorationTheme:InputDecorationTheme(isDense:true,filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(12))),cardTheme:CardThemeData(color:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),textTheme:const TextTheme(titleLarge:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:navy),titleMedium:TextStyle(fontSize:15,fontWeight:FontWeight.w700,color:navy),bodyMedium:TextStyle(fontSize:13.5)) ),home:const Entry());
+ ]),theme:CikokoDesign.light,home:const Entry());
 }
 class Entry extends StatefulWidget{const Entry({super.key});@override State<Entry> createState()=>_EntryState();}
 class _EntryState extends State<Entry>{bool loading=true;@override void initState(){super.initState();api.restore().whenComplete((){if(mounted)setState(()=>loading=false);});}
