@@ -96,6 +96,7 @@ jobs:
           actual=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
           test "$actual" = "$expected"
+          mkdir -p ../premium-outputs
           cp "$aab" ../premium-outputs/Cikoko-Premium-2539-PLAY-SIGNED.aab
       - name: Build compact ARM64 release APK
         if: env.SIGN_READY == 'true'
@@ -111,6 +112,7 @@ jobs:
           flutter build apk --release --split-per-abi --target-platform android-arm64
           apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s "$apk"
+          mkdir -p ../premium-outputs
           output="../premium-outputs/Cikoko-Premium-2539-RELEASE-arm64.apk"
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$apksigner" sign \
