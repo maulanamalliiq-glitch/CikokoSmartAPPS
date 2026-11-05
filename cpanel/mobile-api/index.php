@@ -79,6 +79,65 @@ if($action==='me'){
   }
   mobile_json(['ok'=>true,'user'=>$profile]);
 }
+// Manajemen akun: hak eksklusif Admin Utama. Penghapusan akun tidak
+// menghapus laporan/arsip historis yang diperlukan untuk audit.
+if(in_array($action,['accounts_list','accounts_create','accounts_delete'],true)){
+ if((string)$u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengelola akun petugas.',403);
+ if($action==='accounts_list'&&$method==='GET'){
+  $items=[];
+  foreach(db_read('portal_users') as $entry){
+   if(($entry['role']??'')==='admin')continue;
+   $items[]=['id'=>(string)($entry['id']??''),'name'=>(string)($entry['name']??''),
+    'username'=>(string)($entry['username']??''),'role'=>(string)($entry['role']??''),
+    'rt'=>(string)($entry['rt']??''),'rw'=>(string)($entry['rw']??''),
+    'active'=>(bool)($entry['active']??false)];
+  }
+  mobile_json(['ok'=>true,'roles'=>portal_roles(),'items'=>$items]);
+ }
+ if($method!=='POST')mobile_error('Metode tidak diizinkan.',405);
+ $b=mobile_body();
+ if($action==='accounts_create'){
+  $name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);
+  $password=(string)($b['password']??'');$role=mobile_text($b['role']??'',50);
+  $allowed=portal_roles();unset($allowed['warga']);
+  if(!isset($allowed[$role])||mobile_strlen($name)<3||
+    !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||strlen($password)<8)
+   mobile_error('Periksa nama, username, password dan peran.',422);
+  $users=db_read('portal_users');
+  if(strcasecmp((string)(db_read('admin')['username']??''),$username)===0)
+   mobile_error('Username sudah digunakan.',409);
+  foreach($users as $entry)if(strcasecmp((string)($entry['username']??''),$username)===0)
+   mobile_error('Username sudah digunakan.',409);
+  $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,
+   'password_hash'=>password_hash($password,PASSWORD_DEFAULT),'role'=>$role,
+   'department'=>(string)$allowed[$role],'rt'=>mobile_text($b['rt']??'',12),
+   'rw'=>mobile_text($b['rw']??'',12),'phone'=>mobile_text($b['phone']??'',40),
+   'email'=>mobile_text($b['email']??'',160),'active'=>true,'created_at'=>date('c')];
+  if(!db_write('portal_users',$users))mobile_error('Akun gagal disimpan.',503);
+  mobile_json(['ok'=>true,'message'=>'Akun petugas berhasil dibuat.']);
+ }
+ if($action==='accounts_delete'){
+  $id=mobile_text($b['id']??'',80);
+  $confirmation=mobile_text($b['confirm_username']??'',100);
+  if($id===''||$confirmation==='')mobile_error('Konfirmasi akun diperlukan.',422);
+  if($id===(string)$uid||$id==='admin')mobile_error('Akun Admin Utama tidak dapat dihapus.',403);
+  $users=db_read('portal_users');$found=null;$remaining=[];
+  foreach($users as $entry){
+   if((string)($entry['id']??'')===$id){$found=$entry;continue;}
+   $remaining[]=$entry;
+  }
+  if(!$found)mobile_error('Akun tidak ditemukan atau sudah dihapus.',404);
+  if(($found['role']??'')==='admin'||($found['role']??'')==='warga')
+   mobile_error('Hanya akun petugas dan pegawai yang dapat dihapus.',403);
+  if(!hash_equals((string)($found['username']??''),$confirmation))
+   mobile_error('Username konfirmasi tidak sesuai.',422);
+  if(!db_write('portal_users',$remaining))mobile_error('Penghapusan akun gagal disimpan.',503);
+  // Putus semua sesi dan token notifikasi milik akun terhapus.
+  $db->prepare('DELETE FROM mobile_tokens WHERE user_id=?')->execute([$id]);
+  $db->prepare('DELETE FROM mobile_devices WHERE user_id=?')->execute([$id]);
+  mobile_json(['ok'=>true,'message'=>'Akun dihapus permanen. Riwayat laporan tetap tersimpan.']);
+ }
+}
 if($action==='profile_update'&&$method==='POST'){
   if($u['user_role']==='admin')mobile_error('Perubahan profil administrator dilakukan melalui panel resmi.',403);
   $b=mobile_body();$name=mobile_text($b['name']??'',120);$phone=mobile_text($b['phone']??'',30);
