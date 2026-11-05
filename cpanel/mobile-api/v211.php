@@ -81,7 +81,7 @@ try {
  }
  if($action==='v211_profile'){
   $row=v211_userrow($uid);
-  if(!$row)mobile_json(['ok'=>true,'user'=>['name'=>'Administrator','username'=>$u['username'],'email'=>'','phone'=>'','address'=>'','nik'=>'','has_photo'=>false]]);
+  if(!$row){$admin=db_read('admin');mobile_json(['ok'=>true,'user'=>['name'=>$admin['name']??'Administrator','username'=>$u['username'],'email'=>$admin['email']??'','phone'=>$admin['phone']??'','address'=>$admin['address']??'','nik'=>$admin['nik']??'','has_photo'=>!empty($admin['photo_name'])]]);}
   mobile_json(['ok'=>true,'user'=>['name'=>$row['name']??'','username'=>$row['username']??'','email'=>$row['email']??'','phone'=>$row['phone']??'','address'=>$row['address']??'','nik'=>$row['nik']??'','has_photo'=>!empty($row['photo_name'])]]);
  }
  if($action==='v211_profile_update'){
@@ -92,13 +92,17 @@ try {
   v211_saveuser($uid,$changes);mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui']);
  }
  if($action==='v211_profile_upload'){
-  v211_mustpost($method);$row=v211_userrow($uid);if(!$row)mobile_error('Foto profil administrator utama dikelola terpisah',403);
-  $file=mobile_file('photo',true);v211_saveuser($uid,['photo_name'=>$file]);
+  v211_mustpost($method);$row=v211_userrow($uid);
+  if(!$row){if($u['user_role']!=='admin')mobile_error('Akses ditolak',403);$row=db_read('admin');}
+  $file=mobile_file('photo',true);
+  if($uid==='admin'){ $admin=db_read('admin');$admin['photo_name']=$file;
+   if(!db_write('admin',$admin)){@unlink(__DIR__.'/private/'.basename($file));mobile_error('Foto gagal disimpan',503);}
+  }else{v211_saveuser($uid,['photo_name'=>$file]);}
   if(!empty($row['photo_name'])){ $old=basename((string)$row['photo_name']);if($old===$row['photo_name'])@unlink(__DIR__.'/private/'.$old); }
   mobile_json(['ok'=>true,'message'=>'Foto profil berhasil diperbarui']);
  }
  if($action==='v211_profile_photo'){
-  $row=v211_userrow($uid);$name=(string)($row['photo_name']??'');
+  $row=v211_userrow($uid);if(!$row&&$u['user_role']==='admin')$row=db_read('admin');$name=(string)($row['photo_name']??'');
   if(!$name||basename($name)!==$name||!is_file(__DIR__.'/private/'.$name))mobile_error('Foto profil belum tersedia',404);
   $full=__DIR__.'/private/'.$name;$mime=(new finfo(FILEINFO_MIME_TYPE))->file($full);
   if(!in_array($mime,['image/jpeg','image/png','image/webp'],true))mobile_error('Foto tidak tersedia',404);
