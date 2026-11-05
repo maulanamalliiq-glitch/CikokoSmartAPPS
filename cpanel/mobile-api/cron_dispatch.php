@@ -27,11 +27,15 @@ $cfg=json_decode(file_get_contents($sa),true);$project=$cfg['project_id']??'';$o
 if(!$oauth||!$project){fwrite(STDERR,"FCM authorization failed\n");exit(3);}
 $db=mobile_db();$events=$db->query('SELECT * FROM mobile_events WHERE dispatched_at IS NULL ORDER BY id LIMIT 20')->fetchAll();$ok=0;$fail=0;
 foreach($events as $e){
- $sql='SELECT fcm_token FROM mobile_devices';$params=[];
- if($e['audience']==='personal'){$sql.=' WHERE user_id=?';$params=[$e['recipient']];}
- if($e['audience']==='admin'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role="admin_kelurahan" AND expires_at>NOW())';}
- if($e['audience']==='staff'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role<>"warga" AND expires_at>NOW())';}
- $sql=str_replace('SELECT fcm_token','SELECT user_id,fcm_token',$sql);
+ // Push must have one explicit recipient. Global activity belongs in Beranda,
+ // not in private notifications or OS push banners.
+ if(($e['audience']??'')!=='personal'||trim((string)($e['recipient']??''))===''){
+  $db->prepare('UPDATE mobile_events SET dispatched_at=NOW() WHERE id=?')->execute([(int)$e['id']]);
+  $ok++;
+  continue;
+ }
+ $sql='SELECT user_id,fcm_token FROM mobile_devices WHERE user_id=?';
+ $params=[(string)$e['recipient']];
  $q=$db->prepare($sql);$q->execute($params);$devices=$q->fetchAll(PDO::FETCH_ASSOC);$sent=true;
  $seen=[];$read=$db->prepare('SELECT 1 FROM mobile_event_reads WHERE user_id=? AND event_id=? LIMIT 1');
  foreach($devices as $device){
