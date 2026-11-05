@@ -72,7 +72,8 @@ if($action==='me'){
     foreach(db_read('portal_users') as $entry){
       if((string)($entry['id']??'')===(string)$uid){
         $profile=['id'=>$uid,'name'=>(string)($entry['name']??''),'username'=>(string)($entry['username']??''),'role'=>$u['user_role'],
-          'phone'=>(string)($entry['phone']??''),'email'=>(string)($entry['email']??''),'address'=>(string)($entry['address']??''),'nik'=>(string)($entry['nik']??'')];
+          'phone'=>(string)($entry['phone']??''),'email'=>(string)($entry['email']??''),'address'=>(string)($entry['address']??''),'nik'=>(string)($entry['nik']??''),
+           'rt'=>(string)($entry['rt']??''),'rw'=>(string)($entry['rw']??'')];
         break;
       }
     }
