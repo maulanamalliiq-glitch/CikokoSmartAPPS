@@ -1,0 +1,85 @@
+name: Cikoko v2540 Backend Staging Overlay
+on:
+  push:
+    branches:
+      - fix/release-hardcheck-backend-20261106
+    paths:
+      - '.github/workflows/qa-backend-overlay-2540.yml'
+      - 'cpanel/mobile-api/**'
+      - 'cpanel/roles-lib.php'
+      - 'qa/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package-staging-overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and offline security contracts
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api qa -name '*.php' -print0 | xargs -0 -n1 php -l
+          php qa/account_isolation_contract_test.php
+          php qa/v212_contract_test.php
+          php qa/v2537_waris_witness_contract_test.php
+          php qa/release_endpoint_contract_test.php
+      - name: Package only API files, no citizen data or secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staging/mobile-api/private
+          for f in \
+            index.php bootstrap.php permissions.php v211.php \
+            integrated_services.php public_letter_status_v2536.php \
+            rt_rw.php rt_rw_pdf.php civic_api.php civic_pdf.php \
+            waris_stage.php waris_review.php waris_witnesses.php \
+            cron_dispatch.php; do
+            cp "cpanel/mobile-api/$f" "staging/mobile-api/$f"
+          done
+          cp cpanel/mobile-api/private/.htaccess staging/mobile-api/private/.htaccess
+          cp cpanel/roles-lib.php staging/roles-lib.php
+          cat > staging/BACA_DULU_STAGING_CIKOKO_V2540.txt <<'NOTES'
+          CIKOKO v2.5.40 / versionCode 2540 - BACKEND STAGING CANDIDATE
+
+          BUKAN PAKET DEPLOY OTOMATIS.
+          Jangan unggah langsung ke cPanel produksi tanpa backup dan tes.
+
+          Langkah:
+          1. Backup public_html, seluruh database MySQL, folder data pengguna,
+             dan dokumen di ahli-waris/private/uploads.
+          2. Bandingkan semua PHP dengan hosting saat ini. Jika hosting telah
+             dimodifikasi setelah clone GitHub, gabungkan perubahan selektif.
+          3. Ekstrak relatif ke public_html situs (sejajar roles-lib.php).
+             Jangan hapus folder/file yang tidak ada dalam ZIP.
+          4. Pastikan mobile-api/private/.htaccess melarang HTTP access dan
+             server juga melarang URL langsung ke ahli-waris/private.
+          5. Pastikan koneksi DB tersimpan di hosting; jangan pernah
+             mengunggah file rahasia ke GitHub.
+          6. Buat tabel baru melalui akses DB CREATE TABLE atau migrasi
+             resmi setelah backup; siapkan PHP GD untuk TTD PNG/WebP.
+          7. Tes akun warga A/B, RT, RW, Bendahara, LMK, Admin:
+             login/logout, beranda, privasi notifikasi, RT/RW, Ahli Waris
+             split dokumen + 2 saksi, LPJ + PIN, PDF, dan logo layanan.
+          8. Tes ulang FCM token setelah ganti akun dan cron_dispatch.php.
+          9. Baru setelah seluruh staging lulus, deploy terencana dan
+             distribusikan APK/AAB yang sudah lolos QA.
+
+          KETERBATASAN: CI GitHub menjalankan lint, unit/kontrak, dan PDF
+          sintetik. CI tidak menguji database atau server produksi.
+          NOTES
+          (cd staging && zip -q -r ../CIKOKO_V2540_BACKEND_STAGING_ONLY.zip .)
+          test -s CIKOKO_V2540_BACKEND_STAGING_ONLY.zip
+          if unzip -Z1 CIKOKO_V2540_BACKEND_STAGING_ONLY.zip |
+             grep -Ei '(service-account|keystore|\.env|config\.php|\.jks|\.sql|private/uploads|\.pem)'; then
+            echo "::error::Disallowed secret/data path in staging ZIP."
+            exit 1
+          fi
+      - name: Upload staging overlay (not deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cikoko-2540-backend-staging-only
+          path: CIKOKO_V2540_BACKEND_STAGING_ONLY.zip
+          retention-days: 14
+          if-no-files-found: error
