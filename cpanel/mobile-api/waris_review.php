@@ -30,12 +30,23 @@ function waris_review_schema(PDO $db):void {
     }
 }
 function waris_codes(int $childCount=10):array {
-    $codes=['r1'=>'Surat Pengantar RT/RW','r2'=>'Surat Permohonan','r3'=>'Surat Pernyataan Keabsahan',
-       'r4'=>'KTP, KK dan Akta Lahir Ahli Waris','r5'=>'Surat Kematian Pewaris',
-       'r6'=>'Surat Nikah Pewaris','r7'=>'Akta Cerai (bila berlaku)',
-       'r8'=>'Surat Kematian Ahli Waris (bila berlaku)',
-       'saksi_1'=>'KTP Saksi Pertama','saksi_2'=>'KTP Saksi Kedua'];
-    for($i=1;$i<=max(0,min(10,$childCount));$i++)$codes['child_'.$i]='Foto dokumen Anak ke-'.$i;
+    $codes=[
+      'r1'=>'Surat Pengantar RT/RW',
+      'r2'=>'Surat Permohonan','r3'=>'Surat Pernyataan Keabsahan',
+      'r4'=>'KTP, KK, dan Akta (format lama)',
+      'r4_ktp'=>'KTP Ahli Waris','r4_kk'=>'Kartu Keluarga Ahli Waris',
+      'r4_akta'=>'Akta Lahir Ahli Waris',
+      'r5'=>'Surat Kematian Pewaris','r6'=>'Surat Nikah Pewaris',
+      'r7'=>'Akta Cerai (bila berlaku)',
+      'r8'=>'Surat Kematian Ahli Waris (bila berlaku)',
+      'saksi_1'=>'KTP Saksi Pertama','saksi_2'=>'KTP Saksi Kedua'
+    ];
+    for($i=1;$i<=max(0,min(10,$childCount));$i++){
+      $codes['child_'.$i]='Foto dokumen Anak ke-'.$i.' (format lama)';
+      $codes['child_'.$i.'_ktp']='KTP Anak ke-'.$i;
+      $codes['child_'.$i.'_kk']='KK Anak ke-'.$i;
+      $codes['child_'.$i.'_akta']='Akta Lahir Anak ke-'.$i;
+    }
     return $codes;
 }
 function waris_children(array $app):array {
