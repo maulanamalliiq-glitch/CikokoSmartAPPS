@@ -74,6 +74,11 @@ if(in_array($action,['waris_witness_capabilities','waris_add_witnesses'],true)){
  require_once __DIR__.'/waris_witnesses.php';
  cikoko_waris_witness_dispatch($action,$method,$db,$u,(string)$uid);
 }
+// Signed-in RT/RW correspondence has its own guarded controller.
+if(str_starts_with($action,'rt_rw_')){
+ require_once __DIR__.'/rt_rw.php';
+ cikoko_area_dispatch($action,$method,$db,$u);
+}
 require_once __DIR__.'/waris_review.php';
 if(in_array($action,['document_detail','waris_attachment','waris_request_correction','waris_resubmit'],true))waris_review_dispatch($action,$method,$db,$u,(string)$uid);
 if($action==='me'){
