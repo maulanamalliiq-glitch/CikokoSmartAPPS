@@ -44,11 +44,21 @@ if($action==='login'&&$method==='POST'){
 }
 if($action==='register'&&$method==='POST'){
  $b=mobile_body();$name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);$pass=(string)($b['password']??'');$confirm=(string)($b['confirm']??'');$address=mobile_text($b['address']??'',600);$phone=mobile_text($b['phone']??'',40);$email=mobile_text($b['email']??'',160);
+ $rawRt=trim(mobile_text($b['rt']??'',12));
+ $rawRw=trim(mobile_text($b['rw']??'',12));
+ if(($rawRt==='')!==($rawRw===''))mobile_error('RT dan RW harus diisi bersamaan.',422);
+ if($rawRt!==''&&(!preg_match('/^\d{1,2}$/',$rawRt)||
+    !preg_match('/^\d{1,2}$/',$rawRw)||
+    (int)$rawRt<1||(int)$rawRt>99||(int)$rawRw<1||(int)$rawRw>99)){
+  mobile_error('RT dan RW harus angka 01 sampai 99.',422);
+ }
+ $rt=$rawRt===''?'':str_pad((string)(int)$rawRt,2,'0',STR_PAD_LEFT);
+ $rw=$rawRw===''?'':str_pad((string)(int)$rawRw,2,'0',STR_PAD_LEFT);
  if($pass===''||$pass!==$confirm)mobile_error('Konfirmasi password tidak sama atau kosong',422);
  if(mobile_strlen($name)<3 || !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||!preg_match('/^[0-9+ -]{8,20}$/',$phone)||$address===''||!filter_var($email,FILTER_VALIDATE_EMAIL))mobile_error('Periksa nama, username, alamat, nomor telepon dan email',422);
  $users=db_read('portal_users');$a=db_read('admin');$taken=strcasecmp((string)($a['username']??''),$username)===0;foreach($users as $v)if(strcasecmp((string)($v['username']??''),$username)===0)$taken=true;
  if($taken)mobile_error('Username sudah digunakan',409);
- $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'role'=>'warga','department'=>'Warga','address'=>$address,'phone'=>$phone,'email'=>$email,'active'=>true,'created_at'=>date('c')];
+ $users[]=['id'=>bin2hex(random_bytes(12)),'name'=>$name,'username'=>$username,'password_hash'=>password_hash($pass,PASSWORD_DEFAULT),'role'=>'warga','department'=>'Warga','address'=>$address,'phone'=>$phone,'email'=>$email,'rt'=>$rt,'rw'=>$rw,'active'=>true,'created_at'=>date('c')];
  if(!db_write('portal_users',$users))mobile_error('Data akun gagal disimpan',503);
  mobile_json(['ok'=>true,'message'=>'Akun sudah aktif']);
 }
