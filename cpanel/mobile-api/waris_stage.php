@@ -19,7 +19,7 @@ function cikoko_waris_stage_root():string{
  return dirname(__DIR__).'/ahli-waris/private/uploads';
 }
 function cikoko_waris_stage_dir():string{
- return cikoko_waris_stage_root().'/_staging';
+ return __DIR__.'/private/waris-stage';
 }
 function cikoko_waris_code_valid(string $code):bool{
  return preg_match('/^(?:r[1-3]|r4_(?:ktp|kk|akta)|r[5-8]|child_(?:[1-9]|10)_(?:ktp|kk|akta))$/',$code)===1;
