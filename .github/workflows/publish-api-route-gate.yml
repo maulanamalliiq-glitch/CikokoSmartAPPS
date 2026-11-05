@@ -1,0 +1,23 @@
+name: Release Gate - Mobile API Routes
+on:
+  push:
+    branches:
+      - fix/publish-readiness-api-audit-20261106
+    paths:
+      - 'cpanel/mobile-api/**'
+      - 'qa/publish_api_route_gate.php'
+      - '.github/workflows/publish-api-route-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  required-mobile-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: |
+          find cpanel/mobile-api -maxdepth 1 -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l qa/publish_api_route_gate.php
+      - name: Reject release when user-facing routes are missing
+        run: php qa/publish_api_route_gate.php
