@@ -22,3 +22,18 @@ jobs:
           php qa/v2537_waris_witness_contract_test.php
       - name: Verify required RT RW routes and permissions
         run: php qa/release_endpoint_contract_test.php
+      - name: Render synthetic RT RW and LPJ PDFs and parse documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq poppler-utils
+          fi
+          php qa/pdf_document_smoke.php rt_rw > /tmp/cikoko-rt-rw-smoke.pdf
+          php qa/pdf_document_smoke.php civic > /tmp/cikoko-lpj-smoke.pdf
+          for file in /tmp/cikoko-rt-rw-smoke.pdf /tmp/cikoko-lpj-smoke.pdf; do
+            head -c 4 "$file" | grep -q '%PDF'
+            pdfinfo "$file" | grep -q '^Pages:'
+            pdftotext "$file" - | grep -Eq 'Cikoko|CIKOKO|LAPORAN'
+          done
