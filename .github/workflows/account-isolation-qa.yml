@@ -1,0 +1,25 @@
+name: QA - Account Scoped Notifications and RT RW
+on:
+  push:
+    branches:
+      - fix/isolasi-notifikasi-akun-20261106
+    paths:
+      - 'cpanel/mobile-api/**'
+      - 'qa/account_isolation_contract_test.php'
+      - '.github/workflows/account-isolation-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: |
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/v211.php
+          php -l cpanel/mobile-api/cron_dispatch.php
+          php -l qa/account_isolation_contract_test.php
+      - name: Verify account isolation and RT/RW contract
+        run: php qa/account_isolation_contract_test.php

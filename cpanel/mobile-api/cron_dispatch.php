@@ -18,7 +18,7 @@ function oauth_token(string $path):?string {
  $json=json_decode((string)$response,true);return $status===200?($json['access_token']??null):null;
 }
 function send_fcm(string $project,string $oauth,string $to,array $event):bool {
- $payload=['message'=>['token'=>$to,'notification'=>['title'=>$event['title'],'body'=>$event['message']],'data'=>['category'=>$event['category'],'event_id'=>(string)$event['id']],'android'=>['priority'=>'high','notification'=>['channel_id'=>'cikoko_updates_v2']]]];
+ $payload=['message'=>['token'=>$to,'notification'=>['title'=>$event['title'],'body'=>$event['message']],'data'=>['category'=>$event['category'],'event_id'=>(string)$event['id'],'account_id'=>(string)$event['recipient']],'android'=>['priority'=>'high','notification'=>['channel_id'=>'cikoko_updates_v2']]]];
  $ch=curl_init('https://fcm.googleapis.com/v1/projects/'.rawurlencode($project).'/messages:send');curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_UNESCAPED_UNICODE),CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$oauth,'Content-Type: application/json'],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>15]);$response=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);if($status!==200)error_log('Cikoko FCM delivery HTTP '.$status.' '.substr((string)$response,0,400));return $status===200;
 }
 $sa=getenv('CIKOKO_FIREBASE_SA')?:'';
@@ -27,11 +27,15 @@ $cfg=json_decode(file_get_contents($sa),true);$project=$cfg['project_id']??'';$o
 if(!$oauth||!$project){fwrite(STDERR,"FCM authorization failed\n");exit(3);}
 $db=mobile_db();$events=$db->query('SELECT * FROM mobile_events WHERE dispatched_at IS NULL ORDER BY id LIMIT 20')->fetchAll();$ok=0;$fail=0;
 foreach($events as $e){
- $sql='SELECT fcm_token FROM mobile_devices';$params=[];
- if($e['audience']==='personal'){$sql.=' WHERE user_id=?';$params=[$e['recipient']];}
- if($e['audience']==='admin'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role="admin_kelurahan" AND expires_at>NOW())';}
- if($e['audience']==='staff'){$sql.=' WHERE user_id="admin" OR user_id IN (SELECT user_id FROM mobile_tokens WHERE user_role<>"warga" AND expires_at>NOW())';}
- $sql=str_replace('SELECT fcm_token','SELECT user_id,fcm_token',$sql);
+ // Push must have one explicit recipient. Global activity belongs in Beranda,
+ // not in private notifications or OS push banners.
+ if(($e['audience']??'')!=='personal'||trim((string)($e['recipient']??''))===''){
+  $db->prepare('UPDATE mobile_events SET dispatched_at=NOW() WHERE id=?')->execute([(int)$e['id']]);
+  $ok++;
+  continue;
+ }
+ $sql='SELECT user_id,fcm_token FROM mobile_devices WHERE user_id=?';
+ $params=[(string)$e['recipient']];
  $q=$db->prepare($sql);$q->execute($params);$devices=$q->fetchAll(PDO::FETCH_ASSOC);$sent=true;
  $seen=[];$read=$db->prepare('SELECT 1 FROM mobile_event_reads WHERE user_id=? AND event_id=? LIMIT 1');
  foreach($devices as $device){
