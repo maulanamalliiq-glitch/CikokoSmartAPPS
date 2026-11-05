@@ -81,15 +81,79 @@ try {
  }
  if($action==='v211_profile'){
   $row=v211_userrow($uid);
-  if(!$row){$admin=db_read('admin');mobile_json(['ok'=>true,'user'=>['name'=>$admin['name']??'Administrator','username'=>$u['username'],'email'=>$admin['email']??'','phone'=>$admin['phone']??'','address'=>$admin['address']??'','nik'=>$admin['nik']??'','has_photo'=>!empty($admin['photo_name'])]]);}
-  mobile_json(['ok'=>true,'user'=>['name'=>$row['name']??'','username'=>$row['username']??'','email'=>$row['email']??'','phone'=>$row['phone']??'','address'=>$row['address']??'','nik'=>$row['nik']??'','has_photo'=>!empty($row['photo_name'])]]);
+  if(!$row){
+   $admin=db_read('admin');
+   mobile_json(['ok'=>true,'user'=>[
+    'id'=>(string)$uid,'name'=>$admin['name']??'Administrator',
+    'username'=>$u['username'],'email'=>$admin['email']??'',
+    'phone'=>$admin['phone']??'','address'=>$admin['address']??'',
+    'nik'=>$admin['nik']??'','has_photo'=>!empty($admin['photo_name']),
+   ]]);
+  }
+  mobile_json(['ok'=>true,'user'=>[
+   'id'=>(string)$uid,'name'=>$row['name']??'','username'=>$row['username']??'',
+   'email'=>$row['email']??'','phone'=>$row['phone']??'',
+   'address'=>$row['address']??'','nik'=>$row['nik']??'',
+   'rt'=>(string)($row['rt']??''),'rw'=>(string)($row['rw']??''),
+   'has_photo'=>!empty($row['photo_name']),
+   'verified'=>($row['verified']??false)===true,
+   'verification_status'=>(string)($row['verification_status']??''),
+  ]]);
  }
  if($action==='v211_profile_update'){
-  v211_mustpost($method);$row=v211_userrow($uid);if(!$row)mobile_error('Profil administrator utama dikelola terpisah',403);
-  $b=mobile_body();$changes=[];foreach(['name'=>150,'phone'=>30,'email'=>180,'address'=>900,'nik'=>16] as $key=>$len)$changes[$key]=mobile_text($b[$key]??($row[$key]??''),$len);
-  if(mobile_strlen($changes['name'])<3||!preg_match('/^[0-9+() -]{8,30}$/',$changes['phone'])||!filter_var($changes['email'],FILTER_VALIDATE_EMAIL)||$changes['address']==='')mobile_error('Mohon lengkapi nama, telepon, alamat dan email yang valid.',422);
-  if($changes['nik']!==''&&!preg_match('/^[0-9]{16}$/',$changes['nik']))mobile_error('NIK harus berjumlah 16 angka.',422);
-  v211_saveuser($uid,$changes);mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui']);
+  v211_mustpost($method);
+  $row=v211_userrow($uid);
+  if(!$row)mobile_error('Profil administrator utama dikelola terpisah',403);
+  $b=mobile_body();$changes=[];
+  foreach(['name'=>150,'phone'=>30,'email'=>180,'address'=>900,'nik'=>16] as $key=>$len){
+   $changes[$key]=mobile_text($b[$key]??($row[$key]??''),$len);
+  }
+  if(mobile_strlen($changes['name'])<3||
+     !preg_match('/^[0-9+() -]{8,30}$/',$changes['phone'])||
+     !filter_var($changes['email'],FILTER_VALIDATE_EMAIL)||
+     $changes['address']===''){
+   mobile_error('Mohon lengkapi nama, telepon, alamat dan email yang valid.',422);
+  }
+  if($changes['nik']!==''&&!preg_match('/^[0-9]{16}$/',$changes['nik'])){
+   mobile_error('NIK harus berjumlah 16 angka.',422);
+  }
+
+  // Only warga can edit the RT/RW in their own profile. Staff area allocation
+  // is controlled through the existing administrator/officer management flow.
+  if(($u['user_role']??'')==='warga'&&(array_key_exists('rt',$b)||array_key_exists('rw',$b))){
+   $rt=trim(mobile_text($b['rt']??($row['rt']??''),2));
+   $rw=trim(mobile_text($b['rw']??($row['rw']??''),2));
+   if(($rt==='')!==($rw===''))mobile_error('RT dan RW harus diisi bersamaan.',422);
+   if($rt!==''&&(!preg_match('/^\d{1,2}$/',$rt)||
+      !preg_match('/^\d{1,2}$/',$rw)||
+      (int)$rt<1||(int)$rt>99||(int)$rw<1||(int)$rw>99)){
+    mobile_error('RT dan RW harus angka antara 01 dan 99.',422);
+   }
+   $newRt=$rt===''?'':str_pad((string)(int)$rt,2,'0',STR_PAD_LEFT);
+   $newRw=$rw===''?'':str_pad((string)(int)$rw,2,'0',STR_PAD_LEFT);
+   $oldRt=trim((string)($row['rt']??''));
+   $oldRw=trim((string)($row['rw']??''));
+   $oldRt=$oldRt===''?'':str_pad((string)(int)$oldRt,2,'0',STR_PAD_LEFT);
+   $oldRw=$oldRw===''?'':str_pad((string)(int)$oldRw,2,'0',STR_PAD_LEFT);
+   if($newRt!==$oldRt||$newRw!==$oldRw){
+    $password=(string)($b['current_password']??'');
+    if($password===''||
+       !password_verify($password,(string)($row['password_hash']??''))){
+     mobile_error('Password saat ini diperlukan untuk mengubah RT/RW.',403);
+    }
+   }
+   $changes['rt']=$newRt;
+   $changes['rw']=$newRw;
+  }
+  $updated=v211_saveuser($uid,$changes);
+  mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui','user'=>[
+   'id'=>(string)$uid,'name'=>$updated['name']??'',
+   'username'=>$updated['username']??'','role'=>$updated['role']??'',
+   'phone'=>$updated['phone']??'','email'=>$updated['email']??'',
+   'address'=>$updated['address']??'','nik'=>$updated['nik']??'',
+   'rt'=>(string)($updated['rt']??''),'rw'=>(string)($updated['rw']??''),
+   'has_photo'=>!empty($updated['photo_name']),
+  ]]);
  }
  if($action==='v211_profile_upload'){
   v211_mustpost($method);$row=v211_userrow($uid);
