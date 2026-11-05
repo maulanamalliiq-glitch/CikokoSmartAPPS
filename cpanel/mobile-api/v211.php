@@ -47,10 +47,35 @@ try {
   $db=mobile_db();v211_news_table($db);$st=$db->prepare('SELECT id,display_name,parent_id,body,created_at FROM mobile_news_comments WHERE news_id=? AND hidden=0 ORDER BY id DESC LIMIT 100');$st->execute([$id]);mobile_json(['ok'=>true,'items'=>array_reverse($st->fetchAll())]);
  }
  $u=v211_login();$uid=(string)$u['user_id'];$db=mobile_db();
+ if($action==='v211_innovations_upload'){
+  v211_mustpost($method);
+  if($u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengunggah foto inovasi',403);
+  $slug=mobile_text($_POST['slug']??'',80);
+  if(!in_array($slug,array_column($defaults,'slug'),true))mobile_error('Inovasi tidak dikenal',422);
+  $rows=v211_innovations();$index=null;
+  foreach($rows as $i=>$r)if(($r['slug']??'')===$slug){$index=$i;break;}
+  if($index===null)mobile_error('Inovasi tidak ditemukan',404);
+  $images=array_values(array_filter($rows[$index]['images']??[],'is_string'));
+  if(!$images&&!empty($rows[$index]['image']))$images=[(string)$rows[$index]['image']];
+  if(count($images)>=5)mobile_error('Maksimal lima foto per inovasi.',422);
+  if(!isset($_FILES['photo'])||!is_uploaded_file($_FILES['photo']['tmp_name']))mobile_error('Pilih foto dari galeri.',422);
+  $file=$_FILES['photo'];$mime=(new finfo(FILEINFO_MIME_TYPE)->file($file['tmp_name']));
+  $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;
+  if(!$ext||($file['size']??0)>4*1024*1024||($file['error']??4)!==UPLOAD_ERR_OK)
+   mobile_error('Foto harus JPG, PNG, atau WebP maksimal 4 MB.',422);
+  $dir=dirname(__DIR__).'/assets/images';
+  if(!is_dir($dir)&&!mkdir($dir,0755,true))mobile_error('Folder foto belum tersedia',503);
+  $path='assets/images/inovasi-'.bin2hex(random_bytes(16)).'.'.$ext;
+  if(!move_uploaded_file($file['tmp_name'],dirname(__DIR__).'/'.$path))mobile_error('Foto gagal disimpan',503);
+  $images[]=$path;$rows[$index]['images']=$images;$rows[$index]['image']=$images[0];
+  if(!db_write('cikoko_innovations',$rows)){@unlink(dirname(__DIR__).'/'.$path);mobile_error('Foto gagal dicatat',503);}
+  mobile_json(['ok'=>true,'images'=>$images,'image'=>$images[0]]);
+ }
  if($action==='v211_innovations_update'){
   v211_mustpost($method);if($u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengubah inovasi',403);
   $b=mobile_body();$slug=mobile_text($b['slug']??'',80);$allowed=array_column($defaults,'slug');if(!in_array($slug,$allowed,true))mobile_error('Inovasi tidak dikenal',422);
-  $rows=v211_innovations();foreach($rows as &$row)if($row['slug']===$slug){foreach(['title'=>160,'summary'=>500,'body'=>8000,'image'=>255] as $key=>$max){if(isset($b[$key]))$row[$key]=mobile_text($b[$key],$max);}break;}unset($row);
+  $rows=v211_innovations();foreach($rows as &$row)if($row['slug']===$slug){foreach(['title'=>160,'summary'=>500,'body'=>16000,'image'=>255] as $key=>$max){if(isset($b[$key]))$row[$key]=mobile_text($b[$key],$max);}break;}unset($row);
+  if(isset($b['images'])&&is_array($b['images'])){foreach($rows as &$r)if($r['slug']===$slug){$existing=array_values(array_filter($r['images']??[],'is_string'));$r['images']=array_slice(array_values(array_intersect($existing,$b['images'])),0,5);$r['image']=$r['images'][0]??'';break;}unset($r);}
   if(!db_write('cikoko_innovations',$rows))mobile_error('Informasi inovasi belum dapat disimpan',503);
   mobile_emit('pengumuman','Informasi inovasi diperbarui','Informasi program unggulan Kelurahan Cikoko telah diperbarui.');mobile_json(['ok'=>true]);
  }
