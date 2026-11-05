@@ -74,6 +74,12 @@ if(in_array($action,['waris_witness_capabilities','waris_add_witnesses'],true)){
  require_once __DIR__.'/waris_witnesses.php';
  cikoko_waris_witness_dispatch($action,$method,$db,$u,(string)$uid);
 }
+// Restricted finance APIs use the same authenticated account and area scope.
+if(str_starts_with($action,'civic_')){
+ require_once __DIR__.'/rt_rw.php';
+ require_once __DIR__.'/civic_api.php';
+ cikoko_civic_dispatch($action,$method,$db,$u);
+}
 // Signed-in RT/RW correspondence has its own guarded controller.
 if(str_starts_with($action,'rt_rw_')){
  require_once __DIR__.'/rt_rw.php';
