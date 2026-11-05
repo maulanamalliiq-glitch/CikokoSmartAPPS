@@ -59,7 +59,7 @@ try {
   if(!$images&&!empty($rows[$index]['image']))$images=[(string)$rows[$index]['image']];
   if(count($images)>=5)mobile_error('Maksimal lima foto per inovasi.',422);
   if(!isset($_FILES['photo'])||!is_uploaded_file($_FILES['photo']['tmp_name']))mobile_error('Pilih foto dari galeri.',422);
-  $file=$_FILES['photo'];$mime=(new finfo(FILEINFO_MIME_TYPE)->file($file['tmp_name']));
+  $file=$_FILES['photo'];$mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
   $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;
   if(!$ext||($file['size']??0)>4*1024*1024||($file['error']??4)!==UPLOAD_ERR_OK)
    mobile_error('Foto harus JPG, PNG, atau WebP maksimal 4 MB.',422);
