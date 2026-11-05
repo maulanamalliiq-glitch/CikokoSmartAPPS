@@ -1,0 +1,24 @@
+name: QA RT RW and Integrated Backend Release
+on:
+  push:
+    branches: [fix/release-hardcheck-backend-20261106]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-hardcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax over every production API file
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api qa -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Existing backend contracts
+        run: |
+          set -euo pipefail
+          php qa/account_isolation_contract_test.php
+          php qa/v212_contract_test.php
+          php qa/v2537_waris_witness_contract_test.php
+      - name: Verify required RT RW routes and permissions
+        run: php qa/release_endpoint_contract_test.php
