@@ -45,6 +45,17 @@ function cikoko_waris_stage_dispatch(string $action,string $method,PDO $db,array
  if(!$codes||count($codes)>8)mobile_error('Unggah maksimum delapan dokumen per tahap.',422);
  $stage=cikoko_waris_stage_dir();
  if(!is_dir($stage)&&!@mkdir($stage,0750,true))mobile_error('Penyimpanan sementara dokumen tidak tersedia.',503);
+ // Bound unaudited storage growth per account and draft.
+ $quota=$db->prepare('SELECT COUNT(*) AS n,COALESCE(SUM(size_bytes),0) AS bytes FROM mobile_waris_stage_files WHERE user_id=?');
+ $quota->execute([$uid]);$usage=$quota->fetch(PDO::FETCH_ASSOC);
+ if((int)$usage['n']>90||(int)$usage['bytes']>160*1024*1024){
+  mobile_error('Batas foto draft tercapai. Hubungi admin untuk membersihkan draft lama.',429);
+ }
+ $draftCount=$db->prepare('SELECT COUNT(*) FROM mobile_waris_stage_files WHERE user_id=? AND draft_key=?');
+ $draftCount->execute([$uid,$draft]);
+ if((int)$draftCount->fetchColumn()+count($codes)>48){
+  mobile_error('Jumlah dokumen pada satu draft terlalu banyak.',422);
+ }
  $fileRows=[];
  foreach($codes as $code){
   if(!cikoko_waris_code_valid($code))mobile_error('Jenis berkas tidak diizinkan.',422);
