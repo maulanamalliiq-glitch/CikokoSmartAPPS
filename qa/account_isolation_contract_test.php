@@ -16,7 +16,7 @@ $checks=[
   str_contains($api,'DELETE FROM mobile_devices WHERE user_id=? AND fcm_token=?'),
  'FCM never sends broadcast to every device'=>
   str_contains($cron,"WHERE user_id=?")&&
-  str_contains($cron,"!==\'personal\'"),
+  str_contains($cron,"!=='personal'"),
  'FCM includes account ID for old-account push guard'=>
   str_contains($cron,"'account_id'=>(string)\$event['recipient']"),
  'registration persists RT and RW'=>
