@@ -29,7 +29,7 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
-if(in_array($action,['integrated_services','integrated_services_save'],true)){
+if(in_array($action,['integrated_services','integrated_services_save','integrated_services_logo_upload'],true)){
  require_once __DIR__.'/integrated_services.php';
  cikoko_integrated_dispatch($action,$method);
 }
