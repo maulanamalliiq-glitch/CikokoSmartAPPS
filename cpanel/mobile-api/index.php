@@ -161,6 +161,14 @@ if($action==='profile_update'&&$method==='POST'){
 if($action==='logout'&&$method==='POST'){
  $h=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'';if(preg_match('/^Bearer\s+(.+)$/',$h,$m)){$s=$db->prepare('DELETE FROM mobile_tokens WHERE token_hash=?');$s->execute([hash('sha256',$m[1])]);}mobile_json(['ok'=>true]);
 }
+// Release only this account/device pair. Never delete another account's device.
+if($action==='device_unregister'&&$method==='POST'){
+ $b=mobile_body();$token=mobile_text($b['fcm_token']??'',255);
+ if(strlen($token)<40)mobile_error('Token perangkat tidak valid',422);
+ $st=$db->prepare('DELETE FROM mobile_devices WHERE user_id=? AND fcm_token=?');
+ $st->execute([(string)$uid,$token]);
+ mobile_json(['ok'=>true,'message'=>'Perangkat dilepas dari notifikasi akun.']);
+}
 if($action==='device'&&$method==='POST'){
  $b=mobile_body();$token=mobile_text($b['fcm_token']??'',255);if(strlen($token)<40)mobile_error('Token perangkat tidak valid',422);
  $st=$db->prepare('INSERT INTO mobile_devices(user_id,username,fcm_token) VALUES(?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),username=VALUES(username)');$st->execute([$uid,$u['username'],$token]);mobile_json(['ok'=>true]);
@@ -201,19 +209,27 @@ if($action==='archives'){
  $rows=$db->query('SELECT id,archive_year,reference_no,applicant_name,deceased_name,created_at FROM aw_archives ORDER BY archive_year DESC,id DESC LIMIT 100')->fetchAll();
  mobile_json(['ok'=>true,'items'=>$rows]);
 }
+// Account inbox: never mix broadcast, other staff, or other applicants here.
+// Public news and aggregate submission counts remain on the Beranda endpoints.
 if($action==='events'){
  waris_review_schema($db);
- $sql='SELECT e.id,e.category,e.title,e.message,e.created_at,l.object_type,l.object_id,IF(r.event_id IS NULL,0,1) AS is_read FROM mobile_events e LEFT JOIN mobile_event_links l ON l.event_id=e.id LEFT JOIN mobile_event_reads r ON r.event_id=e.id AND r.user_id=:viewer WHERE (e.audience="public" AND e.category IN ("berita","pengumuman")) OR (e.audience="admin" AND :admin=1) OR (e.audience="staff" AND :staff=1) OR (e.audience="personal" AND e.recipient=:recipient) ORDER BY e.id DESC LIMIT 60';
- $q=$db->prepare($sql);$q->execute(['viewer'=>(string)$uid,'admin'=>$admin?1:0,'staff'=>$u['user_role']!=='warga'?1:0,'recipient'=>(string)$uid]);
- $rows=$q->fetchAll();
+ $sql='SELECT e.id,e.category,e.title,e.message,e.created_at,e.audience,e.recipient,l.object_type,l.object_id,IF(r.event_id IS NULL,0,1) AS is_read
+   FROM mobile_events e
+   LEFT JOIN mobile_event_links l ON l.event_id=e.id
+   LEFT JOIN mobile_event_reads r ON r.event_id=e.id AND r.user_id=:viewer
+   WHERE e.audience="personal" AND e.recipient=:recipient
+   ORDER BY e.id DESC LIMIT 60';
+ $q=$db->prepare($sql);
+ $q->execute(['viewer'=>(string)$uid,'recipient'=>(string)$uid]);
+ $rows=$q->fetchAll(PDO::FETCH_ASSOC);
  mobile_json(['ok'=>true,'events'=>$rows,'unread_count'=>count(array_filter($rows,static fn($r)=>(int)$r['is_read']===0))]);
 }
 if($action==='event_read'&&$method==='POST'){
  $b=mobile_body();$id=(int)($b['id']??0);
  if($id<1)mobile_error('Pilih notifikasi yang ingin dibaca.',422);
- $q=$db->prepare('SELECT id FROM mobile_events WHERE id=? AND ((audience="public" AND category IN ("berita","pengumuman")) OR (audience="admin" AND ?=1) OR (audience="staff" AND ?=1) OR (audience="personal" AND recipient=?))');
- $q->execute([$id,$admin?1:0,$u['user_role']!=='warga'?1:0,(string)$uid]);
- if(!$q->fetchColumn())mobile_error('Notifikasi tidak tersedia.',404);
+ $q=$db->prepare('SELECT id FROM mobile_events WHERE id=? AND audience="personal" AND recipient=?');
+ $q->execute([$id,(string)$uid]);
+ if(!$q->fetchColumn())mobile_error('Notifikasi tidak tersedia untuk akun ini.',404);
  $db->prepare('INSERT IGNORE INTO mobile_event_reads(user_id,event_id) VALUES(?,?)')->execute([(string)$uid,$id]);
  mobile_json(['ok'=>true,'message'=>'Notifikasi telah dibaca.']);
 }
