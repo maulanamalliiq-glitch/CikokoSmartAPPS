@@ -54,6 +54,39 @@ function cikoko_integrated_dispatch(string $action,string $method):void {
     // Must authenticate on BOTH read and write, because the user asked to
     // show this list only for logged-in accounts.
     $user=mobile_auth();
+    if($action==='integrated_services_logo_upload'){
+        if($method!=='POST')mobile_error('Metode tidak tersedia.',405);
+        if(($user['user_role']??'')!=='admin')mobile_error('Hanya Admin Utama dapat mengunggah logo.',403);
+        $upload=$_FILES['logo']??null;
+        if(!is_array($upload)||($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
+           ||($upload['size']??0)<1||($upload['size']??0)>2*1024*1024
+           ||!is_uploaded_file((string)($upload['tmp_name']??''))){
+            mobile_error('Pilih gambar JPG, PNG atau WebP maksimal 2 MB.',422);
+        }
+        $mime=(new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+        $extensions=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+        $extension=$extensions[$mime]??null;
+        if($extension===null || @getimagesize($upload['tmp_name'])===false){
+            mobile_error('Format logo harus JPG, PNG atau WebP.',422);
+        }
+        $dir=__DIR__.'/service-logos';
+        if(!is_dir($dir)&&!@mkdir($dir,0755,true))mobile_error('Penyimpanan logo tidak tersedia.',503);
+        $filename=bin2hex(random_bytes(20)).'.'.$extension;
+        if(!move_uploaded_file($upload['tmp_name'],$dir.'/'.$filename)){
+            mobile_error('Logo gagal disimpan.',503);
+        }
+        @chmod($dir.'/'.$filename,0644);
+        $https=(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off')||
+          (($_SERVER['HTTP_X_FORWARDED_PROTO']??'')==='https');
+        $host=(string)($_SERVER['HTTP_HOST']??'');
+        if(!$https||!preg_match('/^[a-zA-Z0-9.-]+(?::[0-9]+)?$/',$host)){
+            @unlink($dir.'/'.$filename);
+            mobile_error('Unggah logo memerlukan HTTPS.',503);
+        }
+        $scriptPath=(string)parse_url((string)($_SERVER['SCRIPT_NAME']??'/mobile-api/index.php'),PHP_URL_PATH);
+        $base=rtrim(str_replace('\\','/',dirname($scriptPath)),'/');
+        mobile_json(['ok'=>true,'url'=>'https://'.$host.$base.'/service-logos/'.$filename]);
+    }
     if($action==='integrated_services'){
         if($method!=='GET')mobile_error('Metode tidak tersedia.',405);
         $all=cikoko_integrated_read();
