@@ -18,6 +18,9 @@ $required=[
     'document_detail','waris_request_correction',
     'rt_rw_list','rt_rw_submit','rt_rw_decide',
     'rt_rw_reaffirm','rt_rw_officers','rt_rw_officer_assign',
+    'rt_rw_signer_status','rt_rw_signer_upload',
+    'civic_catalog','civic_list','civic_submit','civic_detail',
+    'civic_pin_set','civic_review','waris_format',
 ];
 $failed=[];
 foreach($required as $action) {
