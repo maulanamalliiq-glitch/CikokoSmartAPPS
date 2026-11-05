@@ -17,7 +17,7 @@ $tests=[
   str_contains($api,'cikoko_civic_dispatch($action,$method,$db,$u)'),
  'LPJ catalog, list, submit, detail, status and PDF handlers available'=>
   count(array_filter(['civic_catalog','civic_list','civic_submit','civic_detail','civic_pin_set','civic_review','civic_pdf'],
-    static fn($a)=>str_contains($civic,"'".$a."'"))===7,
+    static fn($a)=>str_contains($civic,"'".$a."'")))===7,
  'LPJ finances validated on PHP server'=>
   str_contains($civic,'cikoko_civic_money(')&&
   str_contains($civic,'$total>$opening+$income'),
