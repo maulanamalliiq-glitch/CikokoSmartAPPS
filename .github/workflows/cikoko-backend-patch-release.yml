@@ -1,0 +1,79 @@
+name: Publish Cikoko Account Privacy Backend Patch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cikoko-backend-patch-release.yml'
+permissions:
+  contents: write
+jobs:
+  package-verified-overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PHP before distributing
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/v211.php
+          php -l cpanel/mobile-api/cron_dispatch.php
+          php qa/account_isolation_contract_test.php
+      - name: Prepare minimal backend overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package/mobile-api
+          cp cpanel/mobile-api/index.php package/mobile-api/
+          cp cpanel/mobile-api/v211.php package/mobile-api/
+          cp cpanel/mobile-api/cron_dispatch.php package/mobile-api/
+          cat > package/BACA_DULU_PATCH_CIKOKO.txt <<'NOTES'
+          CIKOKO SMARTAPP - PERBAIKAN NOTIFIKASI AKUN DAN RT/RW
+          Sumber: CikokoSmartAPPS main, setelah merge PR #24.
+
+          JANGAN unggah paket ini ke hosting tanpa membandingkan file yang
+          sedang digunakan, mengambil backup file/database, dan pengujian staging.
+
+          Perubahan file:
+            mobile-api/index.php
+            mobile-api/v211.php
+            mobile-api/cron_dispatch.php
+
+          Cara deploy (oleh admin hosting):
+          1. Backup database MySQL, public_html, data pengguna, dan foto private.
+          2. Bandingkan ketiga file dengan file yang ada di server; jika server
+             memiliki perubahan baru, gabungkan perubahan secara selektif.
+          3. Pastikan dependensi API/permissions.php, bootstrap.php, dan
+             komponen website lain tetap terpasang. Jangan hapus folder lama.
+          4. Unggah hanya ketiga file PHP ke folder mobile-api yang sesuai.
+          5. Uji 2 akun warga terpisah, 1 petugas, ubah dan simpan RT/RW,
+             kirim laporan, baca notifikasi, logout/login di HP yang sama.
+          6. Konfirmasi cron_dispatch.php memakai project Firebase yang benar,
+             service account berada di luar public_html, dan tidak ada token
+             lama yang menerima pesan akun lain.
+          7. Setelah uji backend selesai, baru distribusikan APK dari NewAppsCikoko.
+
+          File ZIP ini hanya paket pembaruan. GitHub tidak mengubah hosting
+          cPanel secara otomatis.
+          NOTES
+          (cd package && zip -qr ../CIKOKO_BACKEND_PRIVACY_RT_RW_PATCH.zip .)
+          test -s CIKOKO_BACKEND_PRIVACY_RT_RW_PATCH.zip
+      - name: Publish downloadable patch to GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="cikoko-backend-privacy-rt-rw-20261106"
+          file="CIKOKO_BACKEND_PRIVACY_RT_RW_PATCH.zip"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$file" --clobber
+          else
+            gh release create "$tag" "$file" --target "$GITHUB_SHA" \
+              --title "Cikoko Backend — Patch Notifikasi Per Akun & RT/RW" \
+              --notes "Paket overlay untuk admin cPanel: index.php, v211.php, cron_dispatch.php. Wajib backup dan uji staging sebelum pemasangan. Bukan deployment otomatis."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
