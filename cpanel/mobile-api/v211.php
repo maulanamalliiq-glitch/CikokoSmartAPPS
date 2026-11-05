@@ -121,8 +121,8 @@ try {
   // Only warga can edit the RT/RW in their own profile. Staff area allocation
   // is controlled through the existing administrator/officer management flow.
   if(($u['user_role']??'')==='warga'&&(array_key_exists('rt',$b)||array_key_exists('rw',$b))){
-   $rt=trim(mobile_text($b['rt']??($row['rt']??''),2));
-   $rw=trim(mobile_text($b['rw']??($row['rw']??''),2));
+   $rt=trim(mobile_text($b['rt']??($row['rt']??''),12));
+   $rw=trim(mobile_text($b['rw']??($row['rw']??''),12));
    if(($rt==='')!==($rw===''))mobile_error('RT dan RW harus diisi bersamaan.',422);
    if($rt!==''&&(!preg_match('/^\d{1,2}$/',$rt)||
       !preg_match('/^\d{1,2}$/',$rw)||
