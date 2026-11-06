@@ -6,6 +6,8 @@ on:
     paths:
       - 'cpanel/mobile-api/**'
       - 'qa/publish_api_route_gate.php'
+      - 'qa/publish_policy_test.php'
+      - 'qa/publish_pdf_smoke.php'
       - '.github/workflows/publish-api-route-gate.yml'
   workflow_dispatch:
 permissions:
@@ -21,3 +23,15 @@ jobs:
           php -l qa/publish_api_route_gate.php
       - name: Reject release when user-facing routes are missing
         run: php qa/publish_api_route_gate.php
+      - name: Verify resident and officer account isolation
+        run: php qa/publish_policy_test.php
+      - name: Verify paginated PDF output
+        shell: bash
+        run: |
+          set -euo pipefail
+          php qa/publish_pdf_smoke.php > /tmp/cikoko-publish-qa.pdf
+          test "$(head -c 4 /tmp/cikoko-publish-qa.pdf)" = '%PDF'
+          grep -a -q '/Count 3' /tmp/cikoko-publish-qa.pdf
+          if command -v pdfinfo >/dev/null 2>&1; then
+            pdfinfo /tmp/cikoko-publish-qa.pdf | grep -q 'Pages:'
+          fi
