@@ -1,0 +1,102 @@
+name: Cikoko 2540 - MySQL Integration Hardcheck
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cpanel/mobile-api/**'
+      - 'qa/publish_mysql_scenario.php'
+      - '.github/workflows/mysql-integration-2540.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-database-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: qa-only-password
+          MYSQL_DATABASE: cikoko_qa
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pqa-only-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=25
+    env:
+      CIKOKO_QA_MYSQL_PASSWORD: qa-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, gd, mbstring, fileinfo
+          coverage: none
+      - name: Verify PHP and ephemeral MySQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -m | grep -qi pdo_mysql
+          php -m | grep -qi gd
+          php -l qa/publish_mysql_scenario.php
+          for i in {1..30}; do
+            if php -r 'new PDO("mysql:host=127.0.0.1;dbname=cikoko_qa", "root", "qa-only-password");' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          php -r 'new PDO("mysql:host=127.0.0.1;dbname=cikoko_qa", "root", "qa-only-password");'
+      - name: Test RT/RW submission, account isolation, approvals and PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          php qa/publish_mysql_scenario.php init admin '{}' | jq -e '.ok == true'
+          form='{"form":{"nama":"Warga A","tempat_lahir":"Jakarta","tanggal_lahir":"2000-01-01","no_ktp_kk":"1234567890123456","agama":"Islam","kewarganegaraan":"WNI","pendidikan":"SMA","jenis_kelamin":"Laki-laki","status":"Belum menikah","pekerjaan":"Pegawai","alamat":"Jalan Uji QA Cikoko","maksud_keperluan":"Surat administrasi warga"}}'
+          letter=$(php qa/publish_mysql_scenario.php rt_rw_submit residentA "$form")
+          echo "$letter" | jq -e '.ok == true and .status == "menunggu_rt"'
+          id=$(echo "$letter" | jq -r .id)
+          php qa/publish_mysql_scenario.php rt_rw_list residentA '{}' | jq -e '(.items | length) == 1'
+          php qa/publish_mysql_scenario.php rt_rw_list residentB '{}' | jq -e '(.items | length) == 0'
+          php qa/publish_mysql_scenario.php rt_rw_list rtA '{}' | jq -e '(.items | length) == 1'
+          php qa/publish_mysql_scenario.php rt_rw_list rtOther '{}' | jq -e '(.items | length) == 0'
+          if php qa/publish_mysql_scenario.php rt_rw_decide rtOther "{\"id\":$id,\"decision\":\"approve\",\"current_password\":\"correct-test-password\"}"; then
+            echo "::error::Cross-area RT may approve"; exit 1
+          fi
+          php qa/publish_mysql_scenario.php rt_rw_decide rtA "{\"id\":$id,\"decision\":\"approve\",\"current_password\":\"correct-test-password\"}" | jq -e '.status == "menunggu_rw"'
+          if php qa/publish_mysql_scenario.php rt_rw_decide rtA "{\"id\":$id,\"decision\":\"approve\",\"current_password\":\"correct-test-password\"}"; then
+            echo "::error::Duplicate RT approval was allowed"; exit 1
+          fi
+          php qa/publish_mysql_scenario.php rt_rw_decide rwA "{\"id\":$id,\"decision\":\"approve\",\"current_password\":\"correct-test-password\"}" | jq -e '.status == "terverifikasi"'
+          php qa/publish_mysql_scenario.php rt_rw_pdf residentA "{\"id\":$id}" > "$RUNNER_TEMP/cikoko-rt-rw-qa.pdf"
+          test "$(head -c 4 "$RUNNER_TEMP/cikoko-rt-rw-qa.pdf")" = '%PDF'
+          if php qa/publish_mysql_scenario.php rt_rw_pdf residentB "{\"id\":$id}"; then
+            echo "::error::Another resident may download private PDF"; exit 1
+          fi
+      - name: Test LPJ roles, PIN reviews, private detail and PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          body='{"kind":"lpj_rt","period":"2026-11","fields":{"opening":1500000,"income":1000000,"entries":[{"activity":"Kegiatan kemasyarakatan","amount":250000,"notes":"Bukti uji sintetis"}]}}'
+          doc=$(php qa/publish_mysql_scenario.php civic_submit bendaharaA "$body")
+          echo "$doc" | jq -e '.status == "menunggu_ketua"'
+          id=$(echo "$doc" | jq -r .id)
+          php qa/publish_mysql_scenario.php civic_list bendaharaA '{}' | jq -e '(.items | length) == 1'
+          php qa/publish_mysql_scenario.php civic_list residentB '{}' | jq -e '(.items | length) == 0'
+          if php qa/publish_mysql_scenario.php civic_detail residentB "{\"id\":$id}"; then
+            echo "::error::Another resident may read LPJ"; exit 1
+          fi
+          if php qa/publish_mysql_scenario.php civic_review rtOther "{\"id\":$id,\"decision\":\"return\",\"notes\":\"Tidak berhak\"}"; then
+            echo "::error::Cross-area RT may review LPJ"; exit 1
+          fi
+          php qa/publish_mysql_scenario.php civic_pin_set rtA '{"current_password":"correct-test-password","pin":"123456"}' | jq -e '.ok == true'
+          php qa/publish_mysql_scenario.php civic_review rtA "{\"id\":$id,\"decision\":\"approve\",\"pin\":\"123456\"}" | jq -e '.status == "menunggu_bendahara"'
+          php qa/publish_mysql_scenario.php civic_pin_set bendaharaB '{"current_password":"correct-test-password","pin":"654321"}' | jq -e '.ok == true'
+          php qa/publish_mysql_scenario.php civic_review bendaharaB "{\"id\":$id,\"decision\":\"approve\",\"pin\":\"654321\"}" | jq -e '.status == "selesai"'
+          php qa/publish_mysql_scenario.php civic_detail bendaharaA "{\"id\":$id}" | jq -e '.item.status == "selesai" and (.item.approvals | length) == 2'
+          php qa/publish_mysql_scenario.php civic_pdf bendaharaA "{\"id\":$id}" > "$RUNNER_TEMP/cikoko-lpj-qa.pdf"
+          test "$(head -c 4 "$RUNNER_TEMP/cikoko-lpj-qa.pdf")" = '%PDF'
+      - name: Recheck static permission policies
+        run: |
+          php qa/publish_policy_test.php
+          php qa/publish_api_route_gate.php
