@@ -70,6 +70,11 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+if(in_array($action,['waris_format','waris_stage'],true)){
+ require_once __DIR__.'/waris_staging.php';
+ cikoko_waris_stage_route($action,$method,$u,(string)$uid);
+}
+
 if(in_array($action,[
  'rt_rw_list','rt_rw_submit','rt_rw_decide','rt_rw_reaffirm',
  'rt_rw_officers','rt_rw_officer_assign',
@@ -292,8 +297,20 @@ if($action==='waris'&&$method==='POST'){
  try {aw_prepare_schema($db);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
  foreach(['name','phone','address','relation','deceased_name','heirs'] as $k)if(trim((string)($_POST[$k]??''))==='')mobile_error('Lengkapi '.$k,422);
- foreach(['r1','r2','r3','r4','r5','r6'] as $k)if(!isset($_FILES[$k])||$_FILES[$k]['error']!==UPLOAD_ERR_OK)mobile_error('Persyaratan foto belum lengkap: '.$k,422);
- $children=min(10,max(0,(int)($_POST['child_count']??0)));for($i=1;$i<=$children;$i++)if(!isset($_FILES['child_'.$i]))mobile_error('Foto anak ke-'.$i.' belum ada',422);
+ $children=min(10,max(0,(int)($_POST['child_count']??0)));
+ $split=($_POST['document_format']??'')==='split_v1';
+ $draft='';$staged=[];
+ if($split){
+  require_once __DIR__.'/waris_staging.php';
+  $draft=cikoko_waris_stage_key($_POST['draft_key']??'');
+  $staged=cikoko_waris_stage_collect((string)$uid,$draft,$children);
+ }else{
+  foreach(['r1','r2','r3','r4','r5','r6'] as $k)
+   if(!isset($_FILES[$k])||$_FILES[$k]['error']!==UPLOAD_ERR_OK)
+    mobile_error('Persyaratan foto belum lengkap: '.$k,422);
+  for($i=1;$i<=$children;$i++)
+   if(!isset($_FILES['child_'.$i]))mobile_error('Foto anak ke-'.$i.' belum ada',422);
+ }
  $reference='AW-'.date('Ymd').'-'.strtoupper(bin2hex(random_bytes(4)));
  $db->beginTransaction();$paths=[];
  try {
@@ -302,12 +319,16 @@ if($action==='waris'&&$method==='POST'){
   $db->prepare($sql)->execute([$reference,$uid,mobile_text($_POST['name'],160),$nik,mobile_text($_POST['phone'],40),mobile_text($_POST['address'],3000),mobile_text($_POST['relation'],100),mobile_text($_POST['deceased_name'],200),mobile_text($_POST['marital_status']??'Tidak diketahui',40),mobile_text($_POST['birthplace']??'',160),($_POST['birthdate']??'')?:null,($_POST['deathdate']??'')?:null,($_POST['marriage_date']??'')?:null,mobile_text($_POST['heirs'],12000),json_encode($names,JSON_UNESCAPED_UNICODE)]);
   $id=(int)$db->lastInsertId();$ins=$db->prepare('INSERT INTO aw_attachments(application_id,requirement_code,original_name,storage_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?)');
   $dir=dirname(__DIR__).'/ahli-waris/private/uploads';if(!is_dir($dir))mkdir($dir,0750,true);
+  if($split){cikoko_waris_stage_persist($staged,$dir,$id,$ins,$paths);}
+  else {
   foreach(array_merge(['r1','r2','r3','r4','r5','r6','r7','r8'],($children>0?array_map(fn($n)=>'child_'.$n,range(1,$children)):[])) as $key){$f=$_FILES[$key]??null;if(!$f||($f['error']??4)===UPLOAD_ERR_NO_FILE)continue;
    if(($f['error']??4)!==UPLOAD_ERR_OK||($f['size']??0)>4*1024*1024||!is_uploaded_file($f['tmp_name']))throw new RuntimeException('Foto '.$key.' gagal atau melebihi 4 MB');
    $mime=(new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);$ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]??null;if(!$ext)throw new RuntimeException('Foto '.$key.' harus JPG/PNG/WebP');
    $name=bin2hex(random_bytes(20)).'.'.$ext;if(!move_uploaded_file($f['tmp_name'],$dir.'/'.$name))throw new RuntimeException('Simpan dokumen gagal');$paths[]=$dir.'/'.$name;$ins->execute([$id,$key,basename($f['name']),$name,$mime,(int)$f['size']]);
   }
+  }
   $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);$db->commit();
+  if($split)cikoko_waris_stage_clean((string)$uid,$draft);
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error('Permohonan belum berhasil disimpan. Data tetap berada di formulir. Periksa dokumen atau hubungi admin jika masalah berulang.',503);}
  mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Permohonan diterima',$reference,'personal',(string)$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
 }
