@@ -44,6 +44,8 @@ function cikoko_rt_schema(PDO $db):void {
           rt_approved_by VARCHAR(80) NULL, rw_approved_by VARCHAR(80) NULL,
           rt_approved_at DATETIME NULL, rw_approved_at DATETIME NULL,
           rt_note TEXT NULL, rw_note TEXT NULL,
+          rt_signature_name VARCHAR(90) NULL, rt_stamp_name VARCHAR(90) NULL,
+          rw_signature_name VARCHAR(90) NULL, rw_stamp_name VARCHAR(90) NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_owner(user_id,id), INDEX idx_area(rt,rw,status),
@@ -62,6 +64,18 @@ function cikoko_rt_schema(PDO $db):void {
     }
     $done=true;
 }
+function cikoko_rt_snapshot(string $filename):string {
+    if($filename===''||basename($filename)!==$filename)mobile_error('Berkas TTD/stempel tidak valid.',422);
+    $source=__DIR__.'/private/'.$filename;
+    if(!is_file($source))mobile_error('Berkas TTD/stempel sudah tidak tersedia.',422);
+    $directory=__DIR__.'/private/approved';
+    if(!is_dir($directory)&&!@mkdir($directory,0750,true))
+        mobile_error('Folder arsip TTD/stempel tidak tersedia.',503);
+    $new=bin2hex(random_bytes(24)).'.'.strtolower(pathinfo($filename,PATHINFO_EXTENSION));
+    if(!copy($source,$directory.'/'.$new))mobile_error('Salinan persetujuan gagal disimpan.',503);
+    @chmod($directory.'/'.$new,0600);
+    return $new;
+}
 function cikoko_rt_can_view(array $letter,array $user,string $uid,?array $account):bool {
     $role=(string)($user['user_role']??'');
     if($role==='admin'||$role==='admin_kelurahan')return true;
@@ -76,7 +90,8 @@ function cikoko_rt_row(array $item):array {
     $item['id']=(int)$item['id'];
     $item['form']=json_decode((string)$item['form_json'],true)?:[];
     $item['requires_reaffirm']=false;
-    unset($item['form_json']);
+    unset($item['form_json'],$item['rt_signature_name'],$item['rt_stamp_name'],
+      $item['rw_signature_name'],$item['rw_stamp_name']);
     return $item;
 }
 function cikoko_rt_notify_officers(string $role,string $rt,string $rw,string $title,string $message):void {
@@ -125,6 +140,48 @@ function cikoko_rt_dispatch(string $action,string $method,PDO $db,array $auth,st
             error_log('RT/RW signer save error '.$e->getMessage());
             mobile_error('Penyimpanan TTD/stempel gagal.',503);
         }
+    }
+    if($action==='rt_rw_pdf'){
+        if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
+        $id=(int)($_GET['id']??0);
+        if($id<1)mobile_error('Nomor surat tidak valid.',422);
+        $q=$db->prepare('SELECT * FROM mobile_rt_rw_letters WHERE id=?');
+        $q->execute([$id]);$letter=$q->fetch(PDO::FETCH_ASSOC);
+        if(!$letter||!cikoko_rt_can_view($letter,$auth,$uid,$account))
+            mobile_error('Surat tidak ditemukan untuk akun Anda.',404);
+        if($letter['status']!=='terverifikasi')mobile_error('Surat belum disetujui RT dan RW.',409);
+        $files=[];
+        foreach(['rt_signature_name','rt_stamp_name','rw_signature_name','rw_stamp_name'] as $field){
+            $filename=(string)($letter[$field]??'');
+            if($filename===''||basename($filename)!==$filename||
+               !is_file(__DIR__.'/private/approved/'.$filename))
+                mobile_error('Arsip TTD/stempel persetujuan belum lengkap. Hubungi petugas.',409);
+            $files[]=__DIR__.'/private/approved/'.$filename;
+        }
+        $form=json_decode((string)$letter['form_json'],true)?:[];
+        require_once __DIR__.'/pdf_native.php';
+        cikoko_pdf_render('Surat-Pengantar-Cikoko-'.$id.'.pdf',[
+            'SURAT PENGANTAR RT / RW — KELURAHAN CIKOKO',
+            'REG: RT/RW-'.$id.'   Tanggal: '.$letter['created_at'],
+            'WILAYAH: RT '.$letter['rt'].' / RW '.$letter['rw'],
+            '',
+            'Nama pemohon: '.($form['nama']??$letter['applicant_name']),
+            'Tempat / Tanggal lahir: '.($form['tempat_lahir']??'').' / '.($form['tanggal_lahir']??''),
+            'No KTP/KK: '.($form['no_ktp_kk']??''),
+            'Agama / Kewarganegaraan: '.($form['agama']??'').' / '.($form['kewarganegaraan']??''),
+            'Pendidikan: '.($form['pendidikan']??''),
+            'Jenis kelamin: '.($form['jenis_kelamin']??''),
+            'Status / pekerjaan: '.($form['status']??'').' / '.($form['pekerjaan']??''),
+            'Alamat: '.($form['alamat']??''),
+            '',
+            'Maksud/Keperluan: '.($form['maksud_keperluan']??''),
+            '',
+            'Disetujui Ketua RT: '.($letter['rt_approved_at']??''),
+            'Disetujui Ketua RW: '.($letter['rw_approved_at']??''),
+            'Gambar: TTD RT | Stempel RT | TTD RW | Stempel RW (urut kiri-kanan)',
+            'Ini dokumen register internal dengan gambar tanda tangan/cap,',
+            'bukan Tanda Tangan Elektronik (TTE) tersertifikasi.',
+        ],$files);
     }
     if($action==='rt_rw_officers'){
         if($role!=='admin')mobile_error('Hanya Admin Utama dapat mengelola wilayah petugas.',403);
@@ -239,11 +296,18 @@ function cikoko_rt_dispatch(string $action,string $method,PDO $db,array $auth,st
         $by=$role==='rt'?'rt_approved_by':'rw_approved_by';
         $at=$role==='rt'?'rt_approved_at':'rw_approved_at';
         $noteCol=$role==='rt'?'rt_note':'rw_note';
+        $sigCol=$role==='rt'?'rt_signature_name':'rw_signature_name';
+        $stampCol=$role==='rt'?'rt_stamp_name':'rw_stamp_name';
+        $sigCopy=$decision==='approve'?cikoko_rt_snapshot((string)$signer['signature_name']):null;
+        $stampCopy=$decision==='approve'?cikoko_rt_snapshot((string)$signer['stamp_name']):null;
         // Optimistic concurrency: two devices cannot advance the same stage.
-        $stmt=$db->prepare("UPDATE mobile_rt_rw_letters SET status=?, $by=?, $at=NOW(), $noteCol=?
-            WHERE id=? AND status=?");
-        $stmt->execute([$newStatus,$uid,$note,$id,$expected]);
-        if($stmt->rowCount()!==1)mobile_error('Tahap surat telah diproses oleh perangkat lain.',409);
+        $stmt=$db->prepare("UPDATE mobile_rt_rw_letters SET status=?, $by=?, $at=NOW(),
+            $noteCol=?, $sigCol=?, $stampCol=? WHERE id=? AND status=?");
+        $stmt->execute([$newStatus,$uid,$note,$sigCopy,$stampCopy,$id,$expected]);
+        if($stmt->rowCount()!==1) {
+            foreach([$sigCopy,$stampCopy] as $file)if($file)@unlink(__DIR__.'/private/approved/'.$file);
+            mobile_error('Tahap surat telah diproses oleh perangkat lain.',409);
+        }
         $msg=$newStatus==='ditolak'?'Pengajuan surat ditolak. '.$note:
            ($newStatus==='menunggu_rw'?'Ketua RT telah menyetujui surat. Menunggu Ketua RW.':
              'Ketua RT dan RW sudah menyetujui surat.');
