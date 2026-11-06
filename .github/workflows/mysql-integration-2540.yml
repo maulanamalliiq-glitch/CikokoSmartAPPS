@@ -5,6 +5,7 @@ on:
     paths:
       - 'cpanel/mobile-api/**'
       - 'qa/publish_mysql_scenario.php'
+      - 'qa/publish_waris_staging_test.php'
       - '.github/workflows/mysql-integration-2540.yml'
   workflow_dispatch:
 permissions:
@@ -96,6 +97,12 @@ jobs:
           php qa/publish_mysql_scenario.php civic_detail bendaharaA "{\"id\":$id}" | jq -e '.item.status == "selesai" and (.item.approvals | length) == 2'
           php qa/publish_mysql_scenario.php civic_pdf bendaharaA "{\"id\":$id}" > "$RUNNER_TEMP/cikoko-lpj-qa.pdf"
           test "$(head -c 4 "$RUNNER_TEMP/cikoko-lpj-qa.pdf")" = '%PDF'
+      - name: Verify staged Ahli Waris images and private account isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l qa/publish_waris_staging_test.php
+          php qa/publish_waris_staging_test.php
       - name: Recheck static permission policies
         run: |
           php qa/publish_policy_test.php
