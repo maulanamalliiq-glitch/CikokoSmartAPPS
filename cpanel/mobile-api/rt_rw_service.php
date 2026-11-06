@@ -12,6 +12,11 @@ function cikoko_area($value, bool $optional=false):string {
         mobile_error('RT/RW harus angka antara 01 dan 99.',422);
     return str_pad((string)(int)$v,2,'0',STR_PAD_LEFT);
 }
+function cikoko_optional_area($value):string {
+    $raw=trim((string)$value);
+    if(!preg_match('/^[0-9]{1,2}$/D',$raw)||(int)$raw<1||(int)$raw>99)return '';
+    return str_pad((string)(int)$raw,2,'0',STR_PAD_LEFT);
+}
 function cikoko_rt_user(string $id):?array {
     foreach(db_read('portal_users') as $row){
         if((string)($row['id']??'')===$id && ($row['active']??false))return $row;
@@ -62,10 +67,10 @@ function cikoko_rt_can_view(array $letter,array $user,string $uid,?array $accoun
     if($role==='admin'||$role==='admin_kelurahan')return true;
     if($role==='warga')return (string)$letter['user_id']===$uid;
     if(!$account)return false;
-    $rw=cikoko_area($account['rw']??'',true);
+    $rw=cikoko_optional_area($account['rw']??'');
     if($rw===''||$rw!==$letter['rw'])return false;
     if($role==='rw')return true;
-    return $role==='rt' && cikoko_area($account['rt']??'',true)===$letter['rt'];
+    return $role==='rt' && cikoko_optional_area($account['rt']??'')===$letter['rt'];
 }
 function cikoko_rt_row(array $item):array {
     $item['id']=(int)$item['id'];
@@ -78,8 +83,8 @@ function cikoko_rt_notify_officers(string $role,string $rt,string $rw,string $ti
     foreach(db_read('portal_users') as $user){
         if(!($user['active']??false)||($user['role']??'')!==$role)continue;
         try {
-            $candidateRw=cikoko_area($user['rw']??'',true);
-            $candidateRt=cikoko_area($user['rt']??'',true);
+            $candidateRw=cikoko_optional_area($user['rw']??'');
+            $candidateRt=cikoko_optional_area($user['rt']??'');
         }catch(Throwable $e){continue;}
         if($candidateRw===$rw && ($role==='rw'||$candidateRt===$rt))
             mobile_emit('surat',$title,$message,'personal',(string)$user['id']);
@@ -183,8 +188,8 @@ function cikoko_rt_dispatch(string $action,string $method,PDO $db,array $auth,st
             $q->execute([$uid]);
         }elseif($role==='rt'||$role==='rw'){
             if(!$account)mobile_error('Akun petugas tidak ditemukan.',403);
-            $rw=cikoko_area($account['rw']??'',true);
-            $rt=cikoko_area($account['rt']??'',true);
+            $rw=cikoko_optional_area($account['rw']??'');
+            $rt=cikoko_optional_area($account['rt']??'');
             if($rw==='')mobile_json(['ok'=>true,'items'=>[]]);
             if($role==='rt'){
                 if($rt==='')mobile_json(['ok'=>true,'items'=>[]]);
