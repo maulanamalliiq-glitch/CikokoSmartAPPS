@@ -21,6 +21,12 @@ function cikoko_pdf_image(string $path):string {
        !function_exists('imagejpeg'))mobile_error('Konversi TTD/stempel PDF memerlukan dukungan gambar pada hosting.',503);
     $bytes=@file_get_contents($path);
     if($bytes===false||strlen($bytes)>4*1024*1024)mobile_error('Berkas tanda tangan tidak tersedia.',503);
+    $metadata=@getimagesizefromstring($bytes);
+    if(!is_array($metadata)||$metadata[0]<1||$metadata[1]<1||
+      $metadata[0]>5000||$metadata[1]>5000||
+      $metadata[0]*$metadata[1]>12000000){
+      mobile_error('Resolusi TTD/stempel terlalu besar atau tidak valid.',422);
+    }
     $image=@imagecreatefromstring($bytes);
     if($image===false)mobile_error('Berkas TTD/stempel rusak.',503);
     $w=imagesx($image);$h=imagesy($image);
