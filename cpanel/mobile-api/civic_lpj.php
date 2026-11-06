@@ -31,6 +31,8 @@ function cikoko_civic_schema(PDO $db):void {
         $db->exec('CREATE TABLE IF NOT EXISTS mobile_civic_pins (
           user_id VARCHAR(80) PRIMARY KEY,
           pin_hash VARCHAR(255) NOT NULL,
+          failed_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+          locked_until DATETIME NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }catch(Throwable $e){
@@ -163,7 +165,7 @@ function cikoko_civic_dispatch(string $action,string $method,PDO $db,array $auth
         cikoko_rt_password($owner,(string)($body['current_password']??''));
         $hash=password_hash($pin,PASSWORD_DEFAULT);
         $q=$db->prepare('INSERT INTO mobile_civic_pins(user_id,pin_hash) VALUES(?,?)
-          ON DUPLICATE KEY UPDATE pin_hash=VALUES(pin_hash)');
+          ON DUPLICATE KEY UPDATE pin_hash=VALUES(pin_hash),failed_attempts=0,locked_until=NULL');
         $q->execute([$uid,$hash]);
         mobile_json(['ok'=>true,'message'=>'PIN persetujuan telah disimpan.']);
     }
@@ -228,10 +230,24 @@ function cikoko_civic_dispatch(string $action,string $method,PDO $db,array $auth
             mobile_error('Alasan pengembalian minimal lima karakter.',422);
         if($decision==='approve'){
             $pin=(string)($body['pin']??'');
-            $q=$db->prepare('SELECT pin_hash FROM mobile_civic_pins WHERE user_id=?');
-            $q->execute([$uid]);$hash=$q->fetchColumn();
-            if(!is_string($hash)||!preg_match('/^[0-9]{6}$/D',$pin)||!password_verify($pin,$hash))
+            $q=$db->prepare('SELECT pin_hash,failed_attempts,locked_until FROM mobile_civic_pins WHERE user_id=?');
+            $q->execute([$uid]);$pinRow=$q->fetch(PDO::FETCH_ASSOC);
+            if($pinRow && $pinRow['locked_until']!==null &&
+               strtotime((string)$pinRow['locked_until'])>time())
+                mobile_error('PIN terkunci sementara akibat percobaan berulang.',429);
+            if(!$pinRow||!preg_match('/^[0-9]{6}$/D',$pin)||
+               !password_verify($pin,(string)$pinRow['pin_hash'])){
+                if($pinRow){
+                    $fail=$db->prepare('UPDATE mobile_civic_pins SET
+                      failed_attempts=failed_attempts+1,
+                      locked_until=IF(failed_attempts+1>=5,DATE_ADD(NOW(),INTERVAL 15 MINUTE),NULL)
+                      WHERE user_id=?');
+                    $fail->execute([$uid]);
+                }
                 mobile_error('PIN persetujuan tidak sesuai.',403);
+            }
+            $db->prepare('UPDATE mobile_civic_pins SET failed_attempts=0,locked_until=NULL
+              WHERE user_id=?')->execute([$uid]);
         }
         $status=$decision==='return'?'dikembalikan':
             ($row['status']==='menunggu_ketua'?'menunggu_bendahara':'selesai');
