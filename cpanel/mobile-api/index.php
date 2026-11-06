@@ -70,6 +70,15 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+if(in_array($action,[
+ 'rt_rw_list','rt_rw_submit','rt_rw_decide','rt_rw_reaffirm',
+ 'rt_rw_officers','rt_rw_officer_assign',
+ 'rt_rw_signer_status','rt_rw_signer_upload',
+],true)){
+ require_once __DIR__.'/rt_rw_service.php';
+ cikoko_rt_dispatch($action,$method,$db,$u,(string)$uid);
+}
+
 if(in_array($action,['waris_witness_capabilities','waris_add_witnesses'],true)){
  require_once __DIR__.'/waris_witnesses.php';
  cikoko_waris_witness_dispatch($action,$method,$db,$u,(string)$uid);
