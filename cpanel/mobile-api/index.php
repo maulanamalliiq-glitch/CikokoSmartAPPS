@@ -79,6 +79,15 @@ if(in_array($action,[
  cikoko_rt_dispatch($action,$method,$db,$u,(string)$uid);
 }
 
+if(in_array($action,[
+ 'civic_catalog','civic_list','civic_submit','civic_detail',
+ 'civic_pin_set','civic_review','civic_pdf',
+],true)){
+ require_once __DIR__.'/rt_rw_service.php';
+ require_once __DIR__.'/civic_lpj.php';
+ cikoko_civic_dispatch($action,$method,$db,$u,(string)$uid);
+}
+
 if(in_array($action,['waris_witness_capabilities','waris_add_witnesses'],true)){
  require_once __DIR__.'/waris_witnesses.php';
  cikoko_waris_witness_dispatch($action,$method,$db,$u,(string)$uid);
