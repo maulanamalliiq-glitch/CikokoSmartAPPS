@@ -1,0 +1,82 @@
+name: Cikoko Backend Release Candidate 2540
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cpanel/**'
+      - 'qa/publish_*.php'
+      - '.github/workflows/backend-release-candidate-2540.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verified-backend-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax, API contracts and privacy tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api -maxdepth 1 -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l cpanel/roles-lib.php
+          php qa/publish_api_route_gate.php
+          php qa/publish_policy_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/publish_pdf_smoke.php > "$RUNNER_TEMP/cikoko-lpj-qa.pdf"
+          test "$(head -c 4 "$RUNNER_TEMP/cikoko-lpj-qa.pdf")" = '%PDF'
+      - name: Prepare cPanel overlay without private databases or secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/mobile-api/private dist/ahli-waris/private
+          cp cpanel/mobile-api/{index.php,bootstrap.php,permissions.php,v211.php,cron_dispatch.php,waris_review.php,waris_witnesses.php,integrated_services.php,public_letter_status_v2536.php,rt_rw_service.php,civic_lpj.php,pdf_native.php,waris_staging.php} dist/mobile-api/
+          cp cpanel/mobile-api/private/.htaccess dist/mobile-api/private/
+          cp cpanel/ahli-waris/private/.htaccess dist/ahli-waris/private/
+          cp cpanel/roles-lib.php dist/
+          cat > dist/BACA_DULU_CIKOKO_2540.txt <<'NOTES'
+          CIKOKO SMARTAPP 2540 - PAKET BACKEND RELEASE CANDIDATE
+          **BUKAN DEPLOY OTOMATIS**
+
+          1. BACKUP public_html, database, folder data dan semua foto privat.
+          2. Bandingkan seluruh file dengan yang aktif di server. Jangan
+             langsung menimpa perubahan pada hosting tanpa tinjauan.
+          3. Overlay ini hanya berisi kode. Jangan mengganti konfigurasi DB,
+             data pengguna, file foto, Firebase service account atau keystore.
+          4. Pastikan datawebs.my.id memiliki lib.php, ahli-waris/bootstrap.php,
+             ahli-waris/config.php dan tabel MySQL yang diperlukan.
+          5. Tambahan modul mobile-api/rt_rw_service.php, civic_lpj.php,
+             waris_staging.php, pdf_native.php WAJIB ikut terpasang.
+          6. Pastikan ekstensi GD tersedia untuk cetak PDF dengan TTD/cap.
+             Tes endpoint health, login, daftar RT/RW, waris_format,
+             integrated_services_logo_upload, dan unggah gambar.
+          7. Uji dengan akun Warga A/B, RT, RW, Bendahara, LMK dan Admin.
+             Uji isolasi data, penggantian akun, upload logo, LPJ dan PDF.
+          8. Validasi data produksi dan siapkan rollback sebelum distribusi APK.
+
+          JANGAN unggah file config.php, token, password atau foto privat
+          ke GitHub. Jangan mengklaim siap Play Store tanpa uji staging.
+          NOTES
+          (cd dist && zip -r -q ../CIKOKO_BACKEND_RC_2540.zip .)
+          test -s CIKOKO_BACKEND_RC_2540.zip
+      - name: Publish downloadable release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="cikoko-backend-rc-2540"
+          file="CIKOKO_BACKEND_RC_2540.zip"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$file" --clobber
+          else
+            gh release create "$tag" "$file" --target "$GITHUB_SHA" \
+              --title "Cikoko API 2540 - Release Candidate cPanel" \
+              --prerelease \
+              --notes "Paket overlay PHP untuk pengujian cPanel dan staging. Tidak mengubah hosting otomatis. Wajib backup, uji dua akun warga, RT/RW, LMK dan admin sebelum rilis publik."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
