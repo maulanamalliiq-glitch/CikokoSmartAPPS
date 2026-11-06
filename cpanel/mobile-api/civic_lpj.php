@@ -184,7 +184,38 @@ function cikoko_civic_dispatch(string $action,string $method,PDO $db,array $auth
             mobile_json(['ok'=>true,'item'=>cikoko_civic_item($db,$row)]);
         }
         if($action==='civic_pdf'){
-            mobile_error('Cetakan PDF LPJ menunggu verifikasi format resmi. Tidak tersedia untuk rilis saat ini.',409);
+            $doc=cikoko_civic_item($db,$row);
+            $payload=$doc['payload'];
+            $status=$doc['status']==='selesai'?'SELESAI / DIPERIKSA':'BELUM DISETUJUI / DRAF';
+            $lines=[
+              'LAPORAN PERTANGGUNGJAWABAN (LPJ) — KELURAHAN CIKOKO',
+              'REG LPJ: '.$id.'   JENIS: '.$row['kind'].'   PERIODE: '.$row['period'],
+              'Status: '.$status,
+              'Petugas penyusun: '.$row['owner_name'],
+              'Wilayah: RT '.($row['rt']?:'-').' / RW '.$row['rw'],
+              '',
+              'RINGKASAN KEUANGAN',
+              'Saldo awal: Rp '.($payload['opening']??0),
+              'Penerimaan: Rp '.($payload['income']??0),
+              'Pengeluaran: Rp '.($payload['total_expenses']??0),
+              'Saldo akhir: Rp '.($payload['closing']??0),
+              '',
+              'RINCIAN KEGIATAN / PENGELUARAN',
+            ];
+            foreach(($payload['entries']??[]) as $i=>$entry)if(is_array($entry)){
+                $lines[]=($i+1).'. '.($entry['activity']??'').' — Rp '.($entry['amount']??0);
+                if(!empty($entry['notes']))$lines[]='     Keterangan: '.$entry['notes'];
+            }
+            $lines[]='';$lines[]='RIWAYAT PEMERIKSAAN';
+            foreach($doc['approvals'] as $approval){
+                $lines[]=$approval['duty'].' | '.$approval['action'].' | '.$approval['created_at'];
+                if($approval['notes']!=='')$lines[]='Catatan: '.$approval['notes'];
+            }
+            $lines[]='';
+            $lines[]='Kolom tanda tangan basah petugas berwenang: ______________________________';
+            $lines[]='Dokumen cetak ini bukan tanda tangan elektronik (TTE) tersertifikasi.';
+            require_once __DIR__.'/pdf_native.php';
+            cikoko_pdf_render('Cikoko-LPJ-'.$id.'.pdf',$lines);
         }
         $required=cikoko_civic_required_duty($row);
         if($required===''||$duty!==$required||$row['user_id']===$uid)
