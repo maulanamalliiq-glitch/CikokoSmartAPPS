@@ -1,0 +1,35 @@
+name: Cikoko Production API Readiness Probe (Public Health Only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-api-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production-api-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public API version without credentials or user data
+        shell: bash
+        run: |
+          set -euo pipefail
+          api='https://datawebs.my.id/mobile-api/index.php?action=health'
+          code=$(curl --silent --show-error --location \
+            --connect-timeout 10 --max-time 25 --retry 1 \
+            --output "$RUNNER_TEMP/cikoko-api-health.json" \
+            --write-out '%{http_code}' "$api")
+          echo "Public API HTTP code: $code"
+          if ! jq -e . "$RUNNER_TEMP/cikoko-api-health.json" >/dev/null 2>&1; then
+            echo "::error::Health endpoint did not return JSON; inspect cPanel routing and PHP errors."
+            exit 1
+          fi
+          jq '{service,version,ready,checks,message}' "$RUNNER_TEMP/cikoko-api-health.json"
+          jq -e '.version == "2540.rc1" and .ok == true and .ready == true and ([.checks[]] | all)' "$RUNNER_TEMP/cikoko-api-health.json" >/dev/null || {
+            echo "::error::Backend RC 2540 is not fully installed on the public host."
+            exit 1
+          }
+          test "$code" = 200
+          echo "PASS: public endpoint reports the complete RC 2540 file set."
