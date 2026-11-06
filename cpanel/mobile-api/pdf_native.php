@@ -38,23 +38,17 @@ function cikoko_pdf_image(string $path):string {
 }
 function cikoko_pdf_render(string $filename,array $lines,array $imageFiles=[]):void {
     $filename=preg_replace('/[^A-Za-z0-9_.-]/','_', $filename)??'dokumen.pdf';
-    $stream="0.12 0.20 0.33 rg\n";
-    $y=795;
-    foreach($lines as $i=>$raw){
-        $txt=trim((string)$raw);
-        if($txt===''){$y-=8;continue;}
-        // Keep long fields on one physical page without writing past bounds.
-        $chunks=str_split($txt,100);
-        foreach($chunks as $part){
-            if($y<155)break 2;
-            $font=$i===0?15:10;
-            $stream.="BT /F1 {$font} Tf 42 {$y} Td (".cikoko_pdf_escape($part).") Tj ET\n";
-            $y-=($font===15?26:15);
+    $layout=[];
+    foreach($lines as $index=>$raw){
+        $line=trim((string)$raw);
+        if($line===''){$layout[]=['text'=>'','font'=>10];continue;}
+        foreach(explode("\n",wordwrap($line,96,"\n",true)) as $piece){
+            $layout[]=['text'=>$piece,'font'=>$index===0?15:10];
         }
     }
-    $objects=[];
-    $objects[1]='<< /Type /Catalog /Pages 2 0 R >>';
-    $objects[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
+    // Repeating page structures prevent silently truncating long LPJ lists.
+    $pages=array_chunk($layout,42);
+    if(!$pages)$pages=[[]];
     $images=[];
     foreach(array_slice($imageFiles,0,4) as $path){
         $jpg=cikoko_pdf_image($path);
@@ -62,24 +56,50 @@ function cikoko_pdf_render(string $filename,array $lines,array $imageFiles=[]):v
         if(!is_array($dim))mobile_error('Format gambar tanda tangan tidak valid.',503);
         $images[]=['data'=>$jpg,'w'=>(int)$dim[0],'h'=>(int)$dim[1]];
     }
-    $xs=[45,155,315,425];$slotW=94;$slotH=72;
-    foreach($images as $i=>$img){
-        $pdfW=$slotW;$pdfH=min($slotH,$slotW*$img['h']/$img['w']);
-        $slotY=88+(($slotH-$pdfH)/2);
-        $stream.="q {$pdfW} 0 0 {$pdfH} {$xs[$i]} {$slotY} cm /Im".($i+1)." Do Q\n";
-    }
+    $objects=[];
+    $objects[1]='<< /Type /Catalog /Pages 2 0 R >>';
+    $objects[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+    $pageRefs=[];$imageBase=4+count($pages)*2;
     $xObjects='';
     foreach($images as $i=>$img){
-        $id=6+$i;$xObjects.='/Im'.($i+1)." {$id} 0 R ";
+        $id=$imageBase+$i;
+        $xObjects.='/Im'.($i+1)." {$id} 0 R ";
         $objects[$id]="<< /Type /XObject /Subtype /Image /Width ".$img['w'].
            " /Height ".$img['h']." /ColorSpace /DeviceRGB /BitsPerComponent 8".
            " /Filter /DCTDecode /Length ".strlen($img['data'])." >>\nstream\n".
            $img['data']."\nendstream";
     }
-    $objects[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> /XObject << '.
-      $xObjects.' >> >> /Contents 5 0 R >>';
-    $objects[4]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
-    $objects[5]="<< /Length ".strlen($stream)." >>\nstream\n".$stream."endstream";
+    $total=count($pages);
+    foreach($pages as $page=>$rows){
+        $pageId=4+$page*2;
+        $contentId=$pageId+1;
+        $pageRefs[]="{$pageId} 0 R";
+        $stream="0.12 0.20 0.33 rg\n";$y=795;
+        foreach($rows as $row){
+            $line=(string)$row['text'];
+            if($line===''){$y-=9;continue;}
+            $font=(int)$row['font'];
+            $stream.="BT /F1 {$font} Tf 42 {$y} Td (".cikoko_pdf_escape($line).") Tj ET\n";
+            $y-=$font===15?24:15;
+        }
+        $number=$page+1;
+        $stream.="BT /F1 9 Tf 42 37 Td (Halaman {$number} / {$total}) Tj ET\n";
+        $thisImages=$page===$total-1;
+        if($thisImages){
+            $xs=[45,155,315,425];$slotW=94;$slotH=66;
+            foreach($images as $i=>$img){
+                $h=min($slotH,$slotW*$img['h']/$img['w']);
+                $yy=76+($slotH-$h)/2;
+                $stream.="q {$slotW} 0 0 {$h} {$xs[$i]} {$yy} cm /Im".($i+1)." Do Q\n";
+            }
+        }
+        $resources=$thisImages?$xObjects:'';
+        $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << '.
+           '/Font << /F1 3 0 R >> /XObject << '.$resources.' >> >>'.
+           " /Contents {$contentId} 0 R >>";
+        $objects[$contentId]="<< /Length ".strlen($stream)." >>\nstream\n".$stream."endstream";
+    }
+    $objects[2]='<< /Type /Pages /Kids [ '.implode(' ',$pageRefs).' ] /Count '.$total.' >>';
     ksort($objects);
     $pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";$offsets=[0];
     foreach($objects as $id=>$data){
@@ -88,9 +108,7 @@ function cikoko_pdf_render(string $filename,array $lines,array $imageFiles=[]):v
     }
     $xref=strlen($pdf);$size=max(array_keys($objects))+1;
     $pdf.="xref\n0 {$size}\n0000000000 65535 f \n";
-    for($i=1;$i<$size;$i++){
-        $pdf.=sprintf('%010d 00000 n '."\n",$offsets[$i]??0);
-    }
+    for($i=1;$i<$size;$i++)$pdf.=sprintf('%010d 00000 n '."\n",$offsets[$i]??0);
     $pdf.="trailer\n<< /Root 1 0 R /Size {$size} >>\nstartxref\n{$xref}\n%%EOF\n";
     header('Content-Type: application/pdf');
     header('Content-Disposition: inline; filename="'.$filename.'"');
