@@ -19,11 +19,16 @@ if($action==='health'){
         'roles_lib'=>is_file(dirname(__DIR__).'/roles-lib.php'),
         'api_bootstrap'=>is_file(__DIR__.'/bootstrap.php'),
         'api_permissions'=>is_file(__DIR__.'/permissions.php'),
+        'api_rt_rw'=>is_file(__DIR__.'/rt_rw_service.php'),
+        'api_lpj'=>is_file(__DIR__.'/civic_lpj.php'),
+        'api_waris_staging'=>is_file(__DIR__.'/waris_staging.php'),
+        'api_pdf'=>is_file(__DIR__.'/pdf_native.php'),
+        'api_integrated_services'=>is_file(__DIR__.'/integrated_services.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'205.1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2540.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
