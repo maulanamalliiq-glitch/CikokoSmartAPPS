@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish-chat-backend-2542.yml'
+      - 'qa/backend_2541_contract_test.php'
   workflow_dispatch:
 permissions:
   contents: write
