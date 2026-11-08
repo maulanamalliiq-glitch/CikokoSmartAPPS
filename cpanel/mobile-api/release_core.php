@@ -68,7 +68,7 @@ function cikoko_chat_page(PDO $db,string $owner,string $viewer=''):array {
  // Keep them limited to this account and last 120 messages.
  $q=$db->prepare('SELECT id,sender FROM mobile_chat WHERE user_id=? ORDER BY id DESC LIMIT 120');$q->execute([$owner]);
  $statuses=[];foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row)$statuses[(string)$row['id']]=cikoko_chat_status($row,$receipt);
- return ['ok'=>true,'messages'=>$rows,'has_more'=>$more,'receipt_updates'=>$statuses,'thread_user_id'=>$owner];
+ return ['ok'=>true,'messages'=>$rows,'has_more'=>$more,'receipt_updates'=>(object)$statuses,'thread_user_id'=>$owner];
 }
 function cikoko_capture_area(array &$response):void {
  global $action,$method,$uid,$u;
