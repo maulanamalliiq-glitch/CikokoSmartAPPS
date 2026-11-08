@@ -38,7 +38,7 @@ function cikoko_gov_accounts():array {
  return $accounts;
 }
 function cikoko_gov_collect(PDO $db,bool $includeWaris=false):array {
- $latest=cikoko_gov_latest($db);$accounts=cikoko_gov_accounts();$items=[];$sources=[];
+ $latest=cikoko_gov_latest($db);$areas=cikoko_area_snapshots($db);$items=[];$sources=[];
  foreach(cikoko_gov_sources() as $source=>$table){
   if($source==='waris'&&!$includeWaris)continue;
   $cols=cikoko_gov_columns($db,$table);$sources[$source]=(bool)$cols;
@@ -46,7 +46,7 @@ function cikoko_gov_collect(PDO $db,bool $includeWaris=false):array {
   $sql='SELECT * FROM '.$table.(in_array('deleted_at',$cols,true)?' WHERE deleted_at IS NULL':'');
   foreach($db->query($sql) as $r){
    $id=(int)$r['id'];$owner=(string)($r[$source==='waris'?'account_id':($source==='lpj'?'owner_id':'user_id')]??'');
-   $area=$source==='lpj'?['rt'=>cikoko_gov_area($r['rt']??''),'rw'=>cikoko_gov_area($r['rw']??'')]:($accounts[$owner]??['rt'=>'','rw'=>'']);
+   $area=$source==='lpj'?['rt'=>cikoko_gov_area($r['rt']??''),'rw'=>cikoko_gov_area($r['rw']??'')]:($areas[$source.':'.$id]??['rt'=>'','rw'=>'']);
    $review=$latest[$source.':'.$id.':'.($source==='lpj'?(int)($r['revision']??1):0)]??[];
    $category=in_array($source,['report','lpj'],true)?(string)($r['kind']??'kegiatan'):$source;
    $items[]=['id'=>$id,'source'=>$source,'category'=>$category,
@@ -98,8 +98,7 @@ function cikoko_governance_dispatch(string $action,string $method,PDO $db,array 
   if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
   $target=mobile_text($_GET['user_id']??'',80);
   if($target==='')mobile_error('Pilih percakapan warga.',422);
-  $q=$db->prepare('SELECT id,sender,message,created_at FROM mobile_chat WHERE user_id=? ORDER BY id DESC LIMIT 120');$q->execute([$target]);
-  mobile_json(['ok'=>true,'messages'=>array_reverse($q->fetchAll(PDO::FETCH_ASSOC))]);
+  mobile_json(cikoko_chat_page($db,$target));
  }
  if($action==='territory_monitoring'){
   mobile_need($u,'monitoring:view');if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
@@ -116,7 +115,7 @@ function cikoko_governance_dispatch(string $action,string $method,PDO $db,array 
    elseif($r['status']!=='ditolak')$areas[$key]['pending']++;
   }
   $areas=array_values($areas);usort($areas,static fn($a,$b)=>strcmp($a['rw'].':'.$a['rt'],$b['rw'].':'.$b['rt']));
-  mobile_json(['ok'=>true,'total'=>$total,'statuses'=>(object)$statuses,'categories'=>(object)$categories,'areas'=>$areas,'sources'=>$all['sources'],'area_basis'=>'Wilayah laporan dan Ahli Waris mengikuti profil pelapor saat ini. Wilayah LPJ mengikuti dokumen. Data tanpa wilayah dikelompokkan terpisah.']);
+  mobile_json(['ok'=>true,'total'=>$total,'statuses'=>(object)$statuses,'categories'=>(object)$categories,'areas'=>$areas,'sources'=>$all['sources'],'area_basis'=>'Wilayah pengajuan baru dicatat saat dikirim. Data lama tanpa catatan wilayah dikelompokkan sebagai belum diketahui. Wilayah LPJ mengikuti dokumen.']);
  }
  if($action==='officer_waris'){
   mobile_need($u,'waris:view');
