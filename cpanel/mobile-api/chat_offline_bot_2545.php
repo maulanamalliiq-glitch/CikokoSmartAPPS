@@ -57,6 +57,8 @@ function cikoko_chat_offline_ack(PDO $db,string $owner):?array {
   if($lastBot>0 && $lastHuman<=$lastBot){$db->commit();return null;}
   $text='🤖 Asisten Otomatis Cikoko: Pesan Anda telah diterima. Saat ini Admin Utama, Admin Kelurahan, dan ASN sedang tidak online. Mohon menunggu tanggapan dari petugas. Pesan Anda tersimpan dan akan dapat dibaca saat petugas kembali aktif.';
   $reply=cikoko_chat_store($db,$owner,'Asisten Otomatis Cikoko','bot',$text);
+  $reply['message']=$text;
+  $reply['name']='Asisten Otomatis Cikoko';
   $db->prepare('UPDATE mobile_chat_bot_state SET last_bot_message_id=? WHERE user_id=?')
      ->execute([(int)$reply['id'],$owner]);
   $db->commit();
