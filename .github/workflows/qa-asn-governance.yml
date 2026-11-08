@@ -1,0 +1,22 @@
+name: QA - ASN Verification and Territory Monitoring
+on:
+  push:
+    branches: [feat/asn-verification-monitoring-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/permissions.php
+          php -l cpanel/mobile-api/governance_review.php
+          php -l cpanel/mobile-api/home_slides.php
+      - name: Authorized verification, persistence, privacy and complete monitoring
+        run: |
+          php qa/governance_review_test.php
+          php qa/asn_permissions_test.php
