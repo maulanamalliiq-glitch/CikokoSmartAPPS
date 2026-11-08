@@ -28,11 +28,12 @@ if($action==='health'){
         'api_release_core'=>is_file(__DIR__.'/release_core.php'),
         'api_account_support'=>is_file(__DIR__.'/account_support.php'),
         'api_chat_storage'=>is_file(__DIR__.'/chat_storage_2544.php'),
+        'api_offline_chat_bot'=>is_file(__DIR__.'/chat_offline_bot_2545.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2544.rc1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2545.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -92,6 +93,13 @@ if($action==='content'&&$method==='GET'){
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 require_once __DIR__.'/chat_storage_2544.php';
+require_once __DIR__.'/chat_offline_bot_2545.php';
+if($action==='chat_presence'&&$method==='POST'){
+ $body=mobile_body();$online=($body['online']??true)!==false;
+ $ok=cikoko_chat_presence($db,$u,$online);
+ if(!$ok)mobile_error('Status petugas hanya untuk Admin Utama, Admin Kelurahan atau ASN berwenang.',403);
+ mobile_json(['ok'=>true,'online'=>$online]);
+}
 if($action==='chat_diagnostics'&&$method==='GET'){
  $target=mobile_text($_GET['user_id']??'',80);
  mobile_json(cikoko_chat_diagnostic($db,$u,$target));
@@ -224,6 +232,7 @@ if($action==='profile_update'&&$method==='POST'){
   mobile_json(['ok'=>true,'message'=>'Profil berhasil diperbarui.','user'=>$result]);
 }
 if($action==='logout'&&$method==='POST'){
+ cikoko_chat_presence($db,$u,false);
  $h=$_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'';if(preg_match('/^Bearer\s+(.+)$/',$h,$m)){$s=$db->prepare('DELETE FROM mobile_tokens WHERE token_hash=?');$s->execute([hash('sha256',$m[1])]);}mobile_json(['ok'=>true]);
 }
 // Release only this account/device pair. Never delete another account's device.
@@ -277,6 +286,7 @@ if($action==='archives'){
 // Account inbox: never mix broadcast, other staff, or other applicants here.
 // Public news and aggregate submission counts remain on the Beranda endpoints.
 if($action==='events'){
+ if(cikoko_chat_eligible_staff($u))cikoko_chat_presence($db,$u,true);
  waris_review_schema($db);
  $sql='SELECT e.id,e.category,e.title,e.message,e.created_at,e.audience,e.recipient,l.object_type,l.object_id,IF(r.event_id IS NULL,0,1) AS is_read
    FROM mobile_events e
@@ -299,10 +309,15 @@ if($action==='event_read'&&$method==='POST'){
  mobile_json(['ok'=>true,'message'=>'Notifikasi telah dibaca.']);
 }
 if($action==='chat_send'&&$method==='POST'){
+ if(cikoko_chat_eligible_staff($u))mobile_error('Petugas harus membalas melalui menu Pesan Masuk.',403);
  $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mobile_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
  $st=$db->prepare('SELECT created_at FROM mobile_chat WHERE user_id=? AND sender="warga" ORDER BY id DESC LIMIT 1');$st->execute([$uid]);$last=$st->fetchColumn();if($last && strtotime($last)>time()-3)mobile_error('Tunggu sebentar sebelum mengirim lagi',429);
  $result=cikoko_chat_store($db,(string)$uid,(string)$u['username'],'warga',$message);
- mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json($result);
+ try{
+  $auto=cikoko_chat_offline_ack($db,(string)$uid);
+  if($auto!==null)$result['auto_reply']=$auto;
+ }catch(Throwable $e){error_log('Chat offline acknowledgement failed: '.$e->getMessage());}
+ mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk petugas','admin');mobile_json($result);
 }
 if($action==='chat'&&$method==='GET'){
  mobile_json(cikoko_chat_page($db,(string)$uid,'warga'));
@@ -315,7 +330,7 @@ if($action==='chat_inbox'&&$method==='GET'){
  mobile_json(['ok'=>true,'latest_admin_id'=>$last]);
 }
 if($action==='chat_threads'){
- mobile_need($u,'chat:reply');
+ mobile_need($u,'chat:reply');cikoko_chat_presence($db,$u,true);
  $before=max(0,(int)($_GET['before_id']??0));$search=mobile_text($_GET['search']??'',100);
  $sql='SELECT m.id,m.user_id,m.name,m.message,m.created_at FROM mobile_chat m INNER JOIN (SELECT user_id,MAX(id) AS last_id FROM mobile_chat GROUP BY user_id) z ON m.id=z.last_id WHERE 1=1';$args=[];
  if($before>0){$sql.=' AND m.id<?';$args[]=$before;}
@@ -332,10 +347,11 @@ if($action==='chat_threads'){
  mobile_json(['ok'=>true,'threads'=>$rows,'has_more'=>$more]);
 }
 if($action==='chat_reply'&&$method==='POST'){
- mobile_need($u,'chat:reply');$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
+ mobile_need($u,'chat:reply');cikoko_chat_presence($db,$u,true);$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
  $chk=$db->prepare('SELECT name FROM mobile_chat WHERE user_id=? LIMIT 1');$chk->execute([$target]);if(!$chk->fetch())mobile_error('Penerima tidak ditemukan',404);
- $result=cikoko_chat_store($db,(string)$target,'Admin Kelurahan','admin',$msg);
- mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json($result);
+ $senderName=match((string)$u['user_role']){'admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','asn'=>'Petugas ASN',default=>'Petugas Kelurahan'};
+ $result=cikoko_chat_store($db,(string)$target,$senderName,'admin',$msg);
+ mobile_emit('chat','Pesan dibalas oleh Petugas','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json($result);
 }
 if($action==='report'&&$method==='POST'){
  $kind=mobile_text($_POST['kind']??'',60);if(!in_array($kind,['jumantik','kegiatan','fkdm','lmk','posyandu','pkk','kerja_bakti','ppsu'],true))mobile_error('Jenis laporan tidak diizinkan',422);
