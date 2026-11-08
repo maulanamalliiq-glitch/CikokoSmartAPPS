@@ -27,7 +27,7 @@ jobs:
             exit 1
           fi
           jq '{service,version,ready,checks,message}' "$RUNNER_TEMP/cikoko-api-health.json"
-          jq -e '.version == "2540.rc1" and .ok == true and .ready == true and ([.checks[]] | all)' "$RUNNER_TEMP/cikoko-api-health.json" >/dev/null || {
+          jq -e '.version == "2541.rc1" and .ok == true and .ready == true and ([.checks[]] | all)' "$RUNNER_TEMP/cikoko-api-health.json" >/dev/null || {
             echo "::error::Backend 2.5.41 is not fully installed on the public host."
             exit 1
           }
