@@ -9,7 +9,7 @@ header('X-Content-Type-Options: nosniff');
 set_exception_handler(static function(Throwable $exception):void {
     error_log('[Cikoko mobile-api v205] '.$exception->getMessage().' at '.$exception->getFile().':'.$exception->getLine());
     if(!headers_sent()){http_response_code(503);header('Content-Type: application/json; charset=utf-8');}
-    echo json_encode(['ok'=>false,'error'=>'Server API belum siap. Periksa error_log PHP atau konfigurasi database.'],JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok'=>false,'error'=>'Layanan sedang mengalami kendala. Silakan coba kembali atau hubungi petugas kelurahan.'],JSON_UNESCAPED_UNICODE);
 });
 $action=(string)($_GET['action']??'');
 $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
@@ -25,11 +25,13 @@ if($action==='health'){
         'api_waris_staging'=>is_file(__DIR__.'/waris_staging.php'),
         'api_pdf'=>is_file(__DIR__.'/pdf_native.php'),
         'api_integrated_services'=>is_file(__DIR__.'/integrated_services.php'),
+        'api_release_core'=>is_file(__DIR__.'/release_core.php'),
+        'api_account_support'=>is_file(__DIR__.'/account_support.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2540.rc1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2541.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -46,14 +48,20 @@ if(in_array($action,['integrated_services','integrated_services_save','integrate
 }
 
 
+if(in_array($action,['account_help','account_request','account_requests','account_request_resolve'],true)){
+ require_once __DIR__.'/account_support.php';cikoko_account_dispatch($action,$method);
+}
 if($action==='login'&&$method==='POST'){
+ $limitDb=mobile_db();cikoko_rate_limit($limitDb,'login_ip',(string)($_SERVER['REMOTE_ADDR']??''),200,900);
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
+ cikoko_rate_limit($limitDb,'login_account',strtolower($username),10,900);
  $a=db_read('admin');if($username!==''&&hash_equals((string)($a['username']??''),$username) && password_verify($pass,(string)($a['password_hash']??''))){$found=['id'=>'admin','name'=>'Administrator','username'=>$username,'role'=>'admin'];}
  if(!$found)foreach(db_read('portal_users') as $u){if(hash_equals((string)($u['username']??''),$username)&&($u['active']??false)&&password_verify($pass,(string)($u['password_hash']??''))){$found=['id'=>$u['id'],'name'=>$u['name'],'username'=>$u['username'],'role'=>$u['role'],'department'=>$u['department']??''];break;}}
  if(!$found)mobile_error('Username, password, atau status akun tidak sesuai',401);
  $token=rtrim(strtr(base64_encode(random_bytes(48)),'+/','-_'),'=');$st=mobile_db()->prepare('INSERT INTO mobile_tokens(token_hash,user_id,username,user_role,expires_at) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 30 DAY))');$st->execute([hash('sha256',$token),$found['id'],$found['username'],$found['role']]);mobile_json(['ok'=>true,'token'=>$token,'user'=>$found]);
 }
 if($action==='register'&&$method==='POST'){
+ cikoko_rate_limit(mobile_db(),'register',(string)($_SERVER['REMOTE_ADDR']??''),10,3600);
  $b=mobile_body();$name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);$pass=(string)($b['password']??'');$confirm=(string)($b['confirm']??'');$address=mobile_text($b['address']??'',600);$phone=mobile_text($b['phone']??'',40);$email=mobile_text($b['email']??'',160);
  $rawRt=trim(mobile_text($b['rt']??'',12));
  $rawRw=trim(mobile_text($b['rw']??'',12));
@@ -65,6 +73,7 @@ if($action==='register'&&$method==='POST'){
  }
  $rt=$rawRt===''?'':str_pad((string)(int)$rawRt,2,'0',STR_PAD_LEFT);
  $rw=$rawRw===''?'':str_pad((string)(int)$rawRw,2,'0',STR_PAD_LEFT);
+ if(!cikoko_password_valid($pass))mobile_error('Kata sandi minimal 10 karakter dan memuat huruf serta angka, maksimal 128 karakter.',422);
  if($pass===''||$pass!==$confirm)mobile_error('Konfirmasi password tidak sama atau kosong',422);
  if(mobile_strlen($name)<3 || !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||!preg_match('/^[0-9+ -]{8,20}$/',$phone)||$address===''||!filter_var($email,FILTER_VALIDATE_EMAIL))mobile_error('Periksa nama, username, alamat, nomor telepon dan email',422);
  $users=db_read('portal_users');$a=db_read('admin');$taken=strcasecmp((string)($a['username']??''),$username)===0;foreach($users as $v)if(strcasecmp((string)($v['username']??''),$username)===0)$taken=true;
@@ -289,10 +298,16 @@ if($action==='chat_send'&&$method==='POST'){
  $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');$st->execute([$uid,$u['username'],'warga',$message]);mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json(['ok'=>true]);
 }
 if($action==='chat'){
- $s=$db->prepare('SELECT id,sender,message,created_at FROM mobile_chat WHERE user_id=? ORDER BY id DESC LIMIT 120');$s->execute([$uid]);mobile_json(['ok'=>true,'messages'=>array_reverse($s->fetchAll())]);
+ mobile_json(cikoko_chat_page($db,(string)$uid));
 }
 if($action==='chat_threads'){
- mobile_need($u,'chat:reply');$rows=$db->query('SELECT m.user_id,m.name,m.message,m.created_at FROM mobile_chat m INNER JOIN (SELECT user_id,MAX(id) AS last_id FROM mobile_chat GROUP BY user_id) z ON m.id=z.last_id ORDER BY m.id DESC LIMIT 150')->fetchAll();mobile_json(['ok'=>true,'threads'=>$rows]);
+ mobile_need($u,'chat:reply');
+ $before=max(0,(int)($_GET['before_id']??0));$search=mobile_text($_GET['search']??'',100);
+ $sql='SELECT m.id,m.user_id,m.name,m.message,m.created_at FROM mobile_chat m INNER JOIN (SELECT user_id,MAX(id) AS last_id FROM mobile_chat GROUP BY user_id) z ON m.id=z.last_id WHERE 1=1';$args=[];
+ if($before>0){$sql.=' AND m.id<?';$args[]=$before;}
+ if($search!==''){$sql.=' AND (m.name LIKE ? OR m.message LIKE ?)';$args[]='%'.$search.'%';$args[]='%'.$search.'%';}
+ $q=$db->prepare($sql.' ORDER BY m.id DESC LIMIT 51');$q->execute($args);$rows=$q->fetchAll();$more=count($rows)>50;
+ mobile_json(['ok'=>true,'threads'=>array_slice($rows,0,50),'has_more'=>$more]);
 }
 if($action==='chat_reply'&&$method==='POST'){
  mobile_need($u,'chat:reply');$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
