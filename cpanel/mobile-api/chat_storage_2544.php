@@ -7,7 +7,7 @@ declare(strict_types=1);
  * persisted for the expected conversation.
  */
 function cikoko_chat_store(PDO $db,string $owner,string $name,string $sender,string $message):array {
- if($owner===''||strlen($owner)>80||!in_array($sender,['warga','admin'],true)||trim($message)===''){
+ if($owner===''||strlen($owner)>80||!in_array($sender,['warga','admin','bot'],true)||trim($message)===''){
   mobile_error('Penerima atau isi pesan tidak valid.',422);
  }
  $stmt=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');
