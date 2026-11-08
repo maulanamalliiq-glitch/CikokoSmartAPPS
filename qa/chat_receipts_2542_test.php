@@ -10,7 +10,7 @@ $db=new PDO(getenv('TEST_MYSQL_DSN'),getenv('TEST_MYSQL_USER'),getenv('TEST_MYSQ
  PDO::ATTR_EMULATE_PREPARES=>false]);
 cikoko_release_schema($db);
 $db->exec('DROP TABLE IF EXISTS mobile_chat');
-$db->exec('CREATE TABLE mobile_chat(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id VARCHAR(80),sender VARCHAR(16),message TEXT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+$db->exec('CREATE TABLE mobile_chat(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id VARCHAR(80),name VARCHAR(160) NULL,sender VARCHAR(16),message TEXT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
 $insert=$db->prepare('INSERT INTO mobile_chat(user_id,sender,message) VALUES(?,?,?)');
 foreach([['resident-A','warga','Hai Admin'],['resident-A','admin','Halo Warga'],['resident-B','warga','Private B']] as $p)$insert->execute($p);
 $_GET=[];
