@@ -114,3 +114,22 @@ jobs:
           printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lmUAAAAASUVORK5CYII=' | base64 -d > /tmp/qa-photo.png
           report=$(curl -fsS -H "$auth" -F kind=jumantik -F address=QA -F notes=QA -F photo=@/tmp/qa-photo.png "${api}report" | jq -er 'select(.stored == true) | .id | select(. > 0)')
           curl -fsS -H "$auth" "${api}history" | jq -e --argjson id "$report" 'any(.items[]; (.id|tonumber) == $id and .kind == "report")'
+
+          # Exercise recovery of an incomplete older installation on this disposable DB.
+          mysql -h127.0.0.1 -uroot -ptest-only-password cikoko_test < cpanel/database/ahli_waris.sql
+          mysql -h127.0.0.1 -uroot -ptest-only-password cikoko_test -e 'DROP TABLE aw_history; ALTER TABLE aw_applications DROP COLUMN children_json'
+          attachments=()
+          for field in r1 r2 r3 r4 r5 r6; do attachments+=(-F "$field=@/tmp/qa-photo.png"); done
+          aw=$(curl -fsS -H "$auth" -F name=QA -F phone=000000 -F address=QA -F relation=QA -F deceased_name=QA -F heirs=QA -F nik=0000000000000000 "${attachments[@]}" "${api}waris" | jq -er '.reference')
+          curl -fsS -H "$auth" "${api}history" | jq -e --arg ref "$aw" 'any(.items[]; .reference == $ref)'
+          curl -fsS "${api}public_letter_status" | jq -e --arg ref "$aw" '.complete and any(.items[]; .reference == $ref)'
+          curl -fsS -H "$auth" "${api}document_detail&kind=waris&id=$aw" | jq -e '.ok'
+  observe-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read public page and service status, without submitting data
+        run: |
+          for path in '/' '/akun/masuk' '/mobile-api/index.php?action=health' '/mobile-api/index.php?action=public_letter_status'; do
+            status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' "https://datawebs.my.id$path") || true
+            echo "$path HTTP $status" | tee -a "$GITHUB_STEP_SUMMARY"
+          done

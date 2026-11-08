@@ -12,6 +12,15 @@ foreach(db_read('cikoko_home_slides') as $row){
  if(count($slides)>=5)break;
 }
 $logo=ap_logo();
+$accountPath='login.php';
+$accountLabel='Masuk Akun';
+if(is_admin()){
+    $accountPath='admin.php';
+    $accountLabel='Dashboard Admin';
+}elseif(!empty($_SESSION['portal_uid']) && !empty($_SESSION['portal_role'])){
+    $accountPath='portal.php';
+    $accountLabel='Buka Akun';
+}
 header('Content-Type: text/html; charset=utf-8');
 ?><!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,7 +31,7 @@ header('Content-Type: text/html; charset=utf-8');
 <header class="cs-topbar"><div class="cs-topbar-inner">
 <a class="cs-brand" href="<?=esc(url())?>"><img src="<?=esc($logo)?>" width="46" height="46" alt="Logo Kelurahan Cikoko"><span><strong>Cikoko SmartAPP</strong><small>Portal Kelurahan Cikoko</small></span></a>
 <nav class="cs-desktop-nav" aria-label="Navigasi utama"><a href="<?=esc(url())?>" aria-current="page">Beranda</a><a href="<?=esc(url('page.php?p=profil'))?>">Tentang Kami</a><a href="<?=esc(url('listing.php?type=layanan'))?>">Layanan</a><a href="<?=esc(url('informasi.php'))?>">Informasi</a><a href="<?=esc(url('inovasi.php'))?>">Inovasi</a></nav>
-<a class="cs-login" href="<?=esc(url('login.php'))?>">Masuk Akun ↗</a>
+<a class="cs-login" href="<?=esc(url($accountPath))?>"><?=esc($accountLabel)?> ↗</a>
 </div></header>
 <main id="cs-main" class="cs-shell">
 <section class="cs-hero"><div class="cs-hero-text">

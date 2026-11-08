@@ -11,20 +11,41 @@ function aw_cfg(): array {
 }
 function aw_db(): PDO {static $pdo=null;if(!$pdo){$c=aw_cfg();$pdo=new PDO('mysql:host='.$c['host'].';port='.($c['port']??3306).';dbname='.$c['database'].';charset=utf8mb4',$c['username'],$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]); aw_prepare_schema($pdo);}return $pdo;}
 function aw_prepare_schema(PDO $db): void {
-  $exists = $db->query("SHOW TABLES LIKE 'aw_applications'")->fetchColumn();
-  if ($exists) {aw_ensure_extra_schema($db);return;}
-  $sql = file_get_contents(__DIR__.'/../database/ahli_waris.sql');
-  // Three CREATE TABLE statements, without client multi-statements.
-  foreach (explode(';', preg_replace('/^--[^\n]*\n/m', '', $sql)) as $statement) {
-    $statement=trim($statement);if($statement!=='')$db->exec($statement);
+  $count = $db->query("SELECT COUNT(*) FROM information_schema.tables
+      WHERE table_schema = DATABASE() AND table_name IN ('aw_applications','aw_attachments','aw_history')")->fetchColumn();
+  if ((int)$count < 3) {
+      $sql = file_get_contents(__DIR__.'/../database/ahli_waris.sql');
+      if ($sql === false) throw new RuntimeException('Skema Ahli Waris tidak dapat dibaca.');
+      foreach (explode(';', preg_replace('/^--[^\n]*\n/m', '', $sql)) as $statement) {
+          if (trim($statement) !== '') $db->exec($statement);
+      }
   }
   aw_ensure_extra_schema($db);
 }
 
 function aw_ensure_extra_schema(PDO $db): void {
- $cols=$db->query('SHOW COLUMNS FROM aw_applications')->fetchAll(PDO::FETCH_COLUMN);
- if(!in_array('deceased_marriage_date',$cols,true))$db->exec('ALTER TABLE aw_applications ADD COLUMN deceased_marriage_date DATE NULL AFTER deceased_birthdate');
- if(!in_array('children_json',$cols,true))$db->exec('ALTER TABLE aw_applications ADD COLUMN children_json LONGTEXT NULL AFTER heirs');
+    $columns = $db->query('SHOW COLUMNS FROM aw_applications')->fetchAll(PDO::FETCH_COLUMN);
+    $missing = [
+        'deceased_marriage_date' => 'DATE NULL',
+        'children_json' => 'LONGTEXT NULL',
+    ];
+    foreach ($missing as $name => $type) {
+        if (in_array($name, $columns, true)) continue;
+        try {
+            $db->exec("ALTER TABLE aw_applications ADD COLUMN `$name` $type");
+        } catch (PDOException $e) {
+            // Another first request may already have added the same column.
+            if ((int)($e->errorInfo[1] ?? 0) !== 1060) throw $e;
+        }
+    }
+}
+function aw_require_auto_id(PDO $db):void {
+ foreach(['aw_applications','aw_attachments','aw_history'] as $table){
+  $row=$db->query('SHOW COLUMNS FROM `'.$table.'` LIKE \'id\'')->fetch(PDO::FETCH_ASSOC);
+  if(!$row || ($row['Key']??'')!=='PRI' || stripos((string)($row['Extra']??''),'auto_increment')===false){
+   throw new RuntimeException('Database Ahli Waris belum memiliki ID otomatis. Admin perlu menjalankan migrasi; formulir belum disimpan.');
+  }
+ }
 }
 function aw_identity(): array {
  // Menyesuaikan portal login Cikoko lama: $_SESSION['portal_uid'], portal_role.

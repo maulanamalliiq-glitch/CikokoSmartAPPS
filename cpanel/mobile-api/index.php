@@ -382,7 +382,8 @@ if($action==='report'&&$method==='POST'){
 if($action==='waris'&&$method==='POST'){
  mobile_need($u,'waris:create');
  require_once dirname(__DIR__).'/ahli-waris/bootstrap.php';
- try {aw_prepare_schema($db);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
+ waris_review_schema($db);
+ try {aw_prepare_schema($db);mobile_require_auto_id($db,['aw_applications','aw_attachments','aw_history']);}catch(Throwable $e){error_log('Cikoko waris migration failure: '.$e->getMessage());mobile_error('Struktur database Ahli Waris belum diperbarui. Admin perlu menjalankan migrasi.',503);} 
  $nik=mobile_text($_POST['nik']??'',16);if(!preg_match('/^[0-9]{16}$/',$nik))mobile_error('NIK wajib 16 angka',422);
  foreach(['name','phone','address','relation','deceased_name','heirs'] as $k)if(trim((string)($_POST[$k]??''))==='')mobile_error('Lengkapi '.$k,422);
  $children=min(10,max(0,(int)($_POST['child_count']??0)));
@@ -418,7 +419,7 @@ if($action==='waris'&&$method==='POST'){
   $db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,NULL,"masuk",?,"Permohonan dari Android")')->execute([$id,$uid]);$db->commit();
   if($split)cikoko_waris_stage_clean((string)$uid,$draft);
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();foreach($paths as $f)@unlink($f);error_log('Waris mobile upload error: '.$e->getMessage());mobile_error('Permohonan belum berhasil disimpan. Data tetap berada di formulir. Periksa dokumen atau hubungi admin jika masalah berulang.',503);}
- mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Permohonan diterima',$reference,'personal',(string)$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
+ mobile_emit('surat','Surat Ahli Waris baru','Pengajuan '.$reference.' masuk','admin');waris_emit_link($db,'waris',$id,'progres_surat','Permohonan diterima',$reference,'personal',(string)$uid);mobile_json(['ok'=>true,'reference'=>$reference]);
 }
 if($action==='history'){
  $st=$db->prepare('SELECT id,kind AS title,"report" AS kind,status,created_at FROM mobile_reports WHERE user_id=? ORDER BY id DESC LIMIT 70');$st->execute([$uid]);$rows=$st->fetchAll();
