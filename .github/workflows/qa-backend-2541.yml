@@ -1,0 +1,71 @@
+name: Backend 2.5.41 Sync Hardcheck and cPanel Overlay
+on:
+  push:
+    branches: [fix/backend-sync-2541-20261108]
+    paths:
+      - 'cpanel/mobile-api/**'
+      - 'qa/release_2541_regression_test.php'
+      - 'qa/backend_2541_contract_test.php'
+      - '.github/workflows/qa-backend-2541.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hardcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: PHP syntax hardcheck
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l qa/release_2541_regression_test.php
+          php -l qa/backend_2541_contract_test.php
+      - name: Check old and new API contracts and authorization
+        run: |
+          set -euo pipefail
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+          php qa/v212_contract_test.php
+          php qa/v2537_waris_witness_contract_test.php
+      - name: Auth throttling, private chat cursor and territory SQL regression
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: php qa/release_2541_regression_test.php
+      - name: Prepare safe additive cPanel overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/mobile-api
+          for name in index.php bootstrap.php account_support.php release_core.php governance_review.php waris_review.php; do
+            cp "cpanel/mobile-api/$name" "out/mobile-api/$name"
+          done
+          cp docs/BACKEND_2541_DEPLOYMENT.md out/BACA_DULU_BACKEND_2541.md
+          (cd out && sha256sum mobile-api/*.php > SHA256SUMS.txt)
+          (cd out && zip -q -r ../CIKOKO_BACKEND_2541_CPANEL_PATCH.zip .)
+          unzip -t CIKOKO_BACKEND_2541_CPANEL_PATCH.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cikoko-backend-2541-cpanel-overlay
+          path: CIKOKO_BACKEND_2541_CPANEL_PATCH.zip
+          retention-days: 14
+          if-no-files-found: error
