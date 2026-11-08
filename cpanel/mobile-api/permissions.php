@@ -9,7 +9,7 @@ function mobile_default_permissions(string $role):array {
  $base=['warga'=>['report:jumantik','waris:create'],
  'admin_kelurahan'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify','content:create','archive:create','archive:view','chat:reply'],
  'lurah'=>['reports:view','reports:verify','waris:view','waris:verify','archive:view'],
- 'asn'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify','monitoring:view'],
+ 'asn'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify','monitoring:view','chat:reply'],
  'ptsp'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify'],
  'dukcapil'=>['report:kegiatan'],
  'pppk'=>['report:kegiatan'],'pjlp'=>['report:kegiatan'],
