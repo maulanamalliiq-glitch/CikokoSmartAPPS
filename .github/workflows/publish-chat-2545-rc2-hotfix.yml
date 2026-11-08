@@ -1,0 +1,88 @@
+name: Publish Emergency Cikoko Chat HTTP500 PHP Compatibility Hotfix
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-chat-2545-rc2-hotfix.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Assert every API module parses on PHP 7.4
+        run: |
+          set -euo pipefail
+          php -v
+          find cpanel/mobile-api -maxdepth 1 -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Validate PHP 8.3 contracts, permissions, privacy and MySQL
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
+      - name: Build fast single-index emergency recovery ZIP and complete fallback ZIP
+        run: |
+          set -euo pipefail
+          mkdir -p quick/HOTFIX/mobile-api full/mobile-api
+          cp cpanel/mobile-api/index.php quick/HOTFIX/mobile-api/index.php
+          cp docs/CHAT_2545_RC2_HTTP500_RECOVERY.md quick/MULAI_DI_SINI_CHAT_HTTP500.md
+          (cd quick && sha256sum HOTFIX/mobile-api/index.php > SHA256SUMS.txt)
+          (cd quick && sha256sum -c SHA256SUMS.txt)
+          (cd quick && zip -qr ../CIKOKO_CHAT_2545_RC2_HOTFIX_INDEX.zip .)
+          find cpanel/mobile-api -maxdepth 1 -type f -name '*.php' -print0 | xargs -0 -I '{}' cp '{}' full/mobile-api/
+          cp cpanel/mobile-api/migrate_chat_2544.sql full/mobile-api/
+          cp cpanel/mobile-api/migrate_offline_chat_bot_2545.sql full/mobile-api/
+          cp docs/CHAT_2545_RC2_HTTP500_RECOVERY.md full/MULAI_DI_SINI_CHAT_HTTP500.md
+          cp docs/OFFLINE_CHAT_BOT_2545_CPANEL.md full/PANDUAN_CHATBOT_OFFLINE.md
+          (cd full && sha256sum mobile-api/*.php mobile-api/*.sql > SHA256SUMS.txt)
+          (cd full && sha256sum -c SHA256SUMS.txt)
+          (cd full && zip -qr ../CIKOKO_BACKEND_CHAT_2545_RC2_FULL.zip .)
+          unzip -t CIKOKO_CHAT_2545_RC2_HOTFIX_INDEX.zip
+          unzip -t CIKOKO_BACKEND_CHAT_2545_RC2_FULL.zip
+      - name: Publish tested browser downloads to GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v2.5.45-2545-rc2-http500-hotfix-20261108"
+          quick="CIKOKO_CHAT_2545_RC2_HOTFIX_INDEX.zip"
+          full="CIKOKO_BACKEND_CHAT_2545_RC2_FULL.zip"
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$tag" "$quick" "$full" --clobber --repo "$GH_REPO"
+          else
+            gh release create "$tag" "$quick" "$full" --repo "$GH_REPO" \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "Pemulihan API Cikoko 2545.rc2 — HTTP 500" \
+              --notes "Verified PHP 7.4 / 8.3 and MySQL hotfix. First backup and check cPanel PHP version and error_log. Quick ZIP replaces only mobile-api/index.php; full ZIP is a controlled recovery overlay. Neither ZIP deploys automatically to datawebs.my.id. Verify health=2545.rc2 and end-to-end chat on two phones after installation."
+          fi
