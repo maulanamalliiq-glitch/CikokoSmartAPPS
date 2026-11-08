@@ -27,11 +27,12 @@ if($action==='health'){
         'api_integrated_services'=>is_file(__DIR__.'/integrated_services.php'),
         'api_release_core'=>is_file(__DIR__.'/release_core.php'),
         'api_account_support'=>is_file(__DIR__.'/account_support.php'),
+        'api_chat_storage'=>is_file(__DIR__.'/chat_storage_2544.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2542.rc1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2544.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -90,6 +91,11 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+require_once __DIR__.'/chat_storage_2544.php';
+if($action==='chat_diagnostics'&&$method==='GET'){
+ $target=mobile_text($_GET['user_id']??'',80);
+ mobile_json(cikoko_chat_diagnostic($db,$u,$target));
+}
 if(in_array($action,['support_admin_thread','officer_reports','officer_waris','officer_report_detail','officer_report_decide','officer_report_photo','territory_monitoring'],true)){
  require_once __DIR__.'/governance_review.php';
  cikoko_governance_dispatch($action,$method,$db,$u);
@@ -295,7 +301,8 @@ if($action==='event_read'&&$method==='POST'){
 if($action==='chat_send'&&$method==='POST'){
  $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mobile_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
  $st=$db->prepare('SELECT created_at FROM mobile_chat WHERE user_id=? AND sender="warga" ORDER BY id DESC LIMIT 1');$st->execute([$uid]);$last=$st->fetchColumn();if($last && strtotime($last)>time()-3)mobile_error('Tunggu sebentar sebelum mengirim lagi',429);
- $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');$st->execute([$uid,$u['username'],'warga',$message]);$sentId=(int)$db->lastInsertId();mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json(['ok'=>true,'id'=>$sentId,'sender'=>'warga','created_at'=>date('Y-m-d H:i:s'),'delivery_status'=>'sent']);
+ $result=cikoko_chat_store($db,(string)$uid,(string)$u['username'],'warga',$message);
+ mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json($result);
 }
 if($action==='chat'&&$method==='GET'){
  mobile_json(cikoko_chat_page($db,(string)$uid,'warga'));
@@ -327,7 +334,8 @@ if($action==='chat_threads'){
 if($action==='chat_reply'&&$method==='POST'){
  mobile_need($u,'chat:reply');$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
  $chk=$db->prepare('SELECT name FROM mobile_chat WHERE user_id=? LIMIT 1');$chk->execute([$target]);if(!$chk->fetch())mobile_error('Penerima tidak ditemukan',404);
- $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,"admin",?)');$st->execute([$target,'Admin Kelurahan',$msg]);$sentId=(int)$db->lastInsertId();mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json(['ok'=>true,'id'=>$sentId,'sender'=>'admin','created_at'=>date('Y-m-d H:i:s'),'delivery_status'=>'sent']);
+ $result=cikoko_chat_store($db,(string)$target,'Admin Kelurahan','admin',$msg);
+ mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json($result);
 }
 if($action==='report'&&$method==='POST'){
  $kind=mobile_text($_POST['kind']??'',60);if(!in_array($kind,['jumantik','kegiatan','fkdm','lmk','posyandu','pkk','kerja_bakti','ppsu'],true))mobile_error('Jenis laporan tidak diizinkan',422);
