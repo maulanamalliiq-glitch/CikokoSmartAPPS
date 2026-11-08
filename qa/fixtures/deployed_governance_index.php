@@ -350,6 +350,7 @@ if($action==='status'&&$method==='POST'){
  if($kind==='waris'){waris_review_schema($db);waris_emit_link($db,'waris',$id,'progres_surat','Status Ahli Waris: '.ucfirst($status),'Periksa rincian dan progres surat Anda.','personal',(string)$owner);}else{mobile_emit('progres_surat','Status permohonan: '.ucfirst($status),'Periksa rincian permohonan pada aplikasi','personal',(string)$owner);}mobile_json(['ok'=>true]);
 }
 if($action==='admin_waris_date'&&$method==='POST'){
+ if(($u['user_role']??'')!=='admin')mobile_error('Perubahan tanggal pengajuan hanya dapat dilakukan Admin Utama.',403);
  mobile_need($u,'reports:verify');
  $b=mobile_body();if(!$b && !empty($_POST))$b=$_POST;
  $id=(int)($b['id']??0);$date=trim((string)($b['date']??''));
