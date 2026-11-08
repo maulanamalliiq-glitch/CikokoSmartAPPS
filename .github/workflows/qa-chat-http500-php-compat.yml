@@ -2,7 +2,7 @@ name: QA Chat 2545 PHP 7.4 Compatibility and HTTP 500 Hotfix
 on:
   push:
     branches: [hotfix/chat-http500-php-compat-2545-20261108]
-    paths: ['cpanel/mobile-api/**','.github/workflows/qa-chat-http500-php-compat.yml']
+    paths: ['cpanel/mobile-api/**','qa/backend_2541_contract_test.php','.github/workflows/qa-chat-http500-php-compat.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -51,6 +51,7 @@ jobs:
       - name: API contracts and isolation
         run: |
           set -euo pipefail
+          php qa/backend_2541_contract_test.php
           php qa/account_isolation_contract_test.php
           php qa/asn_permissions_test.php
           php qa/governance_review_test.php
