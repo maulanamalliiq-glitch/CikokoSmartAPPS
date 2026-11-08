@@ -1,0 +1,22 @@
+name: QA - Document Reference Resolution PHP
+on:
+  push:
+    branches:
+      - fix/document-reference-lookup-20261108
+    paths:
+      - 'cpanel/mobile-api/waris_review.php'
+      - '.github/workflows/qa-document-reference-lookup.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax validation
+        run: php -l cpanel/mobile-api/waris_review.php
+      - name: Keep exact reference match and authorization
+        run: |
+          grep -F "WHERE reference_no=?" cpanel/mobile-api/waris_review.php
+          grep -F 'waris_load($db,$id,$u)' cpanel/mobile-api/waris_review.php
