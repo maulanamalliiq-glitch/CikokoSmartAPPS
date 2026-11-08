@@ -1,8 +1,8 @@
-name: QA Chat Empty Receipt JSON: PHP 7.4, 8.3 and MySQL
+name: 'QA Chat Empty Receipt JSON - PHP 7.4, 8.3 and MySQL'
 on:
   push:
     branches: [fix/chat-json-empty-receipts-20261109]
-    paths: ['cpanel/mobile-api/**','qa/backend_2541_contract_test.php','.github/workflows/qa-chat-json-contract-20261109.yml']
+    paths: ['cpanel/mobile-api/**','qa/backend_2541_contract_test.php','qa/chat_receipts_2542_test.php','.github/workflows/qa-chat-json-contract-20261109.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -55,7 +55,6 @@ jobs:
           php qa/account_isolation_contract_test.php
           php qa/asn_permissions_test.php
           php qa/governance_review_test.php
-          php qa/backend_2541_contract_test.php
       - name: Complete chat storage, receipts and offline bot tests
         env:
           TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
