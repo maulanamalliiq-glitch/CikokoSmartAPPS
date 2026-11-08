@@ -1,0 +1,116 @@
+name: Cikoko HTTP login, letter tracking and report persistence
+on:
+  push:
+    paths: ['.github/workflows/qa-cpanel-http.yml', 'cpanel/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.version }}
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Lint public website, admin, API and ahli-waris PHP pages
+        run: |
+          set -euo pipefail
+          find cpanel -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php -l qa/report_integrity_2546_test.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check all website JavaScript syntaxes and new assets
+        run: |
+          set -euo pipefail
+          test -s cpanel/index.php
+          test -s cpanel/assets/cikoko-smartapp-home-2546.css
+          test -s cpanel/assets/cikoko-smartapp-home-2546.js
+          find cpanel/assets -maxdepth 2 -name '*.js' -type f -print0 | xargs -0 -n1 node --check
+      - name: Public website and public-health local HTTP smoke (staging fixture)
+        run: |
+          set -euo pipefail
+          printf "<?php return ['timezone'=>'Asia/Jakarta','base_url'=>''];" > cpanel/config.php
+          mkdir -p cpanel/ahli-waris
+          printf "<?php return ['host'=>'localhost','database'=>'no_real_db','username'=>'no_real_user','password'=>''];" > cpanel/ahli-waris/config.php
+          php -S 127.0.0.1:18746 -t cpanel > /tmp/cikoko-site.log 2>&1 &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          sleep 2
+          curl -fsS --max-time 12 http://127.0.0.1:18746/ > /tmp/site.html
+          grep -q 'Cikoko SmartAPP' /tmp/site.html
+          grep -q 'Layanan untuk Warga' /tmp/site.html
+          curl -fsS --max-time 12 http://127.0.0.1:18746/assets/cikoko-smartapp-home-2546.css >/dev/null
+          curl -fsS --max-time 12 'http://127.0.0.1:18746/mobile-api/index.php?action=health' > /tmp/health.json
+          php -r '$a=json_decode(file_get_contents("/tmp/health.json"),true);if(($a["version"]??"")!=="2546.rc1" || ($a["ready"]??false)!==true)exit(1);'
+  mysql-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Existing permissions, private chat, governance and backend contracts
+        run: |
+          set -euo pipefail
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+      - name: Full MySQL regression for chat, bot, citizen and ASN report persistence
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
+          php qa/report_integrity_2546_test.php
+
+      - name: Login, submit letter, track status, upload photo and reopen report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cpanel/data cpanel/mobile-api/private
+          printf "<?php return ['timezone'=>'Asia/Jakarta','base_url'=>''];" > cpanel/config.php
+          printf "<?php return ['host'=>'127.0.0.1','database'=>'cikoko_test','username'=>'root','password'=>'test-only-password'];" > cpanel/ahli-waris/config.php
+          php -r '$u=["id"=>"qa-http","name"=>"QA","role"=>"warga","active"=>true,"username"=>"qa-http","password_hash"=>password_hash("fixture-only",PASSWORD_DEFAULT),"rt"=>"01","rw"=>"02"];file_put_contents("cpanel/data/portal_users.json",json_encode([$u]));'
+          php -S 127.0.0.1:18746 -t cpanel > /tmp/cikoko-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid"; tail -n 40 /tmp/cikoko-http.log' EXIT
+          api='http://127.0.0.1:18746/mobile-api/index.php?action='
+          curl -fsS --retry 5 --retry-connrefused "${api}health" | jq -e '.ready == true'
+          status=$(curl -sS -o /dev/null -w '%{http_code}' "${api}history")
+          test "$status" = 401
+          token=$(curl -fsS -H 'Content-Type: application/json' -d '{"username":"qa-http","password":"fixture-only"}' "${api}login" | jq -er '.token')
+          auth="Authorization: Bearer $token"
+          curl -fsS -H "$auth" "${api}me" | jq -e '.user.id == "qa-http"'
+          letter=$(curl -fsS -H "$auth" -H 'Content-Type: application/json' -d '{"form":{"nama":"QA","tempat_lahir":"Jakarta","tanggal_lahir":"2000-01-01","no_ktp_kk":"0000000000000000","agama":"QA","kewarganegaraan":"QA","pendidikan":"QA","jenis_kelamin":"QA","status":"QA","pekerjaan":"QA","alamat":"QA","maksud_keperluan":"QA"}}' "${api}rt_rw_submit" | jq -er '.id | select(. > 0)')
+          curl -fsS -H "$auth" "${api}rt_rw_list" | jq -e --argjson id "$letter" 'any(.items[]; .id == $id and .status == "menunggu_rt")'
+          reference=$(printf 'CK-RT-%06d' "$letter")
+          curl -fsS "${api}public_letter_status" | jq -e --arg ref "$reference" 'any(.items[]; .reference == $ref and .status == "menunggu_rt")'
+          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lmUAAAAASUVORK5CYII=' | base64 -d > /tmp/qa-photo.png
+          report=$(curl -fsS -H "$auth" -F kind=jumantik -F address=QA -F notes=QA -F photo=@/tmp/qa-photo.png "${api}report" | jq -er 'select(.stored == true) | .id | select(. > 0)')
+          curl -fsS -H "$auth" "${api}history" | jq -e --argjson id "$report" 'any(.items[]; (.id|tonumber) == $id and .kind == "report")'
