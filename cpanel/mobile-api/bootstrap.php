@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/roles-lib.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
-function mobile_json(array $a,int $code=200):void {http_response_code($code);echo json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);exit;}
+function mobile_json(array $a,int $code=200):void {if(function_exists('cikoko_capture_area')){try{cikoko_capture_area($a);}catch(Throwable $e){error_log('Cikoko submission area capture failed: '.$e->getMessage());}}http_response_code($code);echo json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);exit;}
 function mobile_error(string $message,int $code=400):void {mobile_json(['ok'=>false,'error'=>$message],$code);}
 function mobile_db():PDO {
  static $db=null;
@@ -23,11 +23,32 @@ function mobile_schema(PDO $db):void {
  'CREATE TABLE IF NOT EXISTS mobile_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, category VARCHAR(40) NOT NULL, title VARCHAR(240) NOT NULL, message TEXT NOT NULL, audience VARCHAR(20) NOT NULL DEFAULT "public", recipient VARCHAR(80) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, dispatched_at DATETIME NULL, INDEX idx_pending(dispatched_at,id), INDEX idx_recipient(recipient)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
  'CREATE TABLE IF NOT EXISTS mobile_reports (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(80) NOT NULL, user_name VARCHAR(160) NOT NULL, user_role VARCHAR(50) NOT NULL, kind VARCHAR(60) NOT NULL, address VARCHAR(500) NOT NULL, phone VARCHAR(40) NOT NULL, notes TEXT NOT NULL, photo_name VARCHAR(100) NULL, status VARCHAR(20) NOT NULL DEFAULT "masuk", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_user(user_id), INDEX idx_status(status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
  'CREATE TABLE IF NOT EXISTS mobile_event_reads (user_id VARCHAR(80) NOT NULL,event_id BIGINT UNSIGNED NOT NULL,read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,event_id),INDEX idx_event(event_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+ 'CREATE TABLE IF NOT EXISTS mobile_event_deletes (user_id VARCHAR(80) NOT NULL,event_id BIGINT UNSIGNED NOT NULL,deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,event_id),INDEX idx_deleted_event(event_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
  'CREATE TABLE IF NOT EXISTS mobile_chat (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(80) NOT NULL, name VARCHAR(160) NOT NULL, sender VARCHAR(16) NOT NULL, message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_thread(user_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
  ];
  foreach($statements as $sql){try{$db->exec($sql);}catch(Throwable $e){error_log('mobile schema: '.$e->getMessage());mobile_error('Tabel API belum tersedia. Impor mobile-api/schema.sql ke database.',503);}}
- $done=true;
+ cikoko_release_schema($db);$done=true;
 }
+
+// Detect missing primary keys before accepting new uploads or application records.
+// CREATE TABLE IF NOT EXISTS cannot repair a pre-existing table without indexes.
+function mobile_require_auto_id(PDO $db, array $tables):void {
+    foreach($tables as $table){
+        if(!preg_match('/^[a-z][a-z0-9_]*$/D', $table))mobile_error('Nama tabel tidak valid',503);
+        try{
+            $row=$db->query("SHOW COLUMNS FROM `{$table}` LIKE 'id'")->fetch(PDO::FETCH_ASSOC);
+        }catch(Throwable $e){
+            error_log('[Cikoko DB ID guard] '.$table.': '.$e->getMessage());
+            mobile_error('Struktur database belum siap. Hubungi admin.',503);
+        }
+        if(!$row || strtoupper((string)($row['Key']??''))!=='PRI'
+           || stripos((string)($row['Extra']??''),'auto_increment')===false){
+            error_log('[Cikoko DB ID guard] Tidak ada PRIMARY KEY/AUTO_INCREMENT pada '.$table);
+            mobile_error('Database sedang memerlukan perbaikan ID. Jangan kirim ulang sebelum admin menyelesaikan migrasi.',503);
+        }
+    }
+}
+
 function mobile_body():array { $raw=file_get_contents('php://input');$v=json_decode($raw?:'{}',true);return is_array($v)?$v:[];}
 function mobile_text($value,int $max=1000):string {$s=trim((string)$value);return function_exists('mb_substr')?mb_substr($s,0,$max):substr($s,0,$max);}
 function mobile_strlen(string $s):int {return function_exists('mb_strlen')?mb_strlen($s):strlen($s);}
@@ -62,3 +83,5 @@ function mobile_emit(string $category,string $title,string $message,string $audi
  }catch(Throwable $e){error_log('mobile event error: '.$e->getMessage());}
 }
 
+
+require_once __DIR__.'/release_core.php';
