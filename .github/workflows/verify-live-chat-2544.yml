@@ -1,0 +1,32 @@
+name: Check Cikoko Live Chat Production Backend
+on:
+  push:
+    branches: [fix/chat-production-consistency-2544-20261108,main]
+    paths: ['.github/workflows/verify-live-chat-2544.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check installed backend version, without any login or user data
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://datawebs.my.id/mobile-api/index.php?action=health'
+          status=$(curl --silent --show-error --location --max-time 25 \
+            --output "$RUNNER_TEMP/chat_health.json" \
+            --write-out '%{http_code}' "$url")
+          echo "HTTP: $status"
+          if ! jq -e . "$RUNNER_TEMP/chat_health.json" >/dev/null; then
+            echo '::error::Production backend did not return JSON.'
+            exit 1
+          fi
+          jq '{version,ready,checks}' "$RUNNER_TEMP/chat_health.json"
+          if test "$status" != 200 || ! jq -e '.version=="2544.rc1" and .ready==true and .checks.api_chat_storage==true' "$RUNNER_TEMP/chat_health.json" >/dev/null; then
+            echo '::error::Production hosting is NOT synchronized to chat backend 2544. Deploy the verified cPanel patch before device testing.'
+            exit 1
+          fi
+          echo 'PASS: Production public health advertises installed chat 2544 modules.'

@@ -53,7 +53,7 @@ function cikoko_chat_page(PDO $db,string $owner,string $viewer=''):array {
  $q=$db->prepare($sql);$q->execute($args);$rows=$q->fetchAll(PDO::FETCH_ASSOC);
  $more=count($rows)>60;$rows=array_slice($rows,0,60);
  if($after===0||$before>0)$rows=array_reverse($rows);
- if(!in_array($viewer,['warga','admin'],true))return ['ok'=>true,'messages'=>$rows,'has_more'=>$more];
+ if(!in_array($viewer,['warga','admin'],true))return ['ok'=>true,'messages'=>$rows,'has_more'=>$more,'thread_user_id'=>$owner];
  // A read acknowledgment is never written for the current sender's own messages.
  $opposite=$viewer==='admin'?'warga':'admin';$maxRead=0;
  foreach($rows as $row)if($row['sender']===$opposite)$maxRead=max($maxRead,(int)$row['id']);
@@ -65,7 +65,7 @@ function cikoko_chat_page(PDO $db,string $owner,string $viewer=''):array {
  // Keep them limited to this account and last 120 messages.
  $q=$db->prepare('SELECT id,sender FROM mobile_chat WHERE user_id=? ORDER BY id DESC LIMIT 120');$q->execute([$owner]);
  $statuses=[];foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row)$statuses[(string)$row['id']]=cikoko_chat_status($row,$receipt);
- return ['ok'=>true,'messages'=>$rows,'has_more'=>$more,'receipt_updates'=>$statuses];
+ return ['ok'=>true,'messages'=>$rows,'has_more'=>$more,'receipt_updates'=>$statuses,'thread_user_id'=>$owner];
 }
 function cikoko_capture_area(array &$response):void {
  global $action,$method,$uid,$u;
