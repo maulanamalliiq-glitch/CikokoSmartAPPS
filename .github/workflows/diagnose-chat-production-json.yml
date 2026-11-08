@@ -1,0 +1,43 @@
+name: Diagnose Chat 2545 Production API HTTP and JSON
+on:
+  push:
+    branches: [fix/chat-json-diagnostics-2546-20261108]
+    paths: ['.github/workflows/diagnose-chat-production-json.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-public-no-credentials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check public health and unauthorized chat endpoints without exposing private data
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://datawebs.my.id/mobile-api/index.php?action='
+          for action in health chat chat_threads support_admin_thread; do
+            echo "::group::$action"
+            status=$(curl -sS -L --max-time 30 -A 'Cikoko-Release-2545-Diagnostics/1.0' \
+              -D "$RUNNER_TEMP/$action.headers" \
+              -o "$RUNNER_TEMP/$action.body" \
+              -w '%{http_code}' "$base$action")
+            mime=$(grep -i '^content-type:' "$RUNNER_TEMP/$action.headers" | tail -1 | tr -d '\r' || true)
+            printf 'HTTP=%s; %s; bytes=%s; ' "$status" "$mime" "$(wc -c < "$RUNNER_TEMP/$action.body")"
+            if jq -e 'type=="object"' "$RUNNER_TEMP/$action.body" >/dev/null 2>&1; then
+              jq -c '{json:"object",version:(.version//null),ready:(.ready//null),ok:(.ok//null),error_type:(if has("error") then "API error" else null end),has_messages:has("messages"),has_threads:has("threads"),checks:(if has("checks") then (.checks|keys) else null end)}' "$RUNNER_TEMP/$action.body"
+            elif jq -e . "$RUNNER_TEMP/$action.body" >/dev/null 2>&1; then
+              jq -c '{json_type:type,length:(if type=="array" then length else null end)}' "$RUNNER_TEMP/$action.body"
+            else
+              echo 'NON_JSON response from production (potential HTML/redirect/PHP failure).'
+              if grep -qiE '<html|<!doctype|<body' "$RUNNER_TEMP/$action.body"; then echo 'HTML=yes'; fi
+            fi
+            if [ "$action" = health ]; then
+              if [ "$status" != 200 ] || ! jq -e '.version=="2545.rc1" and .ready==true' "$RUNNER_TEMP/$action.body" >/dev/null 2>&1; then
+                echo '::warning::Hosting is not confirmed to be running the 2545 PHP backend; APK alone cannot fix chat.'
+              fi
+            elif [ "$status" != 401 ] && [ "$status" != 403 ]; then
+              echo '::warning::Expected JSON authentication rejection for anonymous request. No credentials sent.'
+            fi
+            echo '::endgroup::'
+          done
