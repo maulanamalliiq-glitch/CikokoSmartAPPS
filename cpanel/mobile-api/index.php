@@ -31,7 +31,7 @@ if($action==='health'){
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2541.rc1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2542.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
