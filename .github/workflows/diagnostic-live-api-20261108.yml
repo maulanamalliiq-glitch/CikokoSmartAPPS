@@ -1,0 +1,37 @@
+name: Diagnostic - Live Cikoko API Version (No Credentials)
+on:
+  push:
+    branches:
+      - diagnostics/live-public-api-health-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-health-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check only the public health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://datawebs.my.id/mobile-api/index.php?action=health'
+          code=$(curl --silent --show-error --location \
+            --connect-timeout 10 --max-time 25 \
+            --output "$RUNNER_TEMP/api-health.json" \
+            --write-out '%{http_code}' "$url")
+          echo "Live API HTTP status: $code"
+          if ! jq -e . "$RUNNER_TEMP/api-health.json" >/dev/null 2>&1; then
+            echo "::error::Health endpoint does not return valid JSON"
+            exit 1
+          fi
+          jq '{service, version, ready, checks, message}' "$RUNNER_TEMP/api-health.json"
+          if [ "$code" != "200" ]; then
+            echo "::error::Health endpoint is not HTTP 200"
+            exit 1
+          fi
+          if ! jq -e '.version == "2540.rc1" and .ok == true and .ready == true and ([.checks[]] | all)' "$RUNNER_TEMP/api-health.json" >/dev/null 2>&1; then
+            echo "::error::Live cPanel API is not fully upgraded to RC 2540"
+            exit 1
+          fi
+          echo "PASS: Live backend RC 2540 reports ready"
