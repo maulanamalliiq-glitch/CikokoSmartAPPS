@@ -98,7 +98,7 @@ function cikoko_governance_dispatch(string $action,string $method,PDO $db,array 
   if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
   $target=mobile_text($_GET['user_id']??'',80);
   if($target==='')mobile_error('Pilih percakapan warga.',422);
-  mobile_json(cikoko_chat_page($db,$target));
+  mobile_json(cikoko_chat_page($db,$target,'admin'));
  }
  if($action==='territory_monitoring'){
   mobile_need($u,'monitoring:view');if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
