@@ -1,0 +1,69 @@
+name: QA Chat Empty Receipt JSON: PHP 7.4, 8.3 and MySQL
+on:
+  push:
+    branches: [fix/chat-json-empty-receipts-20261109]
+    paths: ['cpanel/mobile-api/**','qa/backend_2541_contract_test.php','.github/workflows/qa-chat-json-contract-20261109.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-parser:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Check actual PHP runtime, lint every deployed PHP module
+        run: |
+          set -euo pipefail
+          php -v
+          find cpanel/mobile-api -maxdepth 1 -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Confirm health response version and offline bot file gate
+        run: |
+          set -euo pipefail
+          grep -Fq "'version'=>'2545.rc2'" cpanel/mobile-api/index.php
+          grep -Fq "'api_offline_chat_bot'=>is_file(" cpanel/mobile-api/index.php
+  mysql-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: API contracts and isolation
+        run: |
+          set -euo pipefail
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+          php qa/backend_2541_contract_test.php
+      - name: Complete chat storage, receipts and offline bot tests
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
