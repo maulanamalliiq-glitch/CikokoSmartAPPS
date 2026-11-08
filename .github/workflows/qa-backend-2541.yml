@@ -6,6 +6,7 @@ on:
       - 'cpanel/mobile-api/**'
       - 'qa/release_2541_regression_test.php'
       - 'qa/backend_2541_contract_test.php'
+      - 'qa/governance_review_test.php'
       - 'docs/BACKEND_2541_DEPLOYMENT.md'
       - '.github/workflows/qa-backend-2541.yml'
   workflow_dispatch:
