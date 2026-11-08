@@ -27,10 +27,10 @@ assert_chat((int)$r['admin_delivered_id']===1 && (int)$r['admin_read_id']===0,'I
 $_GET=['after_id'=>2];
 $a=cikoko_chat_page($db,'resident-A','warga');
 assert_chat(count($a['messages'])===0,'Cursor should not repeat messages');
-assert_chat(($a['receipt_updates']['1']??'')==='delivered','No-new-message polling must return delivery status update');
+assert_chat((((array)$a['receipt_updates'])['1']??'')==='delivered','No-new-message polling must return delivery status update');
 $_GET=[];
 $a=cikoko_chat_page($db,'resident-A','admin');
-assert_chat(($a['receipt_updates']['1']??'')==='read','Only opening admin thread may mark citizens message read');
+assert_chat((((array)$a['receipt_updates'])['1']??'')==='read','Only opening admin thread may mark citizens message read');
 cikoko_chat_ack($db,'resident-A','admin','delivered',1);
 $r=cikoko_chat_receipt_data($db,'resident-A');
 assert_chat((int)$r['admin_read_id']===1,'Delivery cannot regress already read status');
@@ -38,5 +38,16 @@ assert_chat(!cikoko_chat_receipt_data($db,'resident-B'),'Other account receipts 
 $_GET=[];
 $b=cikoko_chat_page($db,'resident-B','warga');
 assert_chat(count($b['messages'])===1 && $b['messages'][0]['delivery_status']==='sent','Cross-account read status leaked');
-assert_chat(!isset($b['receipt_updates']['1']),'Other resident receipt IDs leaked');
+assert_chat(!isset(((array)$b['receipt_updates'])['1']),'Other resident receipt IDs leaked');
+
+// Regression for Android type 'List<dynamic>' is not a subtype of 'Map'.
+// Empty or isolated conversation must encode receipt_updates as {}, not [].
+$_GET=[];
+$empty=cikoko_chat_page($db,'brand-new-user','warga');
+assert_chat($empty['messages']===[],'New resident thread should be an empty list');
+assert_chat($empty['receipt_updates'] instanceof stdClass,'Empty receipt_updates must be a JSON object');
+$encoded=json_encode($empty,JSON_THROW_ON_ERROR);
+assert_chat(strpos($encoded,'"receipt_updates":{}')!==false,'Empty updates must serialize to {}, not []');
+assert_chat($a['receipt_updates'] instanceof stdClass,'Populated receipt_updates must stay an object');
+echo "PASS: chat empty/nonempty JSON contract for Flutter Map<String,dynamic>\n";
 echo "PASS: sent/delivered/read, monotonic acknowledgments, no unread-to-read auto escalation, private cursors\n";
