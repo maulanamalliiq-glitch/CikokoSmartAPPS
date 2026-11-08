@@ -37,7 +37,7 @@ $adminB=cikoko_chat_diagnostic($db,$admin,'test-warga-B');
 ensure($adminB['total']===1&&$adminB['thread_user_id']==='test-warga-B','Officer diagnostic can select correct resident');
 $_GET=['after_id'=>$reply['id']];
 $latest=cikoko_chat_page($db,'test-warga-A','warga');
-ensure(count($latest['messages'])===0&&($latest['receipt_updates'][(string)$a1['id']]??'')==='read','Delivery receipts refresh even without new messages');
+ensure(count($latest['messages'])===0&&(((array)$latest['receipt_updates'])[(string)$a1['id']]??'')==='read','Delivery receipts refresh even without new messages');
 try{cikoko_chat_store($db,'test-warga-A','Warga A','warga','  ');throw new RuntimeException('Blank message was accepted');}
 catch(RuntimeException $e){ensure($e->getCode()===422,'Empty message rejected safely');}
 echo "ALL CHAT STORAGE AND PRIVACY TESTS PASSED\n";
