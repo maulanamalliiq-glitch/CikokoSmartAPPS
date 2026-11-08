@@ -1,0 +1,95 @@
+name: QA Full Cikoko Website, API, Reports and MySQL 2546
+on:
+  push:
+    branches: [release/2.5.46-full-hardcheck-20261109]
+    paths:
+      - 'cpanel/**'
+      - 'qa/report_integrity_2546_test.php'
+      - 'qa/backend_2541_contract_test.php'
+      - '.github/workflows/qa-full-cikoko-2546.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.version }}
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Lint public website, admin, API and ahli-waris PHP pages
+        run: |
+          set -euo pipefail
+          find cpanel -name '*.php' -type f -print0 | xargs -0 -n1 php -l
+          php -l qa/report_integrity_2546_test.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check all website JavaScript syntaxes and new assets
+        run: |
+          set -euo pipefail
+          test -s cpanel/index.php
+          test -s cpanel/assets/cikoko-smartapp-home-2546.css
+          test -s cpanel/assets/cikoko-smartapp-home-2546.js
+          find cpanel/assets -maxdepth 2 -name '*.js' -type f -print0 | xargs -0 -n1 node --check
+      - name: Public website and public-health local HTTP smoke (staging fixture)
+        run: |
+          set -euo pipefail
+          printf "<?php return ['timezone'=>'Asia/Jakarta','base_url'=>''];" > cpanel/config.php
+          mkdir -p cpanel/ahli-waris
+          printf "<?php return ['host'=>'localhost','database'=>'no_real_db','username'=>'no_real_user','password'=>''];" > cpanel/ahli-waris/config.php
+          php -S 127.0.0.1:18746 -t cpanel > /tmp/cikoko-site.log 2>&1 &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          sleep 2
+          curl -fsS --max-time 12 http://127.0.0.1:18746/ > /tmp/site.html
+          grep -q 'Cikoko SmartAPP' /tmp/site.html
+          grep -q 'Layanan untuk Warga' /tmp/site.html
+          curl -fsS --max-time 12 http://127.0.0.1:18746/assets/cikoko-smartapp-home-2546.css >/dev/null
+          curl -fsS --max-time 12 'http://127.0.0.1:18746/mobile-api/index.php?action=health' > /tmp/health.json
+          php -r '$a=json_decode(file_get_contents("/tmp/health.json"),true);if(($a["version"]??"")!=="2546.rc1" || ($a["ready"]??false)!==true)exit(1);'
+  mysql-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Existing permissions, private chat, governance and backend contracts
+        run: |
+          set -euo pipefail
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+      - name: Full MySQL regression for chat, bot, citizen and ASN report persistence
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
+          php qa/report_integrity_2546_test.php

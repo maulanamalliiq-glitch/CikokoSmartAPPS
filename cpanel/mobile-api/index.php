@@ -29,11 +29,12 @@ if($action==='health'){
         'api_account_support'=>is_file(__DIR__.'/account_support.php'),
         'api_chat_storage'=>is_file(__DIR__.'/chat_storage_2544.php'),
         'api_offline_chat_bot'=>is_file(__DIR__.'/chat_offline_bot_2545.php'),
+        'api_report_integrity'=>is_file(__DIR__.'/report_integrity_2546.php'),
         'db_config'=>is_file(dirname(__DIR__).'/ahli-waris/config.php'),
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2545.rc2','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2546.rc1','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -360,7 +361,23 @@ if($action==='report'&&$method==='POST'){
  if(!in_array($kind,$roleKinds[$u['user_role']]??[],true))mobile_error('Jenis laporan tidak sesuai peran akun',403);
  mobile_need($u,'report:'.$kind);
  $address=mobile_text($_POST['address']??'',500);$phone=mobile_text($_POST['phone']??'',40);$notes=mobile_text($_POST['notes']??'',4000);if(!$address||!$notes)mobile_error('Alamat dan keterangan wajib',422);
- $photo=mobile_file('photo',true);$db->prepare('INSERT INTO mobile_reports(user_id,user_name,user_role,kind,address,phone,notes,photo_name) VALUES(?,?,?,?,?,?,?,?)')->execute([$uid,$u['username'],$u['user_role'],$kind,$address,$phone,$notes,$photo]);$id=(int)$db->lastInsertId();mobile_emit('laporan_masuk','Laporan '.$kind.' baru','Laporan masuk #'.$id,'admin');mobile_emit('laporan_masuk','Laporan berhasil dikirim','Nomor laporan: '.$id,'personal',$uid);mobile_json(['ok'=>true,'id'=>$id]);
+ // Validate the existing auto-increment ID before moving a citizen photo.
+ mobile_require_auto_id($db,['mobile_reports']);
+ $photo=mobile_file('photo',true);
+ try{
+  require_once __DIR__.'/report_integrity_2546.php';
+  $db->beginTransaction();
+  $id=cikoko_report_create($db,$u,$kind,$address,$phone,$notes,$photo);
+  $db->commit();
+ }catch(Throwable $e){
+  if($db->inTransaction())$db->rollBack();
+  if(preg_match('/^[a-f0-9]{40}\.(?:jpg|png|webp)$/D',$photo))@unlink(__DIR__.'/private/'.$photo);
+  error_log('[Cikoko report persistence] '.$e->getMessage());
+  mobile_error('Laporan belum berhasil disimpan. Silakan mencoba kembali atau hubungi petugas kelurahan.',503);
+ }
+ mobile_emit('laporan_masuk','Laporan '.$kind.' baru','Laporan masuk #'.$id,'admin');
+ mobile_emit('laporan_masuk','Laporan berhasil dikirim','Nomor laporan: '.$id,'personal',$uid);
+ mobile_json(['ok'=>true,'id'=>$id,'stored'=>true]);
 }
 if($action==='waris'&&$method==='POST'){
  mobile_need($u,'waris:create');
