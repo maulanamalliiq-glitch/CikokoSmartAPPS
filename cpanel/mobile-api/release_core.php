@@ -49,7 +49,7 @@ function cikoko_chat_status(array $row,array $receipt):string {
 }
 function cikoko_chat_page(PDO $db,string $owner,string $viewer=''):array {
  $before=max(0,(int)($_GET['before_id']??0));$after=max(0,(int)($_GET['after_id']??0));
- $sql='SELECT id,sender,message,created_at FROM mobile_chat WHERE user_id=?';$args=[$owner];
+ $sql='SELECT id,name,sender,message,created_at FROM mobile_chat WHERE user_id=?';$args=[$owner];
  if($before>0){$sql.=' AND id<?';$args[]=$before;}
  elseif($after>0){$sql.=' AND id>?';$args[]=$after;}
  $sql.=$after>0&&$before===0?' ORDER BY id ASC LIMIT 61':' ORDER BY id DESC LIMIT 61';
