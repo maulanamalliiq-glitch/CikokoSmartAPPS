@@ -26,7 +26,8 @@ function cikoko_password_valid(string $password):bool {
 function cikoko_chat_ack(PDO $db,string $owner,string $recipient,string $stage,int $maxId):void {
  if($owner==='' || $maxId<1 || !in_array($recipient,['admin','warga'],true) || !in_array($stage,['delivered','read'],true))return;
  $column=$recipient.'_delivered_id';$read=$recipient.'_read_id';
- $q=$db->prepare('INSERT IGNORE INTO mobile_chat_receipts(user_id) VALUES(?)');$q->execute([$owner]);
+ $insert=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?'INSERT OR IGNORE':'INSERT IGNORE';
+ $q=$db->prepare($insert.' INTO mobile_chat_receipts(user_id) VALUES(?)');$q->execute([$owner]);
  $sql='UPDATE mobile_chat_receipts SET '.$column.'=CASE WHEN '.$column.'<? THEN ? ELSE '.$column.' END';
  $args=[$maxId,$maxId];
  if($stage==='read'){$sql.=','.$read.'=CASE WHEN '.$read.'<? THEN ? ELSE '.$read.' END';array_push($args,$maxId,$maxId);}
