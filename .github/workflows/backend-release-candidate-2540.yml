@@ -33,7 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/mobile-api/private dist/ahli-waris/private
-          cp cpanel/mobile-api/{index.php,bootstrap.php,permissions.php,v211.php,cron_dispatch.php,waris_review.php,waris_witnesses.php,integrated_services.php,public_letter_status_v2536.php,rt_rw_service.php,civic_lpj.php,pdf_native.php,waris_staging.php} dist/mobile-api/
+          cp cpanel/mobile-api/{index.php,bootstrap.php,permissions.php,governance_review.php,home_slides.php,v211.php,cron_dispatch.php,waris_review.php,waris_witnesses.php,integrated_services.php,public_letter_status_v2536.php,rt_rw_service.php,civic_lpj.php,pdf_native.php,waris_staging.php} dist/mobile-api/
+          cp cpanel/mobile-api/AKTIFKAN_AKSES_ASN.sql dist/mobile-api/
           cp cpanel/mobile-api/private/.htaccess dist/mobile-api/private/
           cp cpanel/ahli-waris/private/.htaccess dist/ahli-waris/private/
           cp cpanel/roles-lib.php dist/
@@ -80,3 +81,4 @@ jobs:
               --notes "Paket overlay PHP untuk pengujian cPanel dan staging. Tidak mengubah hosting otomatis. Wajib backup, uji dua akun warga, RT/RW, LMK dan admin sebelum rilis publik."
           fi
           gh release view "$tag" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
+

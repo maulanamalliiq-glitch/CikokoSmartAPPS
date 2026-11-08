@@ -19,6 +19,7 @@ if($action==='health'){
         'roles_lib'=>is_file(dirname(__DIR__).'/roles-lib.php'),
         'api_bootstrap'=>is_file(__DIR__.'/bootstrap.php'),
         'api_permissions'=>is_file(__DIR__.'/permissions.php'),
+        'api_governance'=>is_file(__DIR__.'/governance_review.php'),
         'api_rt_rw'=>is_file(__DIR__.'/rt_rw_service.php'),
         'api_lpj'=>is_file(__DIR__.'/civic_lpj.php'),
         'api_waris_staging'=>is_file(__DIR__.'/waris_staging.php'),
@@ -34,6 +35,11 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+if(in_array($action,['home_slides','home_slide_photo','home_slide_upload','home_slides_save'],true)){
+ require_once __DIR__.'/home_slides.php';
+ cikoko_home_slides_dispatch($action,$method);
+}
+
 if(in_array($action,['integrated_services','integrated_services_save','integrated_services_logo_upload'],true)){
  require_once __DIR__.'/integrated_services.php';
  cikoko_integrated_dispatch($action,$method);
@@ -75,6 +81,11 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+if(in_array($action,['support_admin_thread','officer_reports','officer_waris','officer_report_detail','officer_report_decide','officer_report_photo','territory_monitoring'],true)){
+ require_once __DIR__.'/governance_review.php';
+ cikoko_governance_dispatch($action,$method,$db,$u);
+}
+
 if(in_array($action,['waris_format','waris_stage'],true)){
  require_once __DIR__.'/waris_staging.php';
  cikoko_waris_stage_route($action,$method,$u,(string)$uid);
@@ -350,6 +361,7 @@ if($action==='admin_reports'){
 if($action==='status'&&$method==='POST'){
  mobile_need($u,'reports:verify');$b=mobile_body();$status=mobile_text($b['status']??'',20);$kind=mobile_text($b['kind']??'',20);$id=(int)($b['id']??0);if(!$id||!in_array($status,['masuk','proses','revisi','selesai','ditolak'],true))mobile_error('Status salah',422);
  if($kind==='waris'){
+  mobile_need($u,'waris:verify');
   $st=$db->prepare('SELECT account_id,status FROM aw_applications WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)mobile_error('Permohonan tidak ditemukan',404);
   $db->prepare('UPDATE aw_applications SET status=? WHERE id=?')->execute([$status,$id]);$db->prepare('INSERT INTO aw_history(application_id,previous_status,new_status,actor_id,notes) VALUES (?,?,?,?,?)')->execute([$id,$row['status'],$status,$uid,'Pembaruan via aplikasi']);$owner=$row['account_id'];
  }else{
@@ -381,3 +393,4 @@ if($action==='admin_waris_date'&&$method==='POST'){
  mobile_json(['ok'=>true,'message'=>'Tanggal pengajuan dan SELURUH tanggal di riwayat progres (progres) telah digeser otomatis.']);
 }
 mobile_error('Endpoint tidak tersedia',404);
+

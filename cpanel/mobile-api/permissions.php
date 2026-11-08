@@ -4,12 +4,12 @@ declare(strict_types=1);
 function mobile_role_names():array {return [
  'admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','lurah'=>'Lurah','asn'=>'ASN / PNS','pppk'=>'PPPK','pjlp'=>'PJLP','ptsp'=>'PTSP','dukcapil'=>'Dukcapil','rt'=>'RT','rw'=>'RW','bendahara_rt'=>'Bendahara RT','bendahara_rw'=>'Bendahara RW','fkdm'=>'FKDM','lmk'=>'LMK','jumantik_rt'=>'Jumantik RT','jumantik_rw'=>'Jumantik RW','dasawisma'=>'Dasawisma','pkk'=>'PKK','posyandu'=>'Posyandu','ppsu'=>'PPSU','warga'=>'Warga'
  ];}
-function mobile_permission_keys():array {return ['report:jumantik','report:kegiatan','report:fkdm','report:lmk','report:posyandu','report:pkk','report:kerja_bakti','report:ppsu','reports:view','reports:verify','waris:create','waris:view','waris:verify','content:create','archive:create','archive:view','chat:reply','role:manage'];}
+function mobile_permission_keys():array {return ['report:jumantik','report:kegiatan','report:fkdm','report:lmk','report:posyandu','report:pkk','report:kerja_bakti','report:ppsu','monitoring:view','reports:view','reports:verify','waris:create','waris:view','waris:verify','content:create','archive:create','archive:view','chat:reply','role:manage'];}
 function mobile_default_permissions(string $role):array {
  $base=['warga'=>['report:jumantik','waris:create'],
  'admin_kelurahan'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify','content:create','archive:create','archive:view','chat:reply'],
  'lurah'=>['reports:view','reports:verify','waris:view','waris:verify','archive:view'],
- 'asn'=>['report:kegiatan'],
+ 'asn'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify','monitoring:view'],
  'ptsp'=>['report:kegiatan','reports:view','reports:verify','waris:view','waris:verify'],
  'dukcapil'=>['report:kegiatan'],
  'pppk'=>['report:kegiatan'],'pjlp'=>['report:kegiatan'],
