@@ -52,7 +52,13 @@ function mobile_file(string $field,bool $required=false):?string {
  if(!move_uploaded_file($f['tmp_name'],$dir.'/'.$name))mobile_error('Foto gagal disimpan',503);
  return $name;
 }
+require_once __DIR__.'/notification_recipients.php';
 function mobile_emit(string $category,string $title,string $message,string $audience='public',?string $recipient=null):void {
  if(!in_array($audience,['public','staff','admin','personal'],true))return;
- try {$st=mobile_db()->prepare('INSERT INTO mobile_events(category,title,message,audience,recipient) VALUES(?,?,?,?,?)');$st->execute([$category,mobile_text($title,240),mobile_text($message,2000),$audience,$recipient]);}catch(Throwable $e){error_log('mobile event error: '.$e->getMessage());}
+ try {
+  $targets=mobile_notification_recipients($category,$audience,$recipient);
+  $st=mobile_db()->prepare('INSERT INTO mobile_events(category,title,message,audience,recipient) VALUES(?,?,?,?,?)');
+  foreach($targets as $target)$st->execute([$category,mobile_text($title,240),mobile_text($message,2000),$target['audience'],$target['recipient']]);
+ }catch(Throwable $e){error_log('mobile event error: '.$e->getMessage());}
 }
+
