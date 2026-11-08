@@ -11,12 +11,15 @@ function mobile_need(array $u,string $key):void {if(!mobile_can($u,$key))mobile_
 function mobile_can(array $u,string $key):bool {return in_array($key,$u['caps']??[],true);}
 function mobile_auth():array{return $GLOBALS['actor']??['user_role'=>'warga'];}
 function db_write(string $key,array $value):bool{$GLOBALS['homeSaved']=$value;return true;}
+require __DIR__.'/../cpanel/mobile-api/release_core.php';
 require __DIR__.'/../cpanel/mobile-api/governance_review.php';
 require __DIR__.'/../cpanel/mobile-api/home_slides.php';
 function check(bool $condition,string $name):void{if(!$condition)throw new RuntimeException($name);echo "PASS $name\n";}
 function response(callable $fn):GovResponse{try{$fn();}catch(GovResponse $e){return $e;}throw new RuntimeException('Expected response');}
 $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 $db->exec("CREATE TABLE mobile_reports(id INTEGER PRIMARY KEY,user_id TEXT,user_name TEXT,kind TEXT,status TEXT,created_at TEXT,notes TEXT,photo_name TEXT)");
+$db->exec("CREATE TABLE mobile_submission_areas(source TEXT,report_id INTEGER,rt TEXT,rw TEXT,PRIMARY KEY(source,report_id))");
+$db->exec("INSERT INTO mobile_submission_areas(source,report_id,rt,rw) VALUES('report',1,'01','02')");
 $db->exec("CREATE TABLE mobile_ppsu_reports(id INTEGER PRIMARY KEY,user_id TEXT,name TEXT,activity TEXT,photos_json TEXT,created_at TEXT,deleted_at TEXT)");
 $db->exec("CREATE TABLE mobile_fkdm_reports(id INTEGER PRIMARY KEY,user_id TEXT,full_name TEXT,activity TEXT,photos_json TEXT,created_at TEXT,deleted_at TEXT)");
 $db->exec("CREATE TABLE aw_applications(id INTEGER PRIMARY KEY,account_id TEXT,applicant_name TEXT,reference_no TEXT,status TEXT,created_at TEXT)");
