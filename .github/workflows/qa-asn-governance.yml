@@ -1,7 +1,7 @@
 name: QA - ASN Verification and Territory Monitoring
 on:
   push:
-    branches: [feat/asn-verification-monitoring-20261108]
+    branches: [feat/asn-verification-monitoring-20261108, fix/asn-administration-boundaries-20261108]
   workflow_dispatch:
 permissions:
   contents: read
