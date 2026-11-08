@@ -1,0 +1,50 @@
+name: QA Offline Waiting Bot and Staff Chat 2545
+on:
+  push:
+    branches: [feat/offline-chat-bot-staff-2545-20261108]
+    paths:
+      - 'cpanel/mobile-api/**'
+      - 'qa/offline_chat_bot_2545_test.php'
+      - '.github/workflows/qa-offline-bot-2545.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bot-and-chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: PHP syntax, permissions and isolation
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api -maxdepth 1 -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l qa/offline_chat_bot_2545_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+      - name: MySQL isolated regressions including offline bot
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
