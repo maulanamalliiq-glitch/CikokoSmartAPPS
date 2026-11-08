@@ -33,7 +33,7 @@ if($action==='health'){
     ];
     $ready=!in_array(false,$files,true);
     http_response_code($ready?200:503);
-    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2545.rc1','ready'=>$ready,
+    echo json_encode(['ok'=>$ready,'service'=>'Cikoko API','version'=>'2545.rc2','ready'=>$ready,
         'checks'=>$files,'message'=>$ready?'Berkas API terpasang. Koneksi database belum diuji.':'Ada dependensi API yang belum terpasang.'],JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -349,7 +349,8 @@ if($action==='chat_threads'){
 if($action==='chat_reply'&&$method==='POST'){
  mobile_need($u,'chat:reply');cikoko_chat_presence($db,$u,true);$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
  $chk=$db->prepare('SELECT name FROM mobile_chat WHERE user_id=? LIMIT 1');$chk->execute([$target]);if(!$chk->fetch())mobile_error('Penerima tidak ditemukan',404);
- $senderName=match((string)$u['user_role']){'admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','asn'=>'Petugas ASN',default=>'Petugas Kelurahan'};
+ $senderLabels=['admin'=>'Admin Utama','admin_kelurahan'=>'Admin Kelurahan','asn'=>'Petugas ASN'];
+ $senderName=$senderLabels[(string)$u['user_role']]??'Petugas Kelurahan';
  $result=cikoko_chat_store($db,(string)$target,$senderName,'admin',$msg);
  mobile_emit('chat','Pesan dibalas oleh Petugas','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json($result);
 }
