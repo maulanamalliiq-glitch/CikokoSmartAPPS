@@ -68,6 +68,7 @@ $all=cikoko_gov_collect($db);$lpj=array_values(array_filter($all['items'],fn($r)
 check($lpj[0]['status']==='masuk','new LPJ revision requires new verification');
 check($lpj[0]['rt']==='01' && $lpj[0]['rw']==='02','LPJ official territory normalized');
 $db->exec("CREATE TABLE mobile_chat(id INTEGER PRIMARY KEY,user_id TEXT,sender TEXT,message TEXT,created_at TEXT)");
+$db->exec("CREATE TABLE mobile_chat_receipts(user_id TEXT PRIMARY KEY,admin_delivered_id INTEGER DEFAULT 0,admin_read_id INTEGER DEFAULT 0,warga_delivered_id INTEGER DEFAULT 0,warga_read_id INTEGER DEFAULT 0)");
 $db->exec("INSERT INTO mobile_chat VALUES(1,'a','warga','Pesan A','2026-11-08'),(2,'b','warga','Pesan B','2026-11-08')");
 $_GET=['user_id'=>'a'];$admin=['user_id'=>'admin','caps'=>['chat:reply']];
 $r=response(fn()=>cikoko_governance_dispatch('support_admin_thread','GET',$db,$admin));
