@@ -5,6 +5,9 @@ on:
     paths:
       - 'cpanel/mobile-api/**'
       - 'qa/offline_chat_bot_2545_test.php'
+      - 'qa/governance_review_test.php'
+      - 'qa/release_2541_regression_test.php'
+      - 'qa/chat_receipts_2542_test.php'
       - '.github/workflows/qa-offline-bot-2545.yml'
   workflow_dispatch:
 permissions:
