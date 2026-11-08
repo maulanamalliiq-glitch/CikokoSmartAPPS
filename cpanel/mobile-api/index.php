@@ -295,10 +295,17 @@ if($action==='event_read'&&$method==='POST'){
 if($action==='chat_send'&&$method==='POST'){
  $b=mobile_body();$message=mobile_text($b['message']??'',2500);if(mobile_strlen($message)<2)mobile_error('Pesan terlalu pendek',422);
  $st=$db->prepare('SELECT created_at FROM mobile_chat WHERE user_id=? AND sender="warga" ORDER BY id DESC LIMIT 1');$st->execute([$uid]);$last=$st->fetchColumn();if($last && strtotime($last)>time()-3)mobile_error('Tunggu sebentar sebelum mengirim lagi',429);
- $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');$st->execute([$uid,$u['username'],'warga',$message]);mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json(['ok'=>true]);
+ $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,?,?)');$st->execute([$uid,$u['username'],'warga',$message]);$sentId=(int)$db->lastInsertId();mobile_emit('chat','Pesan warga baru','Ada pesan baru untuk admin','admin');mobile_json(['ok'=>true,'id'=>$sentId,'sender'=>'warga','created_at'=>date('Y-m-d H:i:s'),'delivery_status'=>'sent']);
 }
-if($action==='chat'){
- mobile_json(cikoko_chat_page($db,(string)$uid));
+if($action==='chat'&&$method==='GET'){
+ mobile_json(cikoko_chat_page($db,(string)$uid,'warga'));
+}
+if($action==='chat_inbox'&&$method==='GET'){
+ // A resident receives messages when the authenticated app polls its inbox.
+ $q=$db->prepare('SELECT MAX(id) FROM mobile_chat WHERE user_id=? AND sender="admin"');
+ $q->execute([(string)$uid]);$last=(int)$q->fetchColumn();
+ if($last>0)cikoko_chat_ack($db,(string)$uid,'warga','delivered',$last);
+ mobile_json(['ok'=>true,'latest_admin_id'=>$last]);
 }
 if($action==='chat_threads'){
  mobile_need($u,'chat:reply');
@@ -307,12 +314,20 @@ if($action==='chat_threads'){
  if($before>0){$sql.=' AND m.id<?';$args[]=$before;}
  if($search!==''){$sql.=' AND (m.name LIKE ? OR m.message LIKE ?)';$args[]='%'.$search.'%';$args[]='%'.$search.'%';}
  $q=$db->prepare($sql.' ORDER BY m.id DESC LIMIT 51');$q->execute($args);$rows=$q->fetchAll();$more=count($rows)>50;
- mobile_json(['ok'=>true,'threads'=>array_slice($rows,0,50),'has_more'=>$more]);
+ $rows=array_slice($rows,0,50);
+ // Viewing the admin inbox means delivered, not read. Reading requires the thread.
+ foreach($rows as $thread){
+   $owner=(string)$thread['user_id'];if($owner==='')continue;
+   $q=$db->prepare('SELECT MAX(id) FROM mobile_chat WHERE user_id=? AND sender="warga"');
+   $q->execute([$owner]);$lastId=(int)$q->fetchColumn();
+   if($lastId>0)cikoko_chat_ack($db,$owner,'admin','delivered',$lastId);
+ }
+ mobile_json(['ok'=>true,'threads'=>$rows,'has_more'=>$more]);
 }
 if($action==='chat_reply'&&$method==='POST'){
  mobile_need($u,'chat:reply');$b=mobile_body();$target=mobile_text($b['user_id']??'',80);$msg=mobile_text($b['message']??'',2500);if($target===''||$msg==='')mobile_error('Isi penerima dan pesan',422);
  $chk=$db->prepare('SELECT name FROM mobile_chat WHERE user_id=? LIMIT 1');$chk->execute([$target]);if(!$chk->fetch())mobile_error('Penerima tidak ditemukan',404);
- $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,"admin",?)');$st->execute([$target,'Admin Kelurahan',$msg]);mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json(['ok'=>true]);
+ $st=$db->prepare('INSERT INTO mobile_chat(user_id,name,sender,message) VALUES(?,?,"admin",?)');$st->execute([$target,'Admin Kelurahan',$msg]);$sentId=(int)$db->lastInsertId();mobile_emit('chat','Pesan dibalas oleh Admin','Buka Hubungi Kami untuk melihat balasan','personal',$target);mobile_json(['ok'=>true,'id'=>$sentId,'sender'=>'admin','created_at'=>date('Y-m-d H:i:s'),'delivery_status'=>'sent']);
 }
 if($action==='report'&&$method==='POST'){
  $kind=mobile_text($_POST['kind']??'',60);if(!in_array($kind,['jumantik','kegiatan','fkdm','lmk','posyandu','pkk','kerja_bakti','ppsu'],true))mobile_error('Jenis laporan tidak diizinkan',422);
