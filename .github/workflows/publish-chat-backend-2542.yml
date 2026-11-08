@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/publish-chat-backend-2542.yml'
       - 'qa/backend_2541_contract_test.php'
+      - 'cpanel/mobile-api/migrate_chat_receipts_2542.sql'
   workflow_dispatch:
 permissions:
   contents: write
@@ -49,6 +50,7 @@ jobs:
           set -euo pipefail
           mkdir -p package/mobile-api
           for p in index.php bootstrap.php release_core.php account_support.php governance_review.php waris_review.php; do cp "cpanel/mobile-api/$p" "package/mobile-api/$p"; done
+          cp cpanel/mobile-api/migrate_chat_receipts_2542.sql package/mobile-api/
           cp docs/CHAT_2542_CPANEL_DEPLOYMENT.md package/BACA_DULU_CHAT_2542.md
           (cd package && sha256sum mobile-api/*.php > SHA256SUMS.txt)
           (cd package && zip -qr ../CIKOKO_CHAT_2542_CPANEL_PATCH.zip .)
