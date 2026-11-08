@@ -44,5 +44,5 @@ jobs:
           TEST_MYSQL_USER: root
           TEST_MYSQL_PASSWORD: test-only-password
         run: |
-          php qa/chat_receipts_2542_test.php
           php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
