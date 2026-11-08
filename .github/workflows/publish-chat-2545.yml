@@ -1,0 +1,76 @@
+name: Publish Complete Cikoko Chat Production Backend 2545
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-chat-2545.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: cikoko_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql,pdo_sqlite
+      - name: Verify PHP syntax and API authorization
+        run: |
+          set -euo pipefail
+          find cpanel/mobile-api -maxdepth 1 -name '*.php' -print0 | xargs -0 -n1 php -l
+          php qa/backend_2541_contract_test.php
+          php qa/account_isolation_contract_test.php
+          php qa/asn_permissions_test.php
+          php qa/governance_review_test.php
+      - name: Verify 2545 offline-only bot, roles, read receipts and MySQL isolation
+        env:
+          TEST_MYSQL_DSN: mysql:host=127.0.0.1;port=3306;dbname=cikoko_test;charset=utf8mb4
+          TEST_MYSQL_USER: root
+          TEST_MYSQL_PASSWORD: test-only-password
+        run: |
+          set -euo pipefail
+          php qa/release_2541_regression_test.php
+          php qa/chat_receipts_2542_test.php
+          php qa/chat_storage_2544_integration_test.php
+          php qa/offline_chat_bot_2545_test.php
+      - name: Assemble complete safe overlay for hosting still running 205.1
+        run: |
+          set -euo pipefail
+          mkdir -p out/mobile-api
+          find cpanel/mobile-api -maxdepth 1 -type f -name '*.php' -print0 | xargs -0 -I '{}' cp '{}' out/mobile-api/
+          cp cpanel/mobile-api/migrate_chat_2544.sql out/mobile-api/
+          cp cpanel/mobile-api/migrate_offline_chat_bot_2545.sql out/mobile-api/
+          cp docs/CHAT_2544_CPANEL_UPGRADE.md out/PANDUAN_DASAR_BACKEND_2544.md
+          cp docs/OFFLINE_CHAT_BOT_2545_CPANEL.md out/MULAI_DI_SINI_CHAT_2545.md
+          (cd out && sha256sum mobile-api/*.php mobile-api/*.sql > SHA256SUMS.txt)
+          (cd out && sha256sum -c SHA256SUMS.txt)
+          (cd out && zip -qr ../CIKOKO_BACKEND_CHAT_2545_PRODUKSI.zip .)
+          unzip -t CIKOKO_BACKEND_CHAT_2545_PRODUKSI.zip
+      - name: Upload verified ZIP as public GitHub release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v2.5.45-chat-backend-cpanel-20261108"
+          asset="CIKOKO_BACKEND_CHAT_2545_PRODUKSI.zip"
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$tag" "$asset" --clobber --repo "$GH_REPO"
+          else
+            gh release create "$tag" "$asset" --repo "$GH_REPO" \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "Backend Cikoko 2545 — Bot Penunggu Saat Petugas Offline" \
+              --notes "Full API overlay, additive MySQL schema and backup guide. Bot sends one waiting response only if no Admin Utama, Admin Kelurahan or ASN staff session is online. Human staff can reply. GitHub does NOT deploy into cPanel; authorized hosting installation and two-device tests remain required."
+          fi
