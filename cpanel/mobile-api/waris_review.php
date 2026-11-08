@@ -71,6 +71,20 @@ function waris_review_dispatch(string $action,string $method,PDO $db,array $u,st
   $id=(int)($_GET['id']??0);
   if($action==='document_detail' && $method==='GET') {
     $kind=(string)($_GET['kind']??'waris');
+    // Older clients may have a valid AW reference but no numeric row ID.
+    // Lookup is exact, never inferred from list position or name. The
+    // existing waris_load() still enforces account ownership/role permission.
+    if($kind==='waris' && $id<1) {
+      $reference=trim((string)($_GET['reference']??''));
+      if(!preg_match('/^AW-[A-Za-z0-9-]{6,80}$/',$reference))
+        mobile_error('Nomor referensi pengajuan tidak valid.',422);
+      $refQuery=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=? ORDER BY id DESC LIMIT 2');
+      $refQuery->execute([$reference]);
+      $matches=$refQuery->fetchAll(PDO::FETCH_COLUMN);
+      if(count($matches)!==1)mobile_error('Pengajuan tidak ditemukan atau nomor tidak unik.',404);
+      $id=(int)$matches[0];
+    }
+    if($kind==='report' && $id<1)mobile_error('Nomor laporan tidak valid.',422);
     if($kind==='report') {
        $q=$db->prepare('SELECT id,user_id,user_name,user_role,kind,address,phone,notes,status,created_at FROM mobile_reports WHERE id=?');$q->execute([$id]);$report=$q->fetch();
        if(!$report)mobile_error('Laporan tidak ditemukan',404);
