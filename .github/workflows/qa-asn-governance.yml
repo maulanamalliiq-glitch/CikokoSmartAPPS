@@ -16,6 +16,8 @@ jobs:
           php -l cpanel/mobile-api/permissions.php
           php -l cpanel/mobile-api/governance_review.php
           php -l cpanel/mobile-api/home_slides.php
+          php -l qa/fixtures/deployed_governance_index.php
+          php -l qa/fixtures/deployed_waris_review.php
       - name: Authorized verification, persistence, privacy and complete monitoring
         run: |
           php qa/governance_review_test.php
