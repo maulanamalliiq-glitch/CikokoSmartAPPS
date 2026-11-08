@@ -16,7 +16,7 @@ check(!cikoko_password_valid('short1'),'short password accepted');check(!cikoko_
 for($i=0;$i<3;$i++)cikoko_rate_limit($db,'test','one',3,600);
 try{cikoko_rate_limit($db,'test','one',3,600);throw new RuntimeException('rate limit bypassed');}catch(ApiStop $e){check($e->getCode()===429,'wrong throttle response');}
 cikoko_rate_limit($db,'test','two',3,600);
-$db->exec('CREATE TABLE mobile_chat(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id VARCHAR(80),sender VARCHAR(16),message TEXT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+$db->exec('CREATE TABLE mobile_chat(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id VARCHAR(80),name VARCHAR(160) NULL,sender VARCHAR(16),message TEXT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
 $q=$db->prepare('INSERT INTO mobile_chat(user_id,sender,message) VALUES(?,"warga",?)');for($i=1;$i<=130;$i++)$q->execute(['citizen-a','Message '.$i]);$q->execute(['other','PRIVATE']);
 $_GET=[];$page=cikoko_chat_page($db,'citizen-a');check(count($page['messages'])===60&&$page['has_more'],'latest pagination failed');check((int)$page['messages'][0]['id']===71,'latest page boundary wrong');
 $_GET=['before_id'=>71];$page=cikoko_chat_page($db,'citizen-a');check((int)$page['messages'][0]['id']===11,'older pagination failed');
