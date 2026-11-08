@@ -29,18 +29,29 @@ function waris_review_schema(PDO $db):void {
         mobile_error('Database perlu migrasi v207. Jalankan mobile-api/migrate_waris_v207.sql.',503);
     }
 }
+/** Dokumen gabungan dari pengajuan lama tetap bisa dibuka dan diperbaiki. */
+function waris_required_upload_codes(int $childCount,bool $split):array {
+    $codes=$split
+      ? ['r1','r2','r3','r4_ktp','r4_kk','r4_akta','r5','r6']
+      : ['r1','r2','r3','r4','r5','r6'];
+    for($i=1;$i<=max(0,min(10,$childCount));$i++){
+        if($split){foreach(['ktp','kk','akta'] as $kind)$codes[]='child_'.$i.'_'.$kind;}
+        else {$codes[]='child_'.$i;}
+    }
+    return $codes;
+}
 function waris_codes(int $childCount=10):array {
     $codes=['r1'=>'Surat Pengantar RT/RW','r2'=>'Surat Permohonan','r3'=>'Surat Pernyataan Keabsahan',
-       'r4'=>'KTP, KK dan Akta Lahir Ahli Waris (format lama)',
+       'r4'=>'KTP, KK dan Akta Lahir Ahli Waris (dokumen lama)',
        'r4_ktp'=>'KTP Ahli Waris','r4_kk'=>'KK Ahli Waris','r4_akta'=>'Akta Lahir Ahli Waris',
-       'r5'=>'Surat Kematian Pewaris',
-       'r6'=>'Surat Nikah Pewaris','r7'=>'Akta Cerai (bila berlaku)',
-       'r8'=>'Surat Kematian Ahli Waris (bila berlaku)',
+       'r5'=>'Surat Kematian Pewaris','r6'=>'Surat Nikah Pewaris',
+       'r7'=>'Akta Cerai (bila berlaku)','r8'=>'Surat Kematian Ahli Waris (bila berlaku)',
        'saksi_1'=>'KTP Saksi Pertama','saksi_2'=>'KTP Saksi Kedua'];
     for($i=1;$i<=max(0,min(10,$childCount));$i++){
-      $codes['child_'.$i]='Foto dokumen Anak ke-'.$i.' (format lama)';
-      foreach(['ktp'=>'KTP','kk'=>'KK','akta'=>'Akta Lahir'] as $part=>$label)
-       $codes['child_'.$i.'_'.$part]=$label.' Anak ke-'.$i;
+        $codes['child_'.$i]='Foto dokumen Anak ke-'.$i.' (dokumen lama)';
+        $codes['child_'.$i.'_ktp']='KTP Anak ke-'.$i;
+        $codes['child_'.$i.'_kk']='KK Anak ke-'.$i;
+        $codes['child_'.$i.'_akta']='Akta Lahir Anak ke-'.$i;
     }
     return $codes;
 }
@@ -62,29 +73,41 @@ function waris_emit_link(PDO $db,string $kind,int $id,string $category,string $t
         $s=$db->prepare('INSERT INTO mobile_events(category,title,message,audience,recipient) VALUES(?,?,?,?,?)');
         $s->execute([$category,mobile_text($title,240),mobile_text($message,2000),$audience,$recipient]);
         $event=(int)$db->lastInsertId();
+        if($event<1 || $id<1)throw new RuntimeException('Tautan notifikasi memerlukan ID unik yang valid');
         $s=$db->prepare('INSERT INTO mobile_event_links(event_id,object_type,object_id) VALUES(?,?,?)');
         $s->execute([$event,$kind,$id]);
     }catch(Throwable $e){error_log('Cikoko linked event: '.$e->getMessage());}
 }
+// Resolve legacy identifiers locally; no dependency on the absent v2520 helper.
+// Row ownership is still checked by waris_load() / the report access guard.
+function cikoko_waris_review_application_id(PDO $db,$raw,string $kind):int {
+    if(!is_string($raw) && !is_int($raw))return 0;
+    $value=trim((string)$raw);
+    if(preg_match('/^[0-9]+$/D',$value)) {
+        $digits=ltrim($value,'0');
+        $max=(string)PHP_INT_MAX;
+        if($digits==='' || strlen($digits)>strlen($max) ||
+           (strlen($digits)===strlen($max) && strcmp($digits,$max)>0))return 0;
+        return (int)$digits;
+    }
+    if($kind!=='waris')return 0;
+    if(!preg_match('/^AW-[A-Za-z0-9-]{6,80}$/D',$value))return 0;
+    $query=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=? ORDER BY id DESC LIMIT 2');
+    $query->execute([$value]);
+    $matches=$query->fetchAll(PDO::FETCH_COLUMN);
+    return count($matches)===1?(int)$matches[0]:0;
+}
 function waris_review_dispatch(string $action,string $method,PDO $db,array $u,string $uid):void {
   waris_review_schema($db);
-  $id=(int)($_GET['id']??0);
+  $kindForId=strtolower((string)($_GET['kind']??'waris'));
+  $id=0;
+  foreach(['id','application_id','request_id','reference','reference_no'] as $field){
+    if(!array_key_exists($field,$_GET))continue;
+    $candidate=cikoko_waris_review_application_id($db,$_GET[$field],$kindForId);
+    if($candidate>0){$id=$candidate;break;}
+  }
   if($action==='document_detail' && $method==='GET') {
     $kind=(string)($_GET['kind']??'waris');
-    // Older clients may have a valid AW reference but no numeric row ID.
-    // Lookup is exact, never inferred from list position or name. The
-    // existing waris_load() still enforces account ownership/role permission.
-    if($kind==='waris' && $id<1) {
-      $reference=trim((string)($_GET['reference']??''));
-      if(!preg_match('/^AW-[A-Za-z0-9-]{6,80}$/',$reference))
-        mobile_error('Nomor referensi pengajuan tidak valid.',422);
-      $refQuery=$db->prepare('SELECT id FROM aw_applications WHERE reference_no=? ORDER BY id DESC LIMIT 2');
-      $refQuery->execute([$reference]);
-      $matches=$refQuery->fetchAll(PDO::FETCH_COLUMN);
-      if(count($matches)!==1)mobile_error('Pengajuan tidak ditemukan atau nomor tidak unik.',404);
-      $id=(int)$matches[0];
-    }
-    if($kind==='report' && $id<1)mobile_error('Nomor laporan tidak valid.',422);
     if($kind==='report') {
        $q=$db->prepare('SELECT id,user_id,user_name,user_role,kind,address,phone,notes,status,created_at FROM mobile_reports WHERE id=?');$q->execute([$id]);$report=$q->fetch();
        if(!$report)mobile_error('Laporan tidak ditemukan',404);
