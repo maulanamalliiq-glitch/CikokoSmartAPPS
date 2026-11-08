@@ -95,7 +95,7 @@ function cikoko_gov_decide(PDO $db,array $u,array $body):array {
 function cikoko_governance_dispatch(string $action,string $method,PDO $db,array $u):void {
  if($action==='support_admin_thread'){
   mobile_need($u,'chat:reply');
-  cikoko_chat_presence($db,$u,true);
+  if(function_exists('cikoko_chat_presence'))cikoko_chat_presence($db,$u,true);
   if($method!=='GET')mobile_error('Metode tidak diperbolehkan.',405);
   $target=mobile_text($_GET['user_id']??'',80);
   if($target==='')mobile_error('Pilih percakapan warga.',422);
