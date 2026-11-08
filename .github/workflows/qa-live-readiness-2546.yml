@@ -1,0 +1,35 @@
+name: Probe Live Cikoko Website and API Before Deployment 2546
+on:
+  push:
+    branches: [release/2.5.46-full-hardcheck-20261109]
+    paths: ['.github/workflows/qa-live-readiness-2546.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Probe public HTML, CSS and health only; no account or database data
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in / /assets/cikoko-smartapp-home-2546.css /mobile-api/index.php?action=health; do
+            echo "::group::$path"
+            output="$RUNNER_TEMP/response-$(echo "$path" | tr -c 'a-zA-Z0-9' '_')"
+            status=$(curl --silent --show-error --location --max-time 20 \
+              --output "$output" --write-out '%{http_code}' "https://datawebs.my.id$path" || true)
+            echo "HTTP status: $status"
+            mime=$(file -b --mime-type "$output" 2>/dev/null || true)
+            echo "MIME: $mime; bytes: $(wc -c < "$output")"
+            if [[ "$path" == *'action=health' ]]; then
+              if jq -e . "$output" >/dev/null 2>&1;then
+                jq -c '{version,ready,ok,checks:(if .checks then (.checks|keys) else null end)}' "$output"
+              else echo 'Health did not return valid JSON';fi
+            fi
+            if [[ "$status" != 200 ]];then
+              echo "::warning::Live site is not ready (HTTP $status). This requires authorized cPanel permission/ownership and deployment checks."
+            fi
+            echo "::endgroup::"
+          done
