@@ -369,24 +369,24 @@ class _HomeState extends State<HomePage> {
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
     case 'Galeri':return V6GalleryPage(api:api,content:items);
-    case 'Surat Ahli Waris':return const WarisForm();
-    case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
+    case 'Surat Ahli Waris':return _v6Form('Pengajuan Ahli Waris','Lengkapi formulir dan dokumen yang diminta.',const WarisForm());
+    case 'Surat Pengantar RT/RW':return _v6Form('Pengantar RT/RW','Lengkapi data pengantar wilayah.',RtRwLettersPage(api:api));
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
     case 'TTD & Stempel':return RtRwSignerPage(api:api);
     case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
-    case 'Laporan Jumantik':return const ReportForm(kind:'jumantik');
-    case 'Laporan Kegiatan':return const ReportForm(kind:'kegiatan');
-    case 'Laporan LPJ RT':return LpjPage(api:api,kind:'lpj_rt');
-    case 'Laporan LPJ RW':return LpjPage(api:api,kind:'lpj_rw');
+    case 'Laporan Jumantik':return _v6Form('Laporan Jumantik','Laporan pemantauan jentik lingkungan.',const ReportForm(kind:'jumantik'));
+    case 'Laporan Kegiatan':return _v6Form('Laporan Kegiatan','Pelaporan kegiatan wilayah.',const ReportForm(kind:'kegiatan'));
+    case 'Laporan LPJ RT':return _v6Form('LPJ RT','Pertanggungjawaban kegiatan dan keuangan RT.',LpjPage(api:api,kind:'lpj_rt'));
+    case 'Laporan LPJ RW':return _v6Form('LPJ RW','Pertanggungjawaban kegiatan dan keuangan RW.',LpjPage(api:api,kind:'lpj_rw'));
     case 'Laporan LPJ LMK':return LpjLmkMenu(onOpen:switchTo);
-    case 'Laporan LPJ LMK A':return LpjPage(api:api,kind:'lpj_lmk_a');
-    case 'Laporan LPJ LMK B':return LpjPage(api:api,kind:'lpj_lmk_b');
-    case 'Laporan FKDM':return const ReportForm(kind:'fkdm');
-    case 'Laporan LMK':return const ReportForm(kind:'lmk');
-    case 'Laporan Posyandu':return const ReportForm(kind:'posyandu');
-    case 'Laporan Dasawisma':return const ReportForm(kind:'pkk');
-    case 'Laporan Kerja Bakti':return const ReportForm(kind:'kerja_bakti');
-    case 'Laporan PPSU':return PpsuReportPage(api:api);
+    case 'Laporan LPJ LMK A':return _v6Form('LPJ LMK A','Laporan pertanggungjawaban LMK modul A.',LpjPage(api:api,kind:'lpj_lmk_a'));
+    case 'Laporan LPJ LMK B':return _v6Form('LPJ LMK B','Laporan pertanggungjawaban LMK modul B.',LpjPage(api:api,kind:'lpj_lmk_b'));
+    case 'Laporan FKDM':return _v6Form('Laporan FKDM','Pelaporan kegiatan FKDM.',const ReportForm(kind:'fkdm'));
+    case 'Laporan LMK':return _v6Form('Laporan LMK','Pelaporan kegiatan LMK.',const ReportForm(kind:'lmk'));
+    case 'Laporan Posyandu':return _v6Form('Laporan Posyandu','Pelaporan kegiatan Posyandu.',const ReportForm(kind:'posyandu'));
+    case 'Laporan Dasawisma':return _v6Form('Laporan Dasawisma','Pelaporan kegiatan Dasawisma.',const ReportForm(kind:'pkk'));
+    case 'Laporan Kerja Bakti':return _v6Form('Laporan Kerja Bakti','Pelaporan kegiatan kerja bakti.',const ReportForm(kind:'kerja_bakti'));
+    case 'Laporan PPSU':return _v6Form('Laporan PPSU','Dokumentasi kegiatan PPSU.',PpsuReportPage(api:api));
     case 'Riwayat':return V6HistoryPage(api:api,onOpen:_openV6History);
     case 'Hubungi Kami':return const ChatPage();
     case 'Pesan Masuk':return const AdminChatPage();
@@ -410,6 +410,10 @@ class _HomeState extends State<HomePage> {
           : const Center(child:Text('Hanya Admin Utama yang dapat mengelola Bendahara.'));
     default: return featureUnavailable(section);
   }}
+  Widget _v6Form(String title,String description,Widget content)=>Column(children:[
+    V6FormHeading(title:title,description:description),
+    Expanded(child:content),
+  ]);
   Widget featureUnavailable(String name) => Center(child:Padding(padding:const EdgeInsets.all(22),child:Card(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.construction_outlined,size:44,color:blue),const SizedBox(height:16),Text(name,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:10),const Text('Halaman ini tercantum dalam rancangan role, tetapi modul data dan API belum tersedia. Tidak ada perubahan data yang dilakukan.',textAlign:TextAlign.center),const SizedBox(height:18),FilledButton(onPressed:()=>switchTo('Dashboard'),child:const Text('Kembali ke Beranda'))])))));
   Widget menuPage()=>ListView(padding:const EdgeInsets.all(14),children:[
     Text('Menu $roleLabel',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),
