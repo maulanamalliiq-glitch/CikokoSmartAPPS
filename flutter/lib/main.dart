@@ -150,7 +150,7 @@ void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(
 class HomePage extends StatefulWidget{final VoidCallback onLogout,onAuthenticated;const HomePage({super.key,required this.onLogout,required this.onAuthenticated});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage> {
   String section='Dashboard';
-  int nav=2;
+  int nav=0;
   List<dynamic> items=[],events=[];
   List<Map<String,dynamic>> activeServices=cikokoDefaultIntegratedServices();
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
@@ -226,21 +226,19 @@ class _HomeState extends State<HomePage> {
     if(guest&&_needsLogin(s)){openLogin();return;}
     setState(() {
       section=s;
-      if(s=='Dashboard'){nav=2;}
-      else if(s=='Berita & Kegiatan'){nav=1;}
-      else if(s=='Inovasi'){nav=3;}
-      else if(s=='Profil'){nav=4;}
-      else if(s=='Riwayat'||s=='Verifikasi Laporan'||s=='Verifikasi Ahli Waris'||s=='Laporan Kegiatan Admin'){nav=1;}
-      else if(s=='Notifikasi'){nav=2;}
-      else {nav=0;}
+      if(s=='Dashboard'){nav=0;}
+      else if(s=='Berita & Kegiatan'||s=='Pengumuman'){nav=2;}
+      else if(s=='Profil'){nav=3;}
+      else {nav=1;}
     });
   }
   void selectNav(int value){
-    if(value==0){switchTo('Menu Cikoko');return;}
-    if(value==1){switchTo('Berita & Kegiatan');return;}
-    if(value==2){switchTo('Dashboard');return;}
-    if(value==3){switchTo('Inovasi');return;}
-    switchTo('Profil');
+    switch(value){
+      case 0: switchTo('Dashboard');break;
+      case 1: switchTo('Layanan Online');break;
+      case 2: switchTo('Berita & Kegiatan');break;
+      default: switchTo('Profil');
+    }
   }
   IconData iconFor(String s)=>switch(s){
     'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
@@ -291,13 +289,22 @@ class _HomeState extends State<HomePage> {
       },
     )),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
-    bottomNavigationBar:NavigationBar(height:67,selectedIndex:nav,labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,onDestinationSelected:selectNav,destinations:[
-      const NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Menu'),
-      const NavigationDestination(icon:Icon(Icons.newspaper_outlined),selectedIcon:Icon(Icons.newspaper),label:'Berita'),
-      const NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Beranda'),
-      const NavigationDestination(icon:Icon(Icons.auto_awesome_outlined),selectedIcon:Icon(Icons.auto_awesome),label:'Inovasi'),
-      const NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Profil'),
-    ]),
+    bottomNavigationBar:NavigationBar(
+      height:64,
+      selectedIndex:nav,
+      labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
+      onDestinationSelected:selectNav,
+      destinations:const [
+        NavigationDestination(icon:Icon(Icons.home_outlined),
+          selectedIcon:Icon(Icons.home),label:'Beranda'),
+        NavigationDestination(icon:Icon(Icons.widgets_outlined),
+          selectedIcon:Icon(Icons.widgets_rounded),label:'Layanan'),
+        NavigationDestination(icon:Icon(Icons.newspaper_outlined),
+          selectedIcon:Icon(Icons.newspaper),label:'Berita'),
+        NavigationDestination(icon:Icon(Icons.person_outline),
+          selectedIcon:Icon(Icons.person),label:'Profil'),
+      ],
+    ),
     floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),backgroundColor:blue,foregroundColor:Colors.white,child:const Icon(Icons.chat_bubble_outline)),
   ));
   Widget _page(){switch(section){
