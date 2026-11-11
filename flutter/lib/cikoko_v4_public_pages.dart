@@ -184,3 +184,88 @@ class CikokoV4Region extends StatelessWidget {
         icon:const Icon(Icons.widgets_outlined),label:const Text('Lihat Layanan Kelurahan')),
     ]);
 }
+
+
+class CikokoV4Onboarding extends StatefulWidget {
+  const CikokoV4Onboarding({super.key});
+  @override State<CikokoV4Onboarding> createState()=>_CikokoV4OnboardingState();
+}
+class _CikokoV4OnboardingState extends State<CikokoV4Onboarding>{
+  final pages=const [
+    ('Layanan Kelurahan Lebih Dekat','Ajukan layanan dan pantau perkembangan pengajuan melalui aplikasi.',Icons.phone_android_outlined),
+    ('Informasi Terpercaya','Dapatkan berita, agenda, dan kegiatan Kelurahan Cikoko.',Icons.newspaper_outlined),
+    ('Terhubung dengan Petugas','Akses pengaduan dan informasi dalam satu layanan digital.',Icons.support_agent_outlined),
+  ];
+  int page=0;
+  final controller=PageController();
+  @override void dispose(){controller.dispose();super.dispose();}
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(actions:[TextButton(onPressed:()=>Navigator.pop(context),
+      child:const Text('Lewati'))]),
+    body:SafeArea(child:Padding(padding:const EdgeInsets.all(19),
+      child:Column(children:[
+        Expanded(child:PageView(controller:controller,
+          onPageChanged:(i)=>setState(()=>page=i),
+          children:[for(final slide in pages)Column(children:[
+            const SizedBox(height:35),
+            Expanded(child:Container(
+              margin:const EdgeInsets.symmetric(horizontal:10),
+              decoration:BoxDecoration(
+                gradient:const LinearGradient(
+                  colors:[Color(0xFFDEEDFF),Color(0xFFF5FAFF)]),
+                borderRadius:BorderRadius.circular(23)),
+              child:Stack(children:[
+                Center(child:Icon(slide.$3,size:118,color:civicV4Blue)),
+                const Positioned(bottom:15,left:15,right:15,
+                  child:Text('CIKOKO SMART · KELURAHAN CIKOKO',
+                    textAlign:TextAlign.center,
+                    style:TextStyle(fontSize:10,fontWeight:FontWeight.w800,
+                      color:civicV4Navy))),
+              ]))),
+            const SizedBox(height:32),
+            Text(slide.$1,textAlign:TextAlign.center,
+              style:const TextStyle(fontSize:22,color:civicV4Navy,fontWeight:FontWeight.w800)),
+            const SizedBox(height:10),
+            Text(slide.$2,textAlign:TextAlign.center,
+              style:const TextStyle(fontSize:13,color:civicV4Muted,height:1.5)),
+            const SizedBox(height:30),
+          ])])),
+        Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+          for(var i=0;i<pages.length;i++)Container(width:i==page?21:7,height:7,
+            margin:const EdgeInsets.symmetric(horizontal:3),
+            decoration:BoxDecoration(color:i==page?civicV4Blue:civicV4Line,
+              borderRadius:BorderRadius.circular(4))),
+        ]),
+        const SizedBox(height:24),
+        SizedBox(width:double.infinity,child:FilledButton(
+          onPressed:page==pages.length-1?()=>Navigator.pop(context):()=>controller.nextPage(
+            duration:const Duration(milliseconds:250),curve:Curves.easeOut),
+          child:Text(page==pages.length-1?'Mulai Menggunakan':'Lanjutkan →'))),
+        const SizedBox(height:14),
+      ]))),
+  );
+}
+
+class CikokoV4QuickTile extends StatelessWidget{
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+  const CikokoV4QuickTile({super.key,required this.title,required this.icon,required this.onTap});
+  @override Widget build(BuildContext context)=>Material(
+    color:Colors.white,borderRadius:BorderRadius.circular(12),
+    child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(12),
+      child:Container(
+        padding:const EdgeInsets.symmetric(horizontal:4,vertical:10),
+        decoration:BoxDecoration(border:Border.all(color:civicV4Line),
+          borderRadius:BorderRadius.circular(12)),
+        child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Icon(icon,color:civicV4Blue,size:25),
+          const SizedBox(height:7),
+          Text(title,textAlign:TextAlign.center,maxLines:2,
+            overflow:TextOverflow.ellipsis,
+            style:const TextStyle(fontSize:10.5,height:1.2,
+              color:civicV4Navy,fontWeight:FontWeight.w800)),
+        ]),
+      )),
+  );
+}
