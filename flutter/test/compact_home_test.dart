@@ -8,8 +8,8 @@ void main() {
       onService: () {}, onProfile: () {}))));
     expect(find.text('Kelurahan Cikoko'),findsOneWidget);
     expect(find.textContaining('Selamat datang'),findsNothing);
-    expect(find.text('Layanan Online'),findsOneWidget);
-    expect(find.text('Profil Kelurahan'),findsOneWidget);
+    expect(find.text('Ajukan Layanan →'),findsOneWidget);
+    expect(find.text('Lihat Profil'),findsOneWidget);
   });
   testWidgets('Kategori pelayanan native bisa diketuk', (tester) async {
     var touched=false;
