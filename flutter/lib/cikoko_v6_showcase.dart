@@ -323,7 +323,7 @@ class V6ArticleCard extends StatelessWidget{
           overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:9.3,color:V6.secondary)),
       ])),
       const Icon(Icons.chevron_right_rounded,size:15,color:V6.secondary),
-    ]))))),
+    ])))),
   );
  }
 }
