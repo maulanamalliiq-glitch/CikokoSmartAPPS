@@ -302,8 +302,33 @@ class _HomeState extends State<HomePage> {
   }
   @override Widget build(BuildContext c)=>PopScope(canPop:false,onPopInvokedWithResult:(didPop,result){if(!didPop)confirmExit();},child:Scaffold(
     appBar:AppBar(
-      title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
-      actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
+      backgroundColor:CikokoV5.navy,
+      foregroundColor:Colors.white,
+      elevation:0,
+      titleSpacing:0,
+      systemOverlayStyle:SystemUiOverlayStyle.light,
+      flexibleSpace:const DecoratedBox(decoration:BoxDecoration(
+        gradient:LinearGradient(colors:[CikokoV5.deep,CikokoV5.navy,Color(0xFF1354A1)]))),
+      title:Row(children:[
+        Container(padding:const EdgeInsets.all(3),decoration:BoxDecoration(
+          color:Colors.white,borderRadius:BorderRadius.circular(12)),
+          child:const Logo(size:32)),
+        const SizedBox(width:9),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,
+            style:TextStyle(fontSize:17.0,fontWeight:FontWeight.w900,color:Colors.white)),
+          Text(section=='Dashboard'?'Kelurahan Cikoko · '+roleLabel:section,
+            maxLines:1,overflow:TextOverflow.ellipsis,
+            style:const TextStyle(fontSize:10.4,color:Color(0xFFDCEBFF))),
+        ])),
+      ]),
+      actions:[
+        IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),
+          icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),
+            child:const Icon(Icons.notifications_none_rounded,color:Colors.white))),
+        IconButton(tooltip:'Muat ulang',onPressed:load,
+          icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
+      ],
     ),
     drawer:Drawer(child:CikokoStructuredDrawer(
       avatar:const Logo(size:52),
