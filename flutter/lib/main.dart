@@ -147,7 +147,7 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                    else ...[
                      TextField(controller: user, decoration: const InputDecoration(labelText: 'NIK / Email / Username',prefixIcon:Icon(Icons.person_outline)), textInputAction: TextInputAction.next),
                      const SizedBox(height: 12),
-                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Kata Sandi',prefixIcon:Icon(Icons.lock_outline)),
+                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Kata Sandi',prefixIcon:Icon(Icons.lock_outline))),
                    ],
                    const SizedBox(height: 22),
                    SizedBox(
