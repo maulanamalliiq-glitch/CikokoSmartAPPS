@@ -2,6 +2,8 @@ import 'profile_editor.dart';
 import 'cikoko_unified_theme.dart';
 import 'cikoko_v4_public_pages.dart';
 import 'cikoko_v5_shell.dart';
+import 'cikoko_v6_showcase.dart';
+import 'cikoko_v6_content.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -302,32 +304,28 @@ class _HomeState extends State<HomePage> {
   }
   @override Widget build(BuildContext c)=>PopScope(canPop:false,onPopInvokedWithResult:(didPop,result){if(!didPop)confirmExit();},child:Scaffold(
     appBar:AppBar(
-      backgroundColor:CikokoV5.navy,
-      foregroundColor:Colors.white,
-      elevation:0,
-      titleSpacing:0,
-      systemOverlayStyle:SystemUiOverlayStyle.light,
-      flexibleSpace:const DecoratedBox(decoration:BoxDecoration(
-        gradient:LinearGradient(colors:[CikokoV5.deep,CikokoV5.navy,Color(0xFF1354A1)]))),
+      backgroundColor:Colors.white,foregroundColor:V6.ink,
+      titleSpacing:0,elevation:0,
+      systemOverlayStyle:SystemUiOverlayStyle.dark,
       title:Row(children:[
-        Container(padding:const EdgeInsets.all(3),decoration:BoxDecoration(
-          color:Colors.white,borderRadius:BorderRadius.circular(12)),
-          child:const Logo(size:32)),
-        const SizedBox(width:9),
-        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,
-            style:TextStyle(fontSize:17.0,fontWeight:FontWeight.w900,color:Colors.white)),
-          Text(section=='Dashboard'?'Kelurahan Cikoko · '+roleLabel:section,
-            maxLines:1,overflow:TextOverflow.ellipsis,
-            style:const TextStyle(fontSize:10.4,color:Color(0xFFDCEBFF))),
-        ])),
+       Container(width:35,height:35,padding:const EdgeInsets.all(2),
+        decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(9)),
+        child:const Logo(size:30)),
+       const SizedBox(width:9),
+       Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,
+          style:TextStyle(fontSize:17,fontWeight:FontWeight.w900,color:V6.ink)),
+        Text(section=='Dashboard'?'Kelurahan Cikoko · '+roleLabel:section,
+          maxLines:1,overflow:TextOverflow.ellipsis,
+          style:const TextStyle(fontSize:10.4,color:V6.secondary)),
+       ])),
       ]),
       actions:[
-        IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),
-          icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),
-            child:const Icon(Icons.notifications_none_rounded,color:Colors.white))),
-        IconButton(tooltip:'Muat ulang',onPressed:load,
-          icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
+       IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),
+         icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),
+           child:const Icon(Icons.notifications_none_outlined,color:V6.ink))),
+       IconButton(tooltip:'Muat Ulang',onPressed:load,
+         icon:const Icon(Icons.refresh_rounded,color:V6.ink)),
       ],
     ),
     drawer:Drawer(child:CikokoStructuredDrawer(
@@ -348,25 +346,24 @@ class _HomeState extends State<HomePage> {
       },
     )),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
-    bottomNavigationBar:CikokoV5BottomNav(selected:nav,onSelected:selectNav),
+    bottomNavigationBar:V6BottomNavigation(selected:nav,onSelected:selectNav),
     floatingActionButton:null,
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
-    case 'Laporan Terpadu':return CikokoV5ReportsHub(
-      role:role,guest:guest,modules:modules,letterCounts:letterCounts,
-      navigate:switchTo,onLetterStatus:(value)=>showPublicLetterStatus(context,api,category:value));
-    case 'Tentang Kami':return CikokoV5About(guest:guest,navigate:switchTo);
+    case 'Laporan Terpadu':return V6ReportsHub(
+      role:role,guest:guest,modules:modules,counts:letterCounts,
+      navigate:switchTo,letterStatus:(value)=>showPublicLetterStatus(context,api,category:value));
+    case 'Tentang Kami':return V6AboutPage(navigate:switchTo);
     case 'Menu Cikoko':return menuPage();
-    case 'Berita & Kegiatan':return CikokoV5NewsFeed(
-      api:api,items:items,onArticle:_openV5Article);
-    case 'Agenda':return CikokoV4Agenda(content:items);
-    case 'Profil Wilayah':return CikokoV4Region(navigate:switchTo);
+    case 'Berita & Kegiatan':return V6NewsPage(api:api,content:items,onOpen:_openV5Article);
+    case 'Agenda':return V6AgendaPage(content:items);
+    case 'Profil Wilayah':return V6RegionPage(navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return CikokoV5ServicesHub(guest:guest,navigate:switchTo);
+    case 'Layanan Online':return V6ServicesPage(guest:guest,onOpen:_openV6Service);
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
-    case 'Galeri':return CikokoV4Gallery(api:api,content:items);
+    case 'Galeri':return V6GalleryPage(api:api,content:items);
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
@@ -385,10 +382,10 @@ class _HomeState extends State<HomePage> {
     case 'Laporan Dasawisma':return const ReportForm(kind:'pkk');
     case 'Laporan Kerja Bakti':return const ReportForm(kind:'kerja_bakti');
     case 'Laporan PPSU':return PpsuReportPage(api:api);
-    case 'Riwayat':return const HistoryPage();
+    case 'Riwayat':return V6HistoryPage(api:api,onOpen:_openV6History);
     case 'Hubungi Kami':return const ChatPage();
     case 'Pesan Masuk':return const AdminChatPage();
-    case 'Notifikasi':return eventList();
+    case 'Notifikasi':return V6NotificationPage(guest:guest,events:events,onOpen:openNotification,login:openLogin);
     case 'Inovasi':return InnovationPage(api:api);
     case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
     case 'Verifikasi Laporan':return const AdminReports();
@@ -438,17 +435,51 @@ class _HomeState extends State<HomePage> {
 
   Widget home(){
     if(role=='admin'||role=='admin_kelurahan'){
-      return CikokoV5AdminHome(modules:modules,roleLabel:roleLabel,
-        letterCounts:letterCounts,unreadCount:unreadCount,events:events,
-        navigate:switchTo);
+      return V6AdminHome(modules:modules,roleName:roleLabel,
+        counts:letterCounts,unread:unreadCount,events:events,navigate:switchTo);
     }
-    return CikokoV5Home(
-      role:role,guest:guest,modules:modules,api:api,
-      items:items,events:events,letterCounts:letterCounts,
-      navigate:switchTo,onRefresh:load,
-      letterStatus:(category)=>showPublicLetterStatus(context,api,category:category),
-      newsTap:_openV5Article,openLogin:openLogin,
-    );
+    return V6Home(role:role,guest:guest,modules:modules,
+      api:api,items:items,letterCounts:letterCounts,
+      navigate:_openV6Service,reload:load,
+      letterStatus:(value)=>showPublicLetterStatus(context,api,category:value),
+      articleTap:_openV5Article);
+  }
+
+  void _openV6Service(String route){
+    if(route=='Surat Ahli Waris'||route=='Surat Pengantar RT/RW'){
+      final isWaris=route=='Surat Ahli Waris';
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder:(screen)=>V6ServiceDetail(
+          title:route,
+          description:isWaris
+             ?'Pelayanan pengajuan dokumen ahli waris Kelurahan Cikoko.'
+             :'Pengajuan surat pengantar melalui RT dan RW.',
+          icon:isWaris?Icons.description_outlined:Icons.home_work_outlined,
+          onApply:(){
+            Navigator.of(screen).pop();
+            switchTo(route);
+          },
+          onRequirements:isWaris?(){
+            showCikokoWarisRequirements(screen,onApply:(){
+              Navigator.of(screen).pop();
+              switchTo(route);
+            });
+          }:null,
+        )));
+      return;
+    }
+    switchTo(route);
+  }
+
+  void _openV6History(Map<String,dynamic> row){
+    final id=cikokoPositiveId(row);
+    final reference=cikokoWarisReference(row);
+    if(id==null&&reference==null){
+      notify(context,'Nomor pengajuan tidak ditemukan. Coba memuat ulang data.',error:true);
+      return;
+    }
+    showCikokoDocument(context,api,id:id??0,reference:reference??'',
+      kind:cikokoDocumentKind(row));
   }
 
   Future<void> _openV5Article(Map<String,dynamic> item)async{
