@@ -233,3 +233,251 @@ class _V6NewsState extends State<V6NewsPage>{
   ]);
  }
 }
+
+
+class V6AgendaPage extends StatefulWidget{
+ final List<dynamic> content;
+ const V6AgendaPage({super.key,required this.content});
+ @override State<V6AgendaPage> createState()=>_V6AgendaState();
+}
+class _V6AgendaState extends State<V6AgendaPage>{
+ String filter='Semua';
+ @override Widget build(BuildContext context){
+  final rows=widget.content.where((r)=>r is Map &&
+    (r['type']=='agenda'||r['type']=='kegiatan')).toList();
+  final now=DateTime.now();
+  final visible=rows.where((raw){
+    if(filter=='Semua')return true;
+    final value=(raw['event_date']??raw['date']??raw['created_at']??'').toString();
+    final date=DateTime.tryParse(value);
+    if(date==null)return false;
+    if(filter=='Mendatang')return !date.isBefore(DateTime(now.year,now.month,now.day));
+    return date.isBefore(DateTime(now.year,now.month,now.day));
+  }).toList();
+  return ListView(padding:const EdgeInsets.all(14),children:[
+    const V6PageHeader(title:'Agenda Kegiatan',
+      description:'Agenda dan kegiatan yang dipublikasikan kelurahan.',icon:Icons.calendar_month_outlined),
+    Row(children:[for(final tab in const ['Semua','Mendatang','Selesai'])Padding(
+      padding:const EdgeInsets.only(right:7),
+      child:ChoiceChip(label:Text(tab,style:const TextStyle(fontSize:10.6)),
+        selected:filter==tab,onSelected:(_)=>setState(()=>filter=tab)))]),
+    const SizedBox(height:11),
+    for(final raw in visible)Padding(padding:const EdgeInsets.only(bottom:9),child:V6Panel(
+      child:Row(children:[
+        Container(width:54,height:60,decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(9)),
+          child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+            const Icon(Icons.event_available_outlined,color:V6.blue,size:23),
+            Text(cikokoDateOnly(raw['event_date']??raw['date']??raw['created_at']??'').split(' ').take(2).join(' '),
+              style:const TextStyle(fontSize:9.8,color:V6.ink,fontWeight:FontWeight.w800)),
+          ])),
+        const SizedBox(width:10),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Text((raw['title']??'Agenda Kelurahan').toString(),style:const TextStyle(
+           fontSize:12,color:V6.ink,fontWeight:FontWeight.w800)),
+         const SizedBox(height:4),
+         Text((raw['summary']??raw['location']??'').toString(),
+          maxLines:2,overflow:TextOverflow.ellipsis,
+          style:const TextStyle(fontSize:10.4,color:V6.secondary)),
+        ])),
+      ]))),
+    if(visible.isEmpty)const V6Panel(child:Text('Belum ada agenda yang dipublikasikan untuk pilihan ini.',
+       style:TextStyle(fontSize:11.5,color:V6.secondary))),
+  ]);
+ }
+}
+
+class V6GalleryPage extends StatefulWidget{
+ final CikokoApi api; final List<dynamic> content;
+ const V6GalleryPage({super.key,required this.api,required this.content});
+ @override State<V6GalleryPage> createState()=>_V6GalleryState();
+}
+class _V6GalleryState extends State<V6GalleryPage>{
+ String filter='Semua';
+ @override Widget build(BuildContext context){
+  final rows=widget.content.where((raw)=>raw is Map && raw['type']=='galeri').toList();
+  final categories=<String>{'Semua'};
+  for(final r in rows){final c=(r['category']??'').toString().trim();if(c.isNotEmpty)categories.add(c);}
+  final shown=rows.where((r)=>filter=='Semua'||(r['category']??'').toString()==filter).toList();
+  return ListView(padding:const EdgeInsets.all(14),children:[
+   const V6PageHeader(title:'Galeri Kegiatan',
+     description:'Dokumentasi kegiatan Kelurahan Cikoko.',icon:Icons.photo_library_outlined),
+   if(categories.length>1)SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+    for(final cat in categories)Padding(padding:const EdgeInsets.only(right:7),
+      child:ChoiceChip(label:Text(cat),selected:cat==filter,onSelected:(_)=>setState(()=>filter=cat))),
+   ])),
+   const SizedBox(height:9),
+   if(shown.isEmpty)const V6Panel(child:Text('Belum ada foto kegiatan.',
+       style:TextStyle(fontSize:12,color:V6.secondary))),
+   GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+     itemCount:shown.length,
+     gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount:2,mainAxisSpacing:10,crossAxisSpacing:10,childAspectRatio:.93),
+     itemBuilder:(context,index){
+      final r=shown[index] as Map;
+      final image=widget.api.media((r['image']??'').toString());
+      final title=(r['title']??'Dokumentasi Kegiatan').toString();
+      return InkWell(onTap:()=>showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
+       title:Text(title),content:image.isEmpty?const Icon(Icons.image_outlined):
+        Image.network(image,errorBuilder:(_,__,___)=>const Icon(Icons.image_not_supported_outlined)),
+       actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Tutup'))])),
+       child:Container(clipBehavior:Clip.antiAlias,
+        decoration:BoxDecoration(color:Colors.white,borderRadius:V6.radius(11),
+          border:Border.all(color:V6.border)),
+        child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+          Expanded(child:image.isEmpty?const ColoredBox(color:V6.pale,
+            child:Icon(Icons.photo_outlined,color:V6.blue,size:32)):
+            Image.network(image,fit:BoxFit.cover,
+              errorBuilder:(_,__,___)=>const ColoredBox(color:V6.pale,
+                child:Icon(Icons.image_not_supported_outlined,color:V6.blue)))),
+          Padding(padding:const EdgeInsets.all(8),child:Text(title,maxLines:2,
+            overflow:TextOverflow.ellipsis,
+            style:const TextStyle(fontSize:10.6,fontWeight:FontWeight.w800,color:V6.ink))),
+        ])),
+      );
+     }),
+  ]);
+ }
+}
+
+class V6AboutPage extends StatelessWidget{
+ final void Function(String) navigate;
+ const V6AboutPage({super.key,required this.navigate});
+ @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14),children:[
+   const V6PageHeader(title:'Tentang Kami',
+     description:'Profil dan informasi resmi Kelurahan Cikoko.',icon:Icons.info_outline),
+   ClipRRect(borderRadius:V6.radius(12),child:Image.asset(
+     'assets/kantor-cikoko.jpg',height:185,width:double.infinity,fit:BoxFit.cover)),
+   const SizedBox(height:13),
+   const V6Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text('Profil Kelurahan Cikoko',style:TextStyle(fontSize:15.5,color:V6.ink,fontWeight:FontWeight.w900)),
+    SizedBox(height:7),
+    Text('Kelurahan Cikoko merupakan kelurahan di Kecamatan Pancoran, Kota Administrasi Jakarta Selatan.',
+      style:TextStyle(fontSize:11.8,color:V6.secondary,height:1.5)),
+    SizedBox(height:11),
+    Row(children:[Icon(Icons.location_city_outlined,color:V6.blue,size:18),SizedBox(width:8),
+      Expanded(child:Text('Kecamatan Pancoran · Jakarta Selatan',
+         style:TextStyle(fontSize:11.7,fontWeight:FontWeight.w700,color:V6.ink)))]),
+   ])),
+   const SizedBox(height:16),
+   const V6Section(title:'Informasi Terkait'),
+   for(final e in const [
+    ('Profil Wilayah','Profil Wilayah',Icons.place_outlined),
+    ('Agenda Kegiatan','Agenda',Icons.event_outlined),
+    ('Berita & Informasi','Berita & Kegiatan',Icons.newspaper_outlined),
+    ('Inovasi Kelurahan','Inovasi',Icons.auto_awesome_outlined),
+    ('Galeri Kegiatan','Galeri',Icons.photo_library_outlined),
+    ('Profil Akun','Profil',Icons.person_outline),
+   ])Padding(padding:const EdgeInsets.only(bottom:8),child:V6Panel(
+    padding:EdgeInsets.zero,child:ListTile(
+     onTap:()=>navigate(e.$2),
+     leading:Icon(e.$3,color:V6.blue,size:22),
+     title:Text(e.$1,style:const TextStyle(fontSize:12.3,color:V6.ink,fontWeight:FontWeight.w800)),
+     trailing:const Icon(Icons.chevron_right_rounded,color:V6.secondary),
+   ))),
+ ]);
+}
+
+class V6NotificationPage extends StatelessWidget{
+ final bool guest; final List<dynamic> events;
+ final void Function(Map<String,dynamic>) onOpen; final VoidCallback login;
+ const V6NotificationPage({super.key,required this.guest,
+  required this.events,required this.onOpen,required this.login});
+ @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14),children:[
+   const V6PageHeader(title:'Notifikasi',
+      description:'Pemberitahuan mengenai aktivitas dan pengajuan.',icon:Icons.notifications_none),
+   if(guest)V6Panel(child:Column(children:[
+     const Text('Masuk untuk membaca notifikasi Anda.'),
+     const SizedBox(height:10),
+     FilledButton(onPressed:login,child:const Text('Masuk')),
+   ]))
+   else if(events.isEmpty)const V6Panel(child:Text('Belum ada notifikasi.',
+     style:TextStyle(color:V6.secondary,fontSize:11.5)))
+   else for(final e in events)Padding(padding:const EdgeInsets.only(bottom:9),child:V6Panel(
+     padding:EdgeInsets.zero,child:ListTile(
+       onTap:()=>onOpen(Map<String,dynamic>.from(e)),
+       leading:CircleAvatar(backgroundColor:V6.pale,child:Icon(
+         (e['is_read']==true||(e['is_read']??0).toString()=='1')
+          ?Icons.notifications_none:Icons.notifications_active_outlined,color:V6.blue,size:19)),
+       title:Text((e['title']??'Pemberitahuan').toString(),
+         style:const TextStyle(fontSize:12.2,fontWeight:FontWeight.w800,color:V6.ink)),
+       subtitle:Text((e['message']??'').toString()+'\n'+cikokoDateOnly(e['created_at']??''),
+         maxLines:3,overflow:TextOverflow.ellipsis,
+         style:const TextStyle(fontSize:10.5,color:V6.secondary)),
+       trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
+     ))),
+ ]);
+}
+
+class V6FormHeading extends StatelessWidget{
+ final String title,description;
+ const V6FormHeading({super.key,required this.title,required this.description});
+ @override Widget build(BuildContext context)=>Padding(
+  padding:const EdgeInsets.fromLTRB(13,12,13,2),
+  child:V6Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text(title,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900,color:V6.ink)),
+    const SizedBox(height:5),
+    Text(description,style:const TextStyle(fontSize:11,color:V6.secondary)),
+    const SizedBox(height:13),
+    Row(children:[
+     for(final stage in const [
+       ('1','Data'),('2','Dokumen'),('3','Verifikasi')
+     ])Expanded(child:Row(children:[
+       CircleAvatar(radius:12,backgroundColor:stage.$1=='1'?V6.blue:V6.pale,
+        child:Text(stage.$1,style:TextStyle(fontSize:10.5,fontWeight:FontWeight.w800,
+          color:stage.$1=='1'?Colors.white:V6.blue))),
+       const SizedBox(width:4),
+       Expanded(child:Text(stage.$2,maxLines:1,overflow:TextOverflow.ellipsis,
+         style:const TextStyle(fontSize:10,color:V6.ink))),
+     ]))
+    ]),
+  ])),
+ );
+}
+
+class V6Onboarding extends StatefulWidget{
+ const V6Onboarding({super.key});
+ @override State<V6Onboarding> createState()=>_V6OnboardingState();
+}
+class _V6OnboardingState extends State<V6Onboarding>{
+ int current=0; final pager=PageController();
+ static const pages=[
+  ('Layanan Kelurahan\nLebih Dekat & Mudah','Ajukan layanan, pantau progres, dan dapatkan informasi dalam satu aplikasi.'),
+  ('Pengajuan Lebih Tertata','Kirim pengajuan melalui akun Anda dan pantau hasilnya dengan mudah.'),
+  ('Informasi Resmi Cikoko','Akses berita, inovasi, agenda, dan dokumentasi kegiatan kelurahan.'),
+ ];
+ @override void dispose(){pager.dispose();super.dispose();}
+ @override Widget build(BuildContext context)=>Scaffold(
+  appBar:AppBar(actions:[TextButton(onPressed:()=>Navigator.pop(context),
+    child:const Text('Lewati'))]),
+  body:SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(18,16,18,18),
+   child:Column(children:[
+    Expanded(child:PageView(controller:pager,onPageChanged:(index)=>setState(()=>current=index),
+      children:[for(final page in pages)Column(children:[
+        Expanded(child:ClipRRect(borderRadius:V6.radius(20),
+          child:Stack(fit:StackFit.expand,children:[
+           const ColoredBox(color:Color(0xFFE9F4FF)),
+           Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.contain),
+           const Positioned(left:0,right:0,bottom:0,child:V6Skyline(height:77)),
+          ]))),
+        const SizedBox(height:22),
+        Text(page.$1,textAlign:TextAlign.center,style:const TextStyle(
+          color:V6.ink,fontSize:23,fontWeight:FontWeight.w900,height:1.15)),
+        const SizedBox(height:12),
+        Text(page.$2,textAlign:TextAlign.center,
+          style:const TextStyle(fontSize:12,color:V6.secondary,height:1.55)),
+        const SizedBox(height:32),
+      ])])),
+    Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+     for(var i=0;i<pages.length;i++)Container(
+      width:current==i?21:7,height:6,margin:const EdgeInsets.symmetric(horizontal:3),
+      decoration:BoxDecoration(color:current==i?V6.blue:V6.border,
+        borderRadius:V6.radius(3))),
+    ]),
+    const SizedBox(height:17),
+    SizedBox(width:double.infinity,child:FilledButton(
+      onPressed:current==pages.length-1?()=>Navigator.pop(context):
+       ()=>pager.nextPage(duration:const Duration(milliseconds:260),curve:Curves.easeOut),
+      child:Text(current==pages.length-1?'Mulai Menggunakan':'Lanjutkan  →'))),
+   ]))),
+ );
+}
