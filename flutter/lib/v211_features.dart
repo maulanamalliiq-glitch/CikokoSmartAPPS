@@ -33,16 +33,57 @@ class _InnovationPageState extends State<InnovationPage>{
  }
  void reload(){pending=fetchInnovations();}
  Future<void> edit(Map<String,dynamic> item)async{
-  final ctrls={for(final k in ['title','summary','body','image'])k:TextEditingController(text:'${item[k]??''}')};
+  final ctrls={for(final k in ['title','summary','body'])k:TextEditingController(text:'${item[k]??''}')};
+  final slug='${item['slug']??''}';
+  var photos=List<String>.from((item['images'] is List)?item['images']:[]);
+  if(photos.isEmpty&&'${item['image']??''}'.isNotEmpty)photos=['${item['image']}'];
+  var saving=false;
   try{
-   await showModalBottomSheet<void>(context:context,isScrollControlled:true,useSafeArea:true,showDragHandle:true,builder:(sheet)=>Padding(
-    padding:EdgeInsets.fromLTRB(16,4,16,MediaQuery.viewInsetsOf(sheet).bottom+18),
-    child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
-      const Text('Kelola Informasi Inovasi',style:TextStyle(fontSize:18,fontWeight:FontWeight.w800)),const SizedBox(height:12),
-      for(final e in ctrls.entries)Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:e.value,maxLines:e.key=='body'?5:1,decoration:InputDecoration(labelText:const {'title':'Judul','summary':'Ringkasan','body':'Deskripsi','image':'Tautan foto resmi'}[e.key]))),
-      SizedBox(width:double.infinity,child:FilledButton(onPressed:()async{try{await widget.api.call('v211_innovations_update',body:{'slug':item['slug'],for(final e in ctrls.entries)e.key:e.value.text.trim()});if(sheet.mounted)Navigator.pop(sheet);if(mounted)setState(reload);if(mounted)civicMessage(context,'Informasi inovasi telah disimpan.');}catch(_){if(sheet.mounted)civicMessage(sheet,'Informasi inovasi belum berhasil disimpan.');}},child:const Text('Simpan Perubahan'))),
-    ])),));
-  } finally {for(final c in ctrls.values){c.dispose();}}
+   await showModalBottomSheet<void>(context:context,isScrollControlled:true,useSafeArea:true,showDragHandle:true,
+    builder:(sheet)=>StatefulBuilder(builder:(sheet,refreshSheet)=>Padding(
+     padding:EdgeInsets.fromLTRB(16,4,16,MediaQuery.viewInsetsOf(sheet).bottom+18),
+     child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Text('Kelola Informasi Inovasi',style:TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
+      const SizedBox(height:12),
+      for(final e in ctrls.entries)Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(
+       controller:e.value,maxLines:e.key=='body'?5:1,
+       decoration:InputDecoration(labelText:const {'title':'Judul','summary':'Ringkasan','body':'Deskripsi'}[e.key]))),
+      const Text('Foto inovasi (maksimal 5)',style:TextStyle(fontWeight:FontWeight.w700)),
+      const SizedBox(height:8),
+      Wrap(spacing:8,runSpacing:8,children:[
+       for(final photo in photos)Chip(
+        label:Text('Foto ${photos.indexOf(photo)+1}'),
+        onDeleted:saving?null:()=>refreshSheet(()=>photos.remove(photo))),
+      ]),
+      OutlinedButton.icon(
+       onPressed:saving||photos.length>=5?null:()async{
+        final picked=await ImagePicker().pickImage(source:ImageSource.gallery,imageQuality:78,maxWidth:1800);
+        if(picked==null)return;
+        refreshSheet(()=>saving=true);
+        try{
+         final result=await widget.api.upload('v211_innovations_upload',{'slug':slug},{'photo':[picked.path]});
+         if(sheet.mounted)refreshSheet(()=>photos=List<String>.from(result['images']??[]));
+        }catch(e){if(sheet.mounted)civicMessage(sheet,'Unggah foto gagal: ${e.toString()}');}
+        finally{if(sheet.mounted)refreshSheet(()=>saving=false);}
+       },
+       icon:const Icon(Icons.photo_library_outlined),label:const Text('Pilih Foto dari Galeri')),
+      const SizedBox(height:12),
+      SizedBox(width:double.infinity,child:FilledButton(
+       onPressed:saving?null:()async{
+        refreshSheet(()=>saving=true);
+        try{
+         await widget.api.call('v211_innovations_update',body:{
+          'slug':slug,
+          for(final e in ctrls.entries)e.key:e.value.text.trim(),
+          'images':photos,
+         });
+         if(sheet.mounted)Navigator.pop(sheet);
+         if(mounted){setState(reload);civicMessage(context,'Inovasi berhasil diperbarui.');}
+        }catch(e){if(sheet.mounted)civicMessage(sheet,'Gagal menyimpan: ${e.toString()}');}
+        finally{if(sheet.mounted)refreshSheet(()=>saving=false);}
+       },child:Text(saving?'Memproses...':'Simpan Perubahan'))),
+     ])))));
+  }finally{for(final c in ctrls.values){c.dispose();}}
  }
  @override Widget build(BuildContext context)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){
   if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.refresh),label:const Text('Coba muat inovasi kembali')));
@@ -52,7 +93,7 @@ class _InnovationPageState extends State<InnovationPage>{
    const Text('Inovasi Kelurahan Cikoko',style:TextStyle(fontSize:20,color:civicNavy,fontWeight:FontWeight.w800)),
    const SizedBox(height:4),const Text('Program unggulan bagi masyarakat dan lingkungan Kelurahan Cikoko.',style:TextStyle(color:Colors.blueGrey,fontSize:12)),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
    for(final raw in items)...[Builder(builder:(context){final item=Map<String,dynamic>.from(raw);return Card(clipBehavior:Clip.antiAlias,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    if('${item['image']??''}'.startsWith('https://'))Image.network('${item['image']}',height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
+    if('${item['image']??''}'.isNotEmpty)Image.network(widget.api.media('${item['image']}'),height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
     else Container(height:72,width:double.infinity,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:32)),
     Padding(padding:const EdgeInsets.all(13),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('${item['title']}',style:const TextStyle(fontWeight:FontWeight.w800,color:civicNavy,fontSize:15)),const SizedBox(height:5),
