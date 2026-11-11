@@ -245,7 +245,6 @@ class CikokoV5ReportPanel extends StatelessWidget{
                     ])),
                     const Icon(Icons.chevron_right_rounded,color:CikokoV5.muted,size:18),
                   ]))))),
-          ),
           if(letterCounts!=null)...[
             const SizedBox(height:8),
             const Divider(height:14,color:CikokoV5.line),
