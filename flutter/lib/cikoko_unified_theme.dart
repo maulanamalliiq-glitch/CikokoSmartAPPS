@@ -1,133 +1,93 @@
 import 'package:flutter/material.dart';
 
-/// Sistem desain tunggal Cikoko Smart untuk seluruh halaman Flutter.
-/// Hanya mengubah tampilan, tanpa mengubah login, API, dan izin akses.
+/// Pixel vocabulary taken from the approved Cikoko V4 app showcase:
+/// white surfaces, navy text, thin blue borders, compact dimensions.
 abstract final class CikokoPalette {
-  static const navy = Color(0xFF082D5E);
-  static const dark = Color(0xFF031D43);
-  static const blue = Color(0xFF216CDD);
-  static const surface = Colors.white;
-  static const background = Color(0xFFF3F7FD);
-  static const soft = Color(0xFFEAF3FF);
-  static const muted = Color(0xFF627B96);
-  static const border = Color(0xFFDBE6F3);
+ static const navy=Color(0xFF0C1A48);
+ static const dark=Color(0xFF081A3B);
+ static const blue=Color(0xFF0967E7);
+ static const surface=Colors.white;
+ static const background=Color(0xFFF8FBFF);
+ static const soft=Color(0xFFE9F3FF);
+ static const muted=Color(0xFF61748C);
+ static const border=Color(0xFFE0EAF5);
 }
-
-ThemeData cikokoUnifiedTheme() {
-  const blue = CikokoPalette.blue;
-  const navy = CikokoPalette.navy;
-  const border = CikokoPalette.border;
-  final rounded = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(14),
-    side: const BorderSide(color: border),
-  );
-  final inputBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(11),
-    borderSide: const BorderSide(color: border),
-  );
-  return ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.light,
-    scaffoldBackgroundColor: CikokoPalette.background,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: blue,
-      primary: blue,
-      surface: CikokoPalette.surface,
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: CikokoPalette.surface,
-      foregroundColor: navy,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      toolbarHeight: 64,
-      titleSpacing: 15,
-      centerTitle: false,
-      titleTextStyle: TextStyle(
-        color: navy, fontSize: 17, fontWeight: FontWeight.w800),
-      iconTheme: IconThemeData(color: navy),
-    ),
-    cardTheme: CardThemeData(
-      color: CikokoPalette.surface,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-      shape: rounded,
-      clipBehavior: Clip.antiAlias,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      isDense: true,
-      filled: true,
-      fillColor: CikokoPalette.surface,
-      labelStyle: const TextStyle(fontSize: 13, color: navy),
-      hintStyle: const TextStyle(fontSize: 12, color: CikokoPalette.muted),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      border: inputBorder,
-      enabledBorder: inputBorder,
-      focusedBorder: inputBorder.copyWith(
-        borderSide: const BorderSide(color: blue, width: 1.6)),
-      errorBorder: inputBorder.copyWith(
-        borderSide: const BorderSide(color: Color(0xFFD93654))),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: blue, foregroundColor: Colors.white,
-        minimumSize: const Size(0, 42),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: navy,
-        minimumSize: const Size(0, 42),
-        side: const BorderSide(color: border),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      height: 65,
-      backgroundColor: CikokoPalette.surface,
-      indicatorColor: CikokoPalette.soft,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      labelTextStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 11, color: navy, fontWeight: FontWeight.w700)),
-      iconTheme: const WidgetStatePropertyAll(
-        IconThemeData(color: navy, size: 23)),
-    ),
-    drawerTheme: const DrawerThemeData(
-      backgroundColor: CikokoPalette.surface,
-      elevation: 0,
-    ),
-    listTileTheme: const ListTileThemeData(
-      textColor: navy,
-      iconColor: blue,
-      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      dense: true,
-    ),
-    dividerTheme: const DividerThemeData(
-      color: border, space: 1, thickness: 1),
-    dialogTheme: DialogThemeData(
-      backgroundColor: CikokoPalette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-    ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: CikokoPalette.surface,
-      showDragHandle: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
-    ),
-    snackBarTheme: const SnackBarThemeData(
-      behavior: SnackBarBehavior.floating,
-    ),
-    textTheme: const TextTheme(
-      headlineSmall: TextStyle(fontSize: 22, color: navy, fontWeight: FontWeight.w800),
-      titleLarge: TextStyle(fontSize: 19, color: navy, fontWeight: FontWeight.w800),
-      titleMedium: TextStyle(fontSize: 15, color: navy, fontWeight: FontWeight.w700),
-      bodyLarge: TextStyle(fontSize: 14, color: navy),
-      bodyMedium: TextStyle(fontSize: 13, color: navy),
-      bodySmall: TextStyle(fontSize: 12, color: CikokoPalette.muted),
-    ),
-  );
+ThemeData cikokoUnifiedTheme(){
+ const navy=CikokoPalette.navy;
+ const blue=CikokoPalette.blue;
+ const line=CikokoPalette.border;
+ final round=RoundedRectangleBorder(
+   borderRadius:BorderRadius.circular(12),
+   side:const BorderSide(color:line));
+ final input=OutlineInputBorder(
+   borderRadius:BorderRadius.circular(9),
+   borderSide:const BorderSide(color:line));
+ return ThemeData(
+  useMaterial3:true,
+  brightness:Brightness.light,
+  scaffoldBackgroundColor:CikokoPalette.background,
+  canvasColor:CikokoPalette.background,
+  colorScheme:ColorScheme.fromSeed(
+   seedColor:blue,primary:blue,surface:Colors.white,
+   onSurface:navy),
+  appBarTheme:const AppBarTheme(
+   backgroundColor:Colors.white,foregroundColor:navy,
+   surfaceTintColor:Colors.transparent,elevation:0,
+   toolbarHeight:58,titleSpacing:10,centerTitle:false,
+   titleTextStyle:TextStyle(fontSize:15.5,color:navy,fontWeight:FontWeight.w800),
+   iconTheme:IconThemeData(color:navy,size:22)),
+  cardTheme:CardThemeData(color:Colors.white,surfaceTintColor:Colors.transparent,
+    elevation:0,margin:const EdgeInsets.symmetric(vertical:4),
+    shape:round,clipBehavior:Clip.antiAlias),
+  inputDecorationTheme:InputDecorationTheme(
+    isDense:true,filled:true,fillColor:Colors.white,
+    labelStyle:const TextStyle(color:navy,fontSize:11.5),
+    hintStyle:const TextStyle(color:CikokoPalette.muted,fontSize:11),
+    contentPadding:const EdgeInsets.symmetric(horizontal:12,vertical:13),
+    prefixIconColor:blue,
+    border:input,enabledBorder:input,
+    focusedBorder:input.copyWith(borderSide:const BorderSide(color:blue,width:1.4))),
+  filledButtonTheme:FilledButtonThemeData(style:FilledButton.styleFrom(
+    backgroundColor:blue,foregroundColor:Colors.white,
+    minimumSize:const Size(0,40),padding:const EdgeInsets.symmetric(horizontal:13),
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(9)),
+    textStyle:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))),
+  outlinedButtonTheme:OutlinedButtonThemeData(style:OutlinedButton.styleFrom(
+    foregroundColor:navy,minimumSize:const Size(0,40),
+    side:const BorderSide(color:line),
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(9)),
+    textStyle:const TextStyle(fontSize:12,fontWeight:FontWeight.w700))),
+  textButtonTheme:TextButtonThemeData(style:TextButton.styleFrom(
+    foregroundColor:blue,textStyle:const TextStyle(fontSize:11.5,fontWeight:FontWeight.w700))),
+  chipTheme:ChipThemeData(
+    backgroundColor:Colors.white,selectedColor:blue,
+    checkmarkColor:Colors.white,
+    side:const BorderSide(color:line),
+    labelStyle:const TextStyle(fontSize:10.7,color:navy,fontWeight:FontWeight.w700),
+    secondaryLabelStyle:const TextStyle(fontSize:10.7,color:Colors.white,fontWeight:FontWeight.w800),
+    padding:const EdgeInsets.symmetric(horizontal:5,vertical:0),
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(8))),
+  tabBarTheme:const TabBarThemeData(
+    indicatorColor:blue,labelColor:blue,unselectedLabelColor:CikokoPalette.muted,
+    labelStyle:TextStyle(fontWeight:FontWeight.w800,fontSize:12)),
+  drawerTheme:const DrawerThemeData(backgroundColor:Colors.white,elevation:0),
+  listTileTheme:const ListTileThemeData(
+    textColor:navy,iconColor:blue,contentPadding:EdgeInsets.symmetric(horizontal:13),
+    dense:true),
+  dividerTheme:const DividerThemeData(color:line,space:1,thickness:1),
+  dialogTheme:DialogThemeData(backgroundColor:Colors.white,
+    shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(14))),
+  bottomSheetTheme:const BottomSheetThemeData(
+    backgroundColor:Colors.white,showDragHandle:true,
+    shape:RoundedRectangleBorder(
+      borderRadius:BorderRadius.vertical(top:Radius.circular(17)))),
+  snackBarTheme:const SnackBarThemeData(behavior:SnackBarBehavior.floating),
+  textTheme:const TextTheme(
+    headlineSmall:TextStyle(color:navy,fontSize:22,fontWeight:FontWeight.w900),
+    titleLarge:TextStyle(color:navy,fontSize:18,fontWeight:FontWeight.w800),
+    titleMedium:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800),
+    bodyLarge:TextStyle(color:navy,fontSize:13),
+    bodyMedium:TextStyle(color:navy,fontSize:12),
+    bodySmall:TextStyle(color:CikokoPalette.muted,fontSize:10.8)),
+ );
 }
