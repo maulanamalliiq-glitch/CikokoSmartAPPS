@@ -59,6 +59,9 @@ jobs:
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Run Flutter tests before Play release
+        working-directory: flutter
+        run: flutter test
       - name: Build test APK
         working-directory: flutter
         run: |
@@ -82,9 +85,6 @@ jobs:
             gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.40 (2540) APK + AAB" --notes "APK TEST v2540 sudah tersedia. APK bertanda tangan Play Store dan AAB akan ditambahkan jika pemeriksaan build release berhasil. Gunakan APK TEST hanya untuk pengujian, bukan pembaruan langsung Play Store."
           fi
           gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}'
-      - name: Run Flutter tests before Play release
-        working-directory: flutter
-        run: flutter test
       - name: Clear debug build outputs before release AAB
         working-directory: flutter
         shell: bash
