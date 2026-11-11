@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
 import 'cikoko_v6_showcase.dart';
+import 'role_catalog.dart';
 
 class V6ServicesPage extends StatefulWidget{
  final bool guest; final void Function(String) onOpen;
@@ -482,7 +483,6 @@ class _V6OnboardingState extends State<V6Onboarding>{
  );
 }
 
-import 'role_catalog.dart';
 
 
 class V6RegionPage extends StatelessWidget{
