@@ -69,32 +69,36 @@ class Entry extends StatefulWidget{const Entry({super.key});@override State<Entr
 class _EntryState extends State<Entry>{
  bool loading=true;
  @override void initState(){
-   super.initState();
-   api.restore().whenComplete((){
-     if(mounted)setState(()=>loading=false);
-   });
+  super.initState();
+  api.restore().whenComplete((){if(mounted)setState(()=>loading=false);});
  }
- @override Widget build(BuildContext c)=>loading
-   ?Scaffold(body:Container(
-      decoration:const BoxDecoration(gradient:LinearGradient(
-       begin:Alignment.topCenter,end:Alignment.bottomCenter,
-       colors:[Color(0xffeaf5ff),Color(0xffc9e2ff),Color(0xff0b57bb)])),
-      child:SafeArea(child:Center(child:Column(
-       mainAxisAlignment:MainAxisAlignment.center,children:[
-        const Logo(size:112),
-        const SizedBox(height:21),
+ @override Widget build(BuildContext context)=>loading
+   ?Scaffold(backgroundColor:Colors.white,body:SafeArea(
+     child:Stack(children:[
+       const Positioned(left:0,right:0,bottom:0,child:V6Skyline(height:170)),
+       Center(child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Container(width:125,height:125,alignment:Alignment.center,
+         decoration:BoxDecoration(color:const Color(0xFFF0F7FF),
+          borderRadius:V6.radius(28)),
+         child:const Logo(size:96)),
+        const SizedBox(height:23),
         const Text('Cikoko Smart',style:TextStyle(
-          color:Color(0xff082d5e),fontSize:30,fontWeight:FontWeight.w900)),
-        const SizedBox(height:5),
-        const Text('Kelurahan Cikoko · Kecamatan Pancoran',
-          style:TextStyle(fontSize:12,color:Color(0xff163d6a))),
-        const SizedBox(height:35),
-        const SizedBox(height:22,width:22,child:CircularProgressIndicator(strokeWidth:2.5)),
+         fontSize:28,fontWeight:FontWeight.w900,color:V6.ink)),
+        const SizedBox(height:7),
+        const Text('Kelurahan Cikoko',style:TextStyle(fontSize:13,
+          fontWeight:FontWeight.w800,color:V6.ink)),
+        const Text('Kecamatan Pancoran · Jakarta Selatan',
+          style:TextStyle(fontSize:11,color:V6.secondary)),
+        const SizedBox(height:32),
+        const SizedBox(width:92,child:LinearProgressIndicator(
+          minHeight:4,backgroundColor:V6.pale,color:V6.blue)),
         const SizedBox(height:10),
-        const Text('Memuat aplikasi...',style:TextStyle(fontSize:11,color:Color(0xff244b7a))),
-       ])))))
+        const Text('Memuat aplikasi…',
+          style:TextStyle(fontSize:10.5,color:V6.secondary)),
+       ])),
+     ])))
    :HomePage(key:ValueKey(api.token??'guest'),
-     onAuthenticated:()=>setState((){}),onLogout:()=>setState((){}));
+      onAuthenticated:()=>setState((){}),onLogout:()=>setState((){}));
 }
 class Logo extends StatelessWidget{final double size;const Logo({super.key,this.size=58});@override Widget build(BuildContext c)=>ClipOval(child:Image.asset('assets/logo.png',width:size,height:size,fit:BoxFit.cover));}
 class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPage({super.key,required this.onLogin});@override State<LoginPage> createState()=>_LoginState();}
@@ -104,79 +108,80 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
  Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
  @override
  Widget build(BuildContext context) {
-   final title = signup ? 'Daftar Akun Warga' : 'Masuk ke Cikoko Smart';
-   return Scaffold(
-     appBar: AppBar(title: const Text('Cikoko Smart'), backgroundColor: Colors.white),
-     body: Center(
-       child: SingleChildScrollView(
-         padding: const EdgeInsets.all(18),
-         child: ConstrainedBox(
-           constraints: const BoxConstraints(maxWidth: 430),
-           child: Card(
-             elevation: 0,
-             child: Padding(
-               padding: const EdgeInsets.all(24),
-               child: Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 mainAxisSize: MainAxisSize.min,
-                 children: [
-                   Center(child:Container(width:90,height:90,decoration:BoxDecoration(color:const Color(0xffe6f1ff),borderRadius:BorderRadius.circular(20)),alignment:Alignment.center,child:const Logo(size:64))),
-                   const SizedBox(height: 16),
-                   Text(title, style: Theme.of(context).textTheme.titleLarge),
-                   const SizedBox(height: 6),
-                   const Text('Akses layanan dan informasi Kelurahan Cikoko', style: TextStyle(color: Colors.blueGrey,fontSize:12)),
-                   const SizedBox(height: 22),
-                   if (signup)
-                     for (final entry in <String, String>{
-                       'name': 'Nama lengkap',
-                       'username': 'Username',
-                       'password': 'Password',
-                       'confirm': 'Ulangi password',
-                       'address': 'Alamat lengkap',
-                       'rt': 'RT (contoh: 02)',
-                       'rw': 'RW (contoh: 05)',
-                       'phone': 'Nomor telepon',
-                       'email': 'Email',
-                     }.entries)
-                       Padding(
-                         padding: const EdgeInsets.only(bottom: 12),
-                         child: TextField(
-                           controller: ctrl(entry.key),
-                           obscureText: entry.key == 'password' || entry.key == 'confirm',
-                           keyboardType: entry.key == 'email' ? TextInputType.emailAddress : (entry.key == 'phone' || entry.key == 'rt' || entry.key == 'rw') ? TextInputType.number : TextInputType.text,
-                           decoration: InputDecoration(labelText: entry.value),
-                         ),
-                       )
-                   else ...[
-                     TextField(controller: user, decoration: const InputDecoration(labelText: 'NIK / Email / Username',prefixIcon:Icon(Icons.person_outline)), textInputAction: TextInputAction.next),
-                     const SizedBox(height: 12),
-                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Kata Sandi',prefixIcon:Icon(Icons.lock_outline))),
-                   ],
-                   const SizedBox(height: 22),
-                   SizedBox(
-                     width: double.infinity,
-                     child: FilledButton(
-                       onPressed: busy ? null : submit,
-                       child: Padding(
-                         padding: const EdgeInsets.all(12),
-                         child: busy ? const SizedBox(height: 17, width: 17, child: CircularProgressIndicator(strokeWidth: 2)) : Text(signup ? 'Daftar Sekarang' : 'Masuk ke Akun'),
-                       ),
-                     ),
-                   ),
-                   const SizedBox(height: 14),
-                   TextButton(onPressed: busy ? null : () => setState(() => signup = !signup), child: Text(signup ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar Sekarang')),
-                   TextButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const CikokoV4Onboarding())),icon:const Icon(Icons.info_outline,size:17),label:const Text('Mengenal Cikoko Smart')),
-                   const Divider(),
-                   const Text('Data pribadi diproses untuk pelayanan Kelurahan Cikoko.', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
-                 ],
-               ),
-             ),
-           ),
-         ),
-       ),
-     ),
-   );
+  final title=signup?'Registrasi Warga':'Masuk ke Cikoko Smart';
+  return Scaffold(
+   backgroundColor:Colors.white,
+   appBar:AppBar(title:const Text('Cikoko Smart')),
+   body:SafeArea(child:Center(child:SingleChildScrollView(
+    padding:const EdgeInsets.fromLTRB(19,18,19,25),
+    child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:420),
+     child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      Row(children:[
+       Container(width:55,height:55,padding:const EdgeInsets.all(5),
+        decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(13)),
+        child:const Logo(size:43)),
+       const SizedBox(width:10),
+       const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text('Cikoko Smart',style:TextStyle(color:V6.ink,fontSize:19,fontWeight:FontWeight.w900)),
+        Text('Kelurahan Cikoko · Jakarta Selatan',
+         style:TextStyle(color:V6.secondary,fontSize:10.6)),
+       ])),
+      ]),
+      const SizedBox(height:27),
+      Text(title,style:const TextStyle(
+       color:V6.ink,fontSize:23,fontWeight:FontWeight.w900)),
+      const SizedBox(height:6),
+      const Text('Akses layanan dan informasi Kelurahan Cikoko.',
+        style:TextStyle(color:V6.secondary,fontSize:11.7)),
+      const SizedBox(height:22),
+      if(signup)...[
+       for(final e in const {
+        'name':'Nama Lengkap','username':'Username',
+        'password':'Kata Sandi','confirm':'Ulangi Kata Sandi',
+        'address':'Alamat Lengkap','rt':'RT','rw':'RW',
+        'phone':'Nomor Telepon','email':'Email',
+       }.entries)Padding(padding:const EdgeInsets.only(bottom:12),
+        child:TextField(controller:ctrl(e.key),
+         obscureText:e.key=='password'||e.key=='confirm',
+         keyboardType:e.key=='email'?TextInputType.emailAddress:
+           (e.key=='phone'||e.key=='rt'||e.key=='rw')?TextInputType.number:TextInputType.text,
+         decoration:InputDecoration(labelText:e.value))),
+      ] else ...[
+       TextField(controller:user,textInputAction:TextInputAction.next,
+        decoration:const InputDecoration(
+         prefixIcon:Icon(Icons.person_outline,color:V6.secondary),
+         labelText:'Username / NIK / Email')),
+       const SizedBox(height:13),
+       TextField(controller:pass,obscureText:true,
+        onSubmitted:(_){if(!busy)submit();},
+        decoration:const InputDecoration(
+         prefixIcon:Icon(Icons.lock_outline,color:V6.secondary),
+         labelText:'Kata Sandi')),
+      ],
+      const SizedBox(height:20),
+      SizedBox(height:46,child:FilledButton(
+       onPressed:busy?null:submit,
+       child:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):
+          Text(signup?'Daftar Sekarang':'Masuk',style:const TextStyle(fontWeight:FontWeight.w800)))),
+      const SizedBox(height:8),
+      TextButton(onPressed:busy?null:()=>setState(()=>signup=!signup),
+       child:Text(signup?'Sudah punya akun? Masuk':'Belum punya akun? Registrasi',
+         style:const TextStyle(color:V6.blue,fontSize:12,fontWeight:FontWeight.w700))),
+      const SizedBox(height:15),
+      OutlinedButton.icon(
+       onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(
+         builder:(_)=>const V6Onboarding())),
+       icon:const Icon(Icons.info_outline,size:17),
+       label:const Text('Mengenal Cikoko Smart')),
+      const SizedBox(height:19),
+      const V6Skyline(height:57),
+      const Center(child:Text('Layanan Digital Kelurahan Cikoko',
+       style:TextStyle(color:V6.secondary,fontSize:10.5))),
+     ])),
+   ))),
+  );
  }
+
 
 }
 void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(c).hideCurrentSnackBar();ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(error?cikokoFormalMessage(text):text),backgroundColor:error?Colors.red.shade700:navy));}
