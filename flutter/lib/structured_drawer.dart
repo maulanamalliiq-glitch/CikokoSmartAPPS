@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'role_catalog.dart';
 
-const _navy = Color(0xff10375f);
-const _blue = Color(0xff226fda);
-const _muted = Color(0xff647b91);
-const _panel = Color(0xfff2f6fb);
+const _navy = Color(0xff082d5e);
+const _blue = Color(0xff216cdd);
+const _muted = Color(0xff627b96);
+const _panel = Color(0xffeaf3ff);
 
 /// Struktur navigasi saja. Setiap submenu berasal dari daftar RoleFeature
 /// yang sudah disaring oleh hak akses akun pada role_catalog.dart.
