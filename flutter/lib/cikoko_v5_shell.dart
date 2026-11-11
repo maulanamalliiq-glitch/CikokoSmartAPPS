@@ -134,7 +134,7 @@ class CikokoV5Hero extends StatelessWidget{
           style:FilledButton.styleFrom(minimumSize:const Size(0,42),
             padding:const EdgeInsets.symmetric(horizontal:7),
             shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(11))),
-          icon:const Icon(Icons.arrow_circle_right_outline,size:17),
+          icon:const Icon(Icons.arrow_forward_rounded,size:17),
           label:const Text('Ajukan Layanan',maxLines:1,style:TextStyle(fontSize:11.7)))),
         const SizedBox(width:9),
         Expanded(child:OutlinedButton.icon(
