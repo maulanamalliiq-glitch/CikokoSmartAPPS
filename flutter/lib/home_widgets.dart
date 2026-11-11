@@ -29,10 +29,14 @@ class CikokoOfficeHero extends StatelessWidget {
               style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900,
                 color: Color(0xff082d5e), height: 1.1)),
             const SizedBox(height: 4),
-            const Text('Layanan dan Informasi Kelurahan Cikoko',
-              maxLines: 2, overflow: TextOverflow.ellipsis,
+            const Text('Layanan dan Informasi',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                color: Color(0xff143e70), height: 1.25)),
+                color: Color(0xff143e70), height: 1.20)),
+            const Text('Kelurahan Cikoko',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                color: Color(0xff143e70), height: 1.20)),
             const SizedBox(height: 8),
             const Text('Kecamatan Pancoran, Jakarta Selatan. Informasi dan pelayanan dalam satu tempat.',
               maxLines: 3, overflow: TextOverflow.ellipsis,
@@ -93,7 +97,7 @@ class CikokoOfficeHero extends StatelessWidget {
             color: Color(0x101b4d85), blurRadius: 11, offset: Offset(0, 3))]),
         clipBehavior: Clip.antiAlias,
         child: wide
-          ? SizedBox(height: 234, child: Row(children: [
+          ? SizedBox(height: 274, child: Row(children: [
               Expanded(flex: 11, child: copy),
               Expanded(flex: 10, child: photo),
             ]))
