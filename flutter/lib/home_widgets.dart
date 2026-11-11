@@ -12,61 +12,100 @@ class CikokoOfficeHero extends StatelessWidget {
   const CikokoOfficeHero({super.key, required this.onService, required this.onProfile});
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(18),
-    child: SizedBox(
-      height: 204,
-      width: double.infinity,
-      child: Stack(fit: StackFit.expand, children: [
-        Image.asset('assets/kantor-cikoko.jpg', fit: BoxFit.cover,
-          alignment: const Alignment(.18, 0)),
-        const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
-          begin: Alignment.centerLeft, end: Alignment.centerRight,
-          colors: [Color(0xee0b2b4b), Color(0xcb102e4c), Color(0x5b0c2748)],
-          stops: [0, .68, 1],
-        ))),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0x443ca8f5), borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: const Color(0x668bc1ee))),
-              child: const Text('LAYANAN DIGITAL KELURAHAN',
-                style: TextStyle(fontSize: 9.5, letterSpacing: .65, fontWeight: FontWeight.w700, color: Color(0xffe2f1ff)))),
-            const SizedBox(height: 10),
-            const Text('Kelurahan Cikoko',
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: Colors.white, height: 1.12)),
-            const SizedBox(height: 3),
-            const Text('Kecamatan Pancoran · Jakarta Selatan',
-              style: TextStyle(fontSize: 10.6, fontWeight: FontWeight.w600, color: Color(0xffe4eef8))),
-            const SizedBox(height: 9),
-            const Text('Melayani dengan hati, membangun bersama untuk Cikoko yang lebih maju, bersih dan sejahtera.',
-              style: TextStyle(fontSize: 11.2, height: 1.4, color: Color(0xffe3edf8)), maxLines: 2,
-              overflow: TextOverflow.ellipsis),
-            const Spacer(),
-            Row(children: [
-              Flexible(child: SizedBox(height: 33, child: FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: homeBlue,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10)),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 560;
+      final copy = Padding(
+        padding: EdgeInsets.fromLTRB(wide ? 23 : 17, 18, wide ? 13 : 17, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('PORTAL LAYANAN DIGITAL',
+              style: TextStyle(fontSize: 9, color: Color(0xff1766c5),
+                fontWeight: FontWeight.w800, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            const Text('Cikoko Smart',
+              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900,
+                color: Color(0xff082d5e), height: 1.1)),
+            const SizedBox(height: 4),
+            const Text('Layanan dan Informasi Kelurahan Cikoko',
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                color: Color(0xff143e70), height: 1.25)),
+            const SizedBox(height: 8),
+            const Text('Kecamatan Pancoran, Jakarta Selatan. Informasi dan pelayanan dalam satu tempat.',
+              maxLines: 3, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10.5, height: 1.4,
+                color: Color(0xff506c87))),
+            const SizedBox(height: 14),
+            Wrap(spacing: 7, runSpacing: 7, children: [
+              FilledButton(
                 onPressed: onService,
-                icon: const Icon(Icons.widgets_outlined, size: 14),
-                label: const Text('Layanan Online', maxLines: 1, style: TextStyle(fontSize: 10.3, fontWeight: FontWeight.w700)),
-              ))),
-              const SizedBox(width: 7),
-              Flexible(child: SizedBox(height: 33, child: OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x99e7f0fb)),
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xff176de4),
+                  minimumSize: const Size(0, 35),
+                  padding: const EdgeInsets.symmetric(horizontal: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: const Text('Ajukan Layanan →',
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
+              ),
+              OutlinedButton(
                 onPressed: onProfile,
-                child: const Text('Profil Kelurahan', maxLines: 1, style: TextStyle(fontSize: 10.2, fontWeight: FontWeight.w700)),
-              ))),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xff1557a6),
+                  backgroundColor: Colors.white,
+                  minimumSize: const Size(0, 35),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  side: const BorderSide(color: Color(0xffb9d4f1)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: const Text('Lihat Profil',
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
+              ),
             ]),
-          ]),
+          ],
         ),
-      ]),
-    ),
+      );
+      final photo = ClipRRect(
+        borderRadius: BorderRadius.circular(wide ? 0 : 11),
+        child: Stack(fit: StackFit.expand, children: [
+          Image.asset('assets/kantor-cikoko.jpg',
+            fit: BoxFit.cover, alignment: Alignment.center),
+          const DecoratedBox(decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter, end: Alignment.topCenter,
+              colors: [Color(0x8822487c), Colors.transparent]))),
+          const Positioned(left: 11, bottom: 8,
+            child: Text('KANTOR KELURAHAN CIKOKO',
+              style: TextStyle(color: Colors.white, fontSize: 8.5,
+                fontWeight: FontWeight.w800))),
+        ]),
+      );
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xffe4f1ff),
+          gradient: const LinearGradient(
+            colors: [Color(0xffeaf4ff), Color(0xffd5eaff)]),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xffcfe2f5)),
+          boxShadow: const [BoxShadow(
+            color: Color(0x101b4d85), blurRadius: 11, offset: Offset(0, 3))]),
+        clipBehavior: Clip.antiAlias,
+        child: wide
+          ? SizedBox(height: 234, child: Row(children: [
+              Expanded(flex: 11, child: copy),
+              Expanded(flex: 10, child: photo),
+            ]))
+          : Column(mainAxisSize: MainAxisSize.min, children: [
+              copy,
+              SizedBox(height: 126,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: photo)),
+            ]),
+      );
+    },
   );
 }
 
