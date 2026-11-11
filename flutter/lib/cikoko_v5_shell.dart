@@ -643,3 +643,123 @@ class CikokoV5AdminHome extends StatelessWidget{
     ]);
   }
 }
+
+
+class CikokoV5NewsFeed extends StatefulWidget{
+  final CikokoApi api;
+  final List<dynamic> items;
+  final void Function(Map<String,dynamic>) onArticle;
+  const CikokoV5NewsFeed({super.key,required this.api,
+    required this.items,required this.onArticle});
+  @override State<CikokoV5NewsFeed> createState()=>_CikokoV5NewsFeedState();
+}
+class _CikokoV5NewsFeedState extends State<CikokoV5NewsFeed>{
+  String type='Semua';
+  String query='';
+  @override Widget build(BuildContext context){
+    final entries=widget.items.where((raw){
+      if(raw is! Map)return false;
+      final category=(raw['type']??'').toString();
+      if(category!='berita'&&category!='pengumuman')return false;
+      if(type=='Berita'&&category!='berita')return false;
+      if(type=='Pengumuman'&&category!='pengumuman')return false;
+      return (raw['title']??'').toString().toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    return ListView(padding:const EdgeInsets.all(14),children:[
+      const CikokoV5SectionTitle(title:'Berita & Informasi',
+        description:'Publikasi resmi dan kegiatan Kelurahan Cikoko'),
+      Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:3),
+        decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(11),
+          border:Border.all(color:CikokoV5.line)),
+        child:TextField(onChanged:(v)=>setState(()=>query=v),
+          decoration:const InputDecoration(
+            prefixIcon:Icon(Icons.search_rounded,color:CikokoV5.blue),
+            hintText:'Cari berita dan informasi…',
+            border:InputBorder.none,enabledBorder:InputBorder.none,
+            focusedBorder:InputBorder.none,filled:false))),
+      const SizedBox(height:11),
+      Wrap(spacing:7,children:[
+        for(final item in const ['Semua','Berita','Pengumuman'])
+          ChoiceChip(label:Text(item,style:const TextStyle(fontSize:10.8)),
+            selected:type==item,onSelected:(_)=>setState(()=>type=item)),
+      ]),
+      const SizedBox(height:12),
+      if(entries.isEmpty)Container(
+        padding:const EdgeInsets.all(18),decoration:BoxDecoration(
+          color:Colors.white,borderRadius:BorderRadius.circular(13),
+          border:Border.all(color:CikokoV5.line)),
+        child:const Text('Belum ada informasi sesuai pilihan.',
+          style:TextStyle(color:CikokoV5.muted,fontSize:12))),
+      for(final raw in entries)...[
+        _CikokoV5NewsTile(
+          item:Map<String,dynamic>.from(raw as Map),
+          api:widget.api,
+          onTap:()=>widget.onArticle(Map<String,dynamic>.from(raw))),
+        const SizedBox(height:9),
+      ],
+    ]);
+  }
+}
+
+class CikokoV5ServicesHub extends StatefulWidget{
+  final bool guest;
+  final void Function(String) navigate;
+  const CikokoV5ServicesHub({super.key,required this.guest,required this.navigate});
+  @override State<CikokoV5ServicesHub> createState()=>_CikokoV5ServicesHubState();
+}
+class _CikokoV5ServicesHubState extends State<CikokoV5ServicesHub>{
+  String query='';
+  String filter='Semua';
+  static const entries=[
+    ('Surat Ahli Waris','Pengajuan dan informasi persyaratan','Surat','Surat Ahli Waris',Icons.description_outlined),
+    ('Pengantar RT/RW','Pengajuan pengantar melalui wilayah RT/RW','Surat','Surat Pengantar RT/RW',Icons.home_work_outlined),
+    ('Pelaporan Jumantik','Pemantauan kondisi lingkungan','Laporan','Laporan Jumantik',Icons.health_and_safety_outlined),
+    ('Riwayat Pengajuan','Pantau perkembangan pengajuan Anda','Laporan','Riwayat',Icons.fact_check_outlined),
+    ('Pengaduan Warga','Hubungi petugas Kelurahan Cikoko','Laporan','Hubungi Kami',Icons.campaign_outlined),
+    ('Layanan Pemerintahan','Daftar layanan instansi terkait','Lainnya','Katalog DKI',Icons.account_balance_outlined),
+  ];
+  @override Widget build(BuildContext context){
+    final visible=entries.where((e)=>(filter=='Semua'||e.$3==filter)&&
+      (e.$1.toLowerCase().contains(query.toLowerCase())||
+       e.$2.toLowerCase().contains(query.toLowerCase()))).toList();
+    return ListView(padding:const EdgeInsets.all(14),children:[
+      const CikokoV5SectionTitle(title:'Layanan Online',
+        description:'Pelayanan digital Kelurahan Cikoko'),
+      Container(
+        padding:const EdgeInsets.symmetric(horizontal:9),
+        decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(11),
+          border:Border.all(color:CikokoV5.line)),
+        child:TextField(onChanged:(value)=>setState(()=>query=value),
+          decoration:const InputDecoration(
+            prefixIcon:Icon(Icons.search_rounded,color:CikokoV5.blue),
+            hintText:'Cari layanan kelurahan…',
+            border:InputBorder.none,enabledBorder:InputBorder.none,
+            focusedBorder:InputBorder.none,filled:false))),
+      const SizedBox(height:11),
+      Wrap(spacing:7,runSpacing:7,children:[
+        for(final item in const ['Semua','Surat','Laporan','Lainnya'])
+          ChoiceChip(label:Text(item,style:const TextStyle(fontSize:10.5)),
+            selected:filter==item,onSelected:(_)=>setState(()=>filter=item)),
+      ]),
+      const SizedBox(height:12),
+      for(final entry in visible)Card(
+        margin:const EdgeInsets.only(bottom:8),
+        child:ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:13,vertical:5),
+          leading:Container(width:43,height:43,
+            decoration:BoxDecoration(color:CikokoV5.ice,borderRadius:BorderRadius.circular(11)),
+            child:Icon(entry.$5,color:CikokoV5.blue,size:23)),
+          title:Text(entry.$1,style:const TextStyle(
+            color:CikokoV5.navy,fontSize:12.8,fontWeight:FontWeight.w800)),
+          subtitle:Text(entry.$2,style:const TextStyle(
+            color:CikokoV5.muted,fontSize:10.5)),
+          trailing:const Icon(Icons.chevron_right_rounded,color:CikokoV5.blue),
+          onTap:()=>widget.navigate(entry.$4))),
+      if(visible.isEmpty)const Padding(padding:EdgeInsets.all(18),
+        child:Text('Layanan tidak ditemukan.',
+          style:TextStyle(color:CikokoV5.muted))),
+      if(widget.guest)const Padding(padding:EdgeInsets.only(top:11),
+        child:Text('Masuk dengan akun warga untuk mengajukan layanan.',
+          style:TextStyle(fontSize:11,color:CikokoV5.muted))),
+    ]);
+  }
+}
