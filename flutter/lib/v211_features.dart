@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'cikoko_v4_public_pages.dart';
+import 'cikoko_v6_showcase.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
 const String cikokoPlayStoreUrl=''; // TODO: isi URL Play Store aplikasi Cikoko
@@ -30,7 +31,7 @@ class _InnovationPageState extends State<InnovationPage>{
 ];
  Future<Map<String,dynamic>> fetchInnovations()async{
   try{return await widget.api.call('v211_innovations');}
-  catch(_){return {'ok':true,'offline':true,'items':defaults};}
+  catch(_){return {'ok':true,'offline':true,'items':<dynamic>[]};}
  }
  void reload(){pending=fetchInnovations();}
  Future<void> edit(Map<String,dynamic> item)async{
@@ -86,23 +87,75 @@ class _InnovationPageState extends State<InnovationPage>{
      ])))));
   }finally{for(final c in ctrls.values){c.dispose();}}
  }
- @override Widget build(BuildContext context)=>FutureBuilder<Map<String,dynamic>>(future:pending,builder:(ctx,s){
-  if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.refresh),label:const Text('Coba muat inovasi kembali')));
-  if(!s.hasData)return const Center(child:CircularProgressIndicator());
-  final items=List<dynamic>.from(s.data?['items']??[]);
-  return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},child:ListView(padding:const EdgeInsets.all(14),children:[
-   const CivicV4Header(title:'Inovasi Kelurahan',subtitle:'Program unggulan untuk masyarakat dan lingkungan Cikoko',icon:Icons.auto_awesome_outlined),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
-   for(final raw in items)...[Builder(builder:(context){final item=Map<String,dynamic>.from(raw);return Card(clipBehavior:Clip.antiAlias,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    if('${item['image']??''}'.isNotEmpty)Image.network(widget.api.media('${item['image']}'),height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
-    else Container(height:72,width:double.infinity,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:32)),
-    Padding(padding:const EdgeInsets.all(13),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text('${item['title']}',style:const TextStyle(fontWeight:FontWeight.w800,color:civicNavy,fontSize:15)),const SizedBox(height:5),
-      Text('${item['summary']??''}',style:const TextStyle(fontSize:12)),const SizedBox(height:10),
-      Row(children:[Expanded(child:OutlinedButton.icon(onPressed:()=>showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,builder:(sheet)=>SafeArea(child:Padding(padding:const EdgeInsets.all(18),child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${item['title']}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.bold)),const SizedBox(height:14),Text('${item['body']??item['summary']??''}')]))))),icon:const Icon(Icons.arrow_forward_outlined,size:16),label:const Text('Lihat Selengkapnya'))),
-      if(widget.api.profile?['role']=='admin')IconButton(tooltip:'Sunting inovasi',onPressed:()=>edit(item),icon:const Icon(Icons.edit_outlined,color:civicBlue))]),
-    ])),
-   ]));}),const SizedBox(height:8)],
-  ]));});
+ @override Widget build(BuildContext context)=>FutureBuilder<Map<String,dynamic>>(
+  future:pending,builder:(ctx,s){
+   if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(reload),
+    icon:const Icon(Icons.refresh),label:const Text('Muat Ulang Inovasi')));
+   if(!s.hasData)return const Center(child:CircularProgressIndicator());
+   final items=List<dynamic>.from(s.data?['items']??[]);
+   return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},
+    child:ListView(padding:const EdgeInsets.all(14),children:[
+     const V6PageHeader(title:'Inovasi Kelurahan',
+       description:'Program inovasi dan kegiatan pengembangan Kelurahan Cikoko.',
+       icon:Icons.auto_awesome_outlined),
+     if(s.data?['offline']==true)Padding(padding:const EdgeInsets.only(bottom:12),
+       child:V6Panel(child:Row(children:[
+         const Expanded(child:Text('Informasi inovasi belum dapat dimuat dari server.',
+           style:TextStyle(fontSize:11,color:V6.secondary))),
+         IconButton(onPressed:()=>setState(reload),icon:const Icon(Icons.refresh,color:V6.blue)),
+       ]))),
+     if(items.isEmpty&&s.data?['offline']!=true)const V6Panel(
+       child:Text('Belum ada inovasi yang diterbitkan.',
+          style:TextStyle(fontSize:11.5,color:V6.secondary))),
+     for(final raw in items)...[
+       Builder(builder:(ctx){
+         final item=Map<String,dynamic>.from(raw);
+         final image=widget.api.media((item['image']??'').toString());
+         final title=(item['title']??'Inovasi Kelurahan').toString();
+         final summary=(item['summary']??'').toString();
+         return V6Panel(padding:const EdgeInsets.all(9),child:InkWell(
+          onTap:()=>showModalBottomSheet<void>(context:context,
+            isScrollControlled:true,showDragHandle:true,
+            builder:(sheet)=>SafeArea(child:Padding(
+              padding:const EdgeInsets.all(18),
+              child:SingleChildScrollView(child:Column(
+               mainAxisSize:MainAxisSize.min,
+               crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(title,style:const TextStyle(
+                 fontSize:19,color:V6.ink,fontWeight:FontWeight.w900)),
+                const SizedBox(height:12),
+                Text((item['body']??summary).toString(),
+                  style:const TextStyle(fontSize:12.3,color:V6.secondary,height:1.5)),
+               ]))))),
+          child:Row(children:[
+            ClipRRect(borderRadius:V6.radius(9),child:image.isEmpty
+              ?Container(width:91,height:85,color:V6.pale,
+                 child:const Icon(Icons.eco_outlined,color:V6.blue,size:31))
+              :Image.network(image,width:91,height:85,fit:BoxFit.cover,
+                  errorBuilder:(_,__,___)=>Container(width:91,height:85,
+                   color:V6.pale,child:const Icon(Icons.image_not_supported_outlined,color:V6.blue)))),
+            const SizedBox(width:10),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(title,maxLines:2,overflow:TextOverflow.ellipsis,
+                style:const TextStyle(color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w900)),
+              const SizedBox(height:5),
+              Text(summary,maxLines:3,overflow:TextOverflow.ellipsis,
+                style:const TextStyle(color:V6.secondary,fontSize:10.6)),
+              const SizedBox(height:7),
+              const Text('Lihat Selengkapnya  →',
+                style:TextStyle(color:V6.blue,fontSize:10,fontWeight:FontWeight.w800)),
+            ])),
+            if(widget.api.profile?['role']=='admin')IconButton(
+              tooltip:'Edit dan unggah foto inovasi',
+              onPressed:()=>edit(item),icon:const Icon(Icons.edit_outlined,color:V6.blue,size:21)),
+          ]),
+         ));
+       }),
+       const SizedBox(height:9),
+     ],
+    ]));
+  });
+
 }
 
 class CivicProfilePage extends StatefulWidget{final CikokoApi api;const CivicProfilePage({super.key,required this.api});@override State<CivicProfilePage> createState()=>_CivicProfileState();}
