@@ -1,5 +1,6 @@
 import 'profile_editor.dart';
 import 'cikoko_unified_theme.dart';
+import 'cikoko_v4_public_pages.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -62,8 +63,36 @@ class CikokoApp extends StatelessWidget {
  ]),theme:cikokoUnifiedTheme(),home:const Entry());
 }
 class Entry extends StatefulWidget{const Entry({super.key});@override State<Entry> createState()=>_EntryState();}
-class _EntryState extends State<Entry>{bool loading=true;@override void initState(){super.initState();api.restore().whenComplete((){if(mounted)setState(()=>loading=false);});}
- @override Widget build(BuildContext c)=>loading?const Scaffold(body:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[Logo(size:110),SizedBox(height:18),Text('Kelurahan Cikoko',style:TextStyle(fontSize:19,color:navy,fontWeight:FontWeight.w800)),SizedBox(height:20),CircularProgressIndicator()]))):HomePage(key:ValueKey(api.token??'guest'),onAuthenticated:()=>setState((){}),onLogout:()=>setState((){}));}
+class _EntryState extends State<Entry>{
+ bool loading=true;
+ @override void initState(){
+   super.initState();
+   Future.wait<void>([api.restore(),Future<void>.delayed(const Duration(milliseconds:950))]).whenComplete((){
+     if(mounted)setState(()=>loading=false);
+   });
+ }
+ @override Widget build(BuildContext c)=>loading
+   ?Scaffold(body:Container(
+      decoration:const BoxDecoration(gradient:LinearGradient(
+       begin:Alignment.topCenter,end:Alignment.bottomCenter,
+       colors:[Color(0xffeaf5ff),Color(0xffc9e2ff),Color(0xff0b57bb)])),
+      child:SafeArea(child:Center(child:Column(
+       mainAxisAlignment:MainAxisAlignment.center,children:[
+        const Logo(size:112),
+        const SizedBox(height:21),
+        const Text('Cikoko Smart',style:TextStyle(
+          color:Color(0xff082d5e),fontSize:30,fontWeight:FontWeight.w900)),
+        const SizedBox(height:5),
+        const Text('Kelurahan Cikoko · Kecamatan Pancoran',
+          style:TextStyle(fontSize:12,color:Color(0xff163d6a))),
+        const SizedBox(height:35),
+        const SizedBox(height:22,width:22,child:CircularProgressIndicator(strokeWidth:2.5)),
+        const SizedBox(height:10),
+        const Text('Memuat aplikasi...',style:TextStyle(fontSize:11,color:Color(0xff244b7a))),
+       ])))))
+   :HomePage(key:ValueKey(api.token??'guest'),
+     onAuthenticated:()=>setState((){}),onLogout:()=>setState((){}));
+}
 class Logo extends StatelessWidget{final double size;const Logo({super.key,this.size=58});@override Widget build(BuildContext c)=>ClipOval(child:Image.asset('assets/logo.png',width:size,height:size,fit:BoxFit.cover));}
 class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPage({super.key,required this.onLogin});@override State<LoginPage> createState()=>_LoginState();}
 class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
@@ -72,9 +101,9 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
  Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
  @override
  Widget build(BuildContext context) {
-   final title = signup ? 'Daftar Akun Warga' : 'Login Cikoko';
+   final title = signup ? 'Daftar Akun Warga' : 'Masuk ke Cikoko Smart';
    return Scaffold(
-     appBar: AppBar(title: const Text('Masuk ke Cikoko'), backgroundColor: pale),
+     appBar: AppBar(title: const Text('Cikoko Smart'), backgroundColor: Colors.white),
      body: Center(
        child: SingleChildScrollView(
          padding: const EdgeInsets.all(18),
@@ -88,11 +117,11 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                  crossAxisAlignment: CrossAxisAlignment.start,
                  mainAxisSize: MainAxisSize.min,
                  children: [
-                   Center(child:Container(width:90,height:90,decoration:BoxDecoration(color:const Color(0xffe6f1ff),borderRadius:BorderRadius.circular(30)),alignment:Alignment.center,child:const Logo(size:64))),
+                   Center(child:Container(width:90,height:90,decoration:BoxDecoration(color:const Color(0xffe6f1ff),borderRadius:BorderRadius.circular(20)),alignment:Alignment.center,child:const Logo(size:64))),
                    const SizedBox(height: 16),
                    Text(title, style: Theme.of(context).textTheme.titleLarge),
                    const SizedBox(height: 6),
-                   const Text('Layanan Digital Kelurahan Cikoko • Pancoran', style: TextStyle(color: Colors.blueGrey)),
+                   const Text('Akses layanan dan informasi Kelurahan Cikoko', style: TextStyle(color: Colors.blueGrey,fontSize:12)),
                    const SizedBox(height: 22),
                    if (signup)
                      for (final entry in <String, String>{
@@ -116,9 +145,9 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                          ),
                        )
                    else ...[
-                     TextField(controller: user, decoration: const InputDecoration(labelText: 'Username'), textInputAction: TextInputAction.next),
+                     TextField(controller: user, decoration: const InputDecoration(labelText: 'NIK / Email / Username',prefixIcon:Icon(Icons.person_outline)), textInputAction: TextInputAction.next),
                      const SizedBox(height: 12),
-                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+                     TextField(controller: pass, obscureText: true, decoration: const InputDecoration(labelText: 'Kata Sandi',prefixIcon:Icon(Icons.lock_outline)),
                    ],
                    const SizedBox(height: 22),
                    SizedBox(
@@ -132,7 +161,8 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
                      ),
                    ),
                    const SizedBox(height: 14),
-                   TextButton(onPressed: busy ? null : () => setState(() => signup = !signup), child: Text(signup ? 'Sudah punya akun? Login' : 'Daftar Akun Warga →')),
+                   TextButton(onPressed: busy ? null : () => setState(() => signup = !signup), child: Text(signup ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar Sekarang')),
+                   TextButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>const CikokoV4Onboarding())),icon:const Icon(Icons.info_outline,size:17),label:const Text('Mengenal Cikoko Smart')),
                    const Divider(),
                    const Text('Data pribadi diproses untuk pelayanan Kelurahan Cikoko.', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
                  ],
@@ -256,6 +286,7 @@ class _HomeState extends State<HomePage> {
     'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Kelola Akun Petugas'=>Icons.manage_accounts_outlined,'Manajemen Bendahara RT/RW'=>Icons.account_balance_wallet_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
     'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
+    'Agenda'=>Icons.calendar_month_outlined,'Profil Wilayah'=>Icons.place_outlined,'Katalog DKI'=>Icons.account_balance_outlined,
     _=>Icons.category_outlined};
   Future<void> confirmExit() async {
     final leave=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
@@ -311,10 +342,13 @@ class _HomeState extends State<HomePage> {
     case 'Dashboard':return home();
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return feed('berita');
+    case 'Agenda':return CikokoV4Agenda(content:items);
+    case 'Profil Wilayah':return CikokoV4Region(navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return guest ? feed('layanan') : CikokoIntegratedServices(api:api);
+    case 'Layanan Online':return CikokoV4Services(guest:guest,navigate:switchTo);
+    case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
-    case 'Galeri':return feed('galeri');
+    case 'Galeri':return CikokoV4Gallery(api:api,content:items);
     case 'Surat Ahli Waris':return const WarisForm();
     case 'Surat Pengantar RT/RW':return RtRwLettersPage(api:api);
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
@@ -384,7 +418,7 @@ class _HomeState extends State<HomePage> {
     return modules.take(6).toList();
   }
   Widget home()=>ListView(padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
-    CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:showOfficeProfile),
+    CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:()=>switchTo('Profil Wilayah')),
     if(guest)Padding(padding:const EdgeInsets.only(top:8),child:Material(
       color:const Color(0xffe9f1fa),borderRadius:BorderRadius.circular(11),
       child:ListTile(dense:true,contentPadding:const EdgeInsets.symmetric(horizontal:10),
@@ -403,30 +437,28 @@ class _HomeState extends State<HomePage> {
         Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
         TextButton(onPressed:()=>switchTo(role=='warga'?'Layanan Online':'Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
       ])),
-    if(role=='warga')
-      LayoutBuilder(builder:(ctx,c)=>GridView.count(
-        crossAxisCount:c.maxWidth>700?3:2,
+    if(role=='warga'||guest)
+      LayoutBuilder(builder:(context,box)=>GridView.count(
+        crossAxisCount:box.maxWidth>650?6:3,
+        childAspectRatio:box.maxWidth>650?1.8:1.03,
         crossAxisSpacing:8,mainAxisSpacing:8,
-        childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
         children:[
-          for(final item in activeServices)
-            CikokoServiceTile(title:'${item['title']}',description:'${item['description']}',icon:Icons.account_balance_outlined,
-              accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
+          CikokoV4QuickTile(title:'Surat Ahli Waris',icon:Icons.description_outlined,
+            onTap:()=>switchTo('Surat Ahli Waris')),
+          CikokoV4QuickTile(title:'Pengantar RT/RW',icon:Icons.home_work_outlined,
+            onTap:()=>switchTo('Surat Pengantar RT/RW')),
+          CikokoV4QuickTile(title:'Layanan Online',icon:Icons.widgets_outlined,
+            onTap:()=>switchTo('Layanan Online')),
+          CikokoV4QuickTile(title:'Pengaduan',icon:Icons.campaign_outlined,
+            onTap:()=>switchTo('Hubungi Kami')),
+          CikokoV4QuickTile(title:'Inovasi',icon:Icons.auto_awesome_outlined,
+            onTap:()=>switchTo('Inovasi')),
+          CikokoV4QuickTile(title:'Galeri',icon:Icons.photo_library_outlined,
+            onTap:()=>switchTo('Galeri')),
         ],
       ))
-    else if(guest)
-      LayoutBuilder(builder:(ctx,c)=>GridView.count(
-        crossAxisCount:c.maxWidth>700?3:2,
-        crossAxisSpacing:8,mainAxisSpacing:8,
-        childAspectRatio:1.94,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-        children:[
-          CikokoServiceTile(title:'Administrasi Kependudukan',description:'Informasi KTP dan KK',icon:Icons.badge_outlined,accent:const Color(0xff2868c9),onTap:()=>switchTo('Layanan Online')),
-          CikokoServiceTile(title:'Surat Pengantar RT/RW',description:'Dikirim sesuai alamat warga',icon:Icons.description_outlined,accent:const Color(0xff15966d),onTap:()=>switchTo('Surat Pengantar RT/RW')),
-          CikokoServiceTile(title:'Informasi Publik',description:'Berita dan kegiatan',icon:Icons.newspaper_outlined,accent:const Color(0xff6554cb),onTap:()=>switchTo('Berita & Kegiatan')),
-          CikokoServiceTile(title:'Layanan Lainnya',description:'Jelajahi semua layanan',icon:Icons.apps_outlined,accent:const Color(0xff54738d),onTap:()=>switchTo('Menu Cikoko')),
-        ],
-      ))
-        else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
+    else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
       shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
       gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount:c.maxWidth>680?3:2,mainAxisSpacing:8,crossAxisSpacing:8,
@@ -446,6 +478,15 @@ class _HomeState extends State<HomePage> {
     ])),
     for(final x in items.where((x)=>x['type']=='berita'||x['type']=='pengumuman').take(3))contentCard(Map<String,dynamic>.from(x)),
     if(items.isEmpty)const Card(child:ListTile(dense:true,title:Text('Belum ada berita atau pengumuman.'))),
+    Padding(padding:const EdgeInsets.only(top:12,bottom:5),child:Row(children:[
+      Expanded(child:Text('Jelajahi Cikoko Smart',style:Theme.of(context).textTheme.titleMedium)),
+      TextButton(onPressed:()=>switchTo('Agenda'),child:const Text('Lihat Agenda →'))])),
+    Wrap(spacing:8,runSpacing:7,children:[
+      ActionChip(avatar:const Icon(Icons.calendar_month_outlined,color:blue,size:17),label:const Text('Agenda'),onPressed:()=>switchTo('Agenda')),
+      ActionChip(avatar:const Icon(Icons.auto_awesome_outlined,color:blue,size:17),label:const Text('Inovasi'),onPressed:()=>switchTo('Inovasi')),
+      ActionChip(avatar:const Icon(Icons.photo_library_outlined,color:blue,size:17),label:const Text('Galeri'),onPressed:()=>switchTo('Galeri')),
+      ActionChip(avatar:const Icon(Icons.location_on_outlined,color:blue,size:17),label:const Text('Profil Wilayah'),onPressed:()=>switchTo('Profil Wilayah')),
+    ]),
     if(!guest&&events.isNotEmpty)...[
       const Padding(padding:EdgeInsets.only(top:12,bottom:7),child:Text('Aktivitas Terbaru',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
       for(final e in events.take(2))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),
@@ -454,7 +495,12 @@ class _HomeState extends State<HomePage> {
     if(!guest && (role=='ppsu'||isAdmin||role=='admin_kelurahan'))PpsuHighlights(api:api),
     const SizedBox(height:74),
   ]);
- Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),if(!items.any((e)=>e['type']==type))const Padding(padding:EdgeInsets.all(18),child:Text('Belum ada konten pada kategori ini.'))]);
+ Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[
+    CivicV4Header(title:type=='berita'?'Berita & Informasi':'Pengumuman',subtitle:'Informasi resmi Kelurahan Cikoko',icon:type=='berita'?Icons.newspaper_outlined:Icons.campaign_outlined),
+    const SizedBox(height:12),
+    for(final v in items.where((e)=>e['type']==type))contentCard(Map<String,dynamic>.from(v)),
+    if(!items.any((e)=>e['type']==type))const CivicV4Empty(message:'Belum ada konten yang diterbitkan.'),
+  ]);
  Widget contentCard(Map<String, dynamic> item) {
    final image = api.media('${item['image']??''}');
    final title = '${item['title']??''}';
