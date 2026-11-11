@@ -299,7 +299,7 @@ class _HomeState extends State<HomePage> {
   }
   @override Widget build(BuildContext c)=>PopScope(canPop:false,onPopInvokedWithResult:(didPop,result){if(!didPop)confirmExit();},child:Scaffold(
     appBar:AppBar(
-      title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Kelurahan Cikoko',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
+      title:Row(children:[const Logo(size:31),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:16.5,fontWeight:FontWeight.w800,color:navy)),Text(roleLabel,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10.5,color:Colors.blueGrey))]))]),
       actions:[IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),child:const Icon(Icons.notifications_none))),IconButton(tooltip:'Muat ulang',onPressed:load,icon:const Icon(Icons.refresh))],
     ),
     drawer:Drawer(child:CikokoStructuredDrawer(
@@ -417,7 +417,61 @@ class _HomeState extends State<HomePage> {
     }
     return modules.take(6).toList();
   }
-  Widget home()=>ListView(padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
+  Widget adminDashboard()=>ListView(padding:const EdgeInsets.all(13),children:[
+    const CivicV4Header(title:'Dashboard Admin',
+      subtitle:'Ringkasan pelayanan dan administrasi Kelurahan Cikoko',
+      icon:Icons.dashboard_outlined),
+    const SizedBox(height:12),
+    GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+      crossAxisCount:2,mainAxisSpacing:9,crossAxisSpacing:9,
+      childAspectRatio:1.9,children:[
+        _adminCount('Surat Masuk',letterCounts?['masuk'],Icons.description_outlined,const Color(0xff216fdf)),
+        _adminCount('Diproses',letterCounts?['proses'],Icons.timelapse_outlined,const Color(0xffe99024)),
+        _adminCount('Selesai',letterCounts?['selesai'],Icons.check_circle_outline,const Color(0xff15975a)),
+        _adminCount('Aktivitas Baru',unreadCount,Icons.notifications_none,const Color(0xff8b54d8)),
+      ]),
+    const SizedBox(height:15),
+    Text('Menu Cepat',style:Theme.of(context).textTheme.titleMedium),
+    const SizedBox(height:9),
+    GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
+      crossAxisCount:3,crossAxisSpacing:8,mainAxisSpacing:8,childAspectRatio:1.08,
+      children:[
+        CikokoV4QuickTile(title:'Kelola Layanan',icon:Icons.widgets_outlined,onTap:()=>switchTo('Kelola Layanan Terpadu')),
+        CikokoV4QuickTile(title:'Verifikasi',icon:Icons.verified_user_outlined,onTap:()=>switchTo('Verifikasi Laporan')),
+        CikokoV4QuickTile(title:'Ahli Waris',icon:Icons.fact_check_outlined,onTap:()=>switchTo('Verifikasi Ahli Waris')),
+        CikokoV4QuickTile(title:'Berita',icon:Icons.newspaper_outlined,onTap:()=>switchTo('Tambah Berita')),
+        CikokoV4QuickTile(title:'Inovasi',icon:Icons.auto_awesome_outlined,onTap:()=>switchTo('Inovasi')),
+        CikokoV4QuickTile(title:'Akun',icon:Icons.manage_accounts_outlined,onTap:()=>switchTo('Kelola Akun Petugas')),
+      ]),
+    const SizedBox(height:17),
+    Row(children:[Expanded(child:Text('Aktivitas Terbaru',
+      style:Theme.of(context).textTheme.titleMedium)),
+      TextButton(onPressed:()=>switchTo('Notifikasi'),child:const Text('Lihat Semua →'))]),
+    if(events.isEmpty)const CivicV4Empty(message:'Belum ada aktivitas yang dapat ditampilkan.'),
+    for(final event in events.take(5))Card(child:ListTile(
+      leading:const Icon(Icons.notifications_active_outlined,color:blue),
+      title:Text((event['title']??'Aktivitas').toString(),
+        style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w700)),
+      subtitle:Text((event['created_at']??'').toString(),
+        style:const TextStyle(fontSize:10,color:Colors.blueGrey)),
+      trailing:const Icon(Icons.chevron_right),
+      onTap:()=>openNotification(Map<String,dynamic>.from(event)))),
+  ]);
+  Widget _adminCount(String title,int? count,IconData icon,Color accent)=>Card(
+    child:Padding(padding:const EdgeInsets.all(10),child:Row(children:[
+      CircleAvatar(backgroundColor:accent.withValues(alpha:.12),
+        child:Icon(icon,color:accent,size:19)),
+      const SizedBox(width:9),
+      Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,
+        crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Text(title,maxLines:1,overflow:TextOverflow.ellipsis,
+          style:const TextStyle(fontSize:10.5,color:Colors.blueGrey)),
+         Text(count==null?'—':'$count',
+          style:const TextStyle(fontWeight:FontWeight.w900,fontSize:19,color:navy)),
+      ])),
+    ])));
+  Widget home()=>role=='admin'?adminDashboard():ListView(
+    padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
     CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:()=>switchTo('Profil Wilayah')),
     if(guest)Padding(padding:const EdgeInsets.only(top:8),child:Material(
       color:const Color(0xffe9f1fa),borderRadius:BorderRadius.circular(11),
