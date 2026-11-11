@@ -67,7 +67,7 @@ class _EntryState extends State<Entry>{
  bool loading=true;
  @override void initState(){
    super.initState();
-   Future.wait<void>([api.restore(),Future<void>.delayed(const Duration(milliseconds:950))]).whenComplete((){
+   api.restore().whenComplete((){
      if(mounted)setState(()=>loading=false);
    });
  }
