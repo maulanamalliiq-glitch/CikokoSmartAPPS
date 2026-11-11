@@ -194,7 +194,7 @@ class _V6HistoryState extends State<V6HistoryPage>{
             ])))),
         if(rows.isEmpty)const V6Panel(child:Text('Belum ada pengajuan pada status ini.',
           style:TextStyle(fontSize:11.5,color:V6.secondary))),
-      ])));
+      ]));
  });
 }
 
