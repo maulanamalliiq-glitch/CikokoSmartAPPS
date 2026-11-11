@@ -367,12 +367,12 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
     await launchUrl(Uri.parse('https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(urlBerita)}&quote=$quote'),mode:LaunchMode.externalApplication);
   }
  }
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
-  const CivicV4Header(title:'Detail Berita',subtitle:'Berita dan informasi Kelurahan Cikoko',icon:Icons.newspaper_outlined),
+ @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Detail Berita')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
+  const V6PageHeader(title:'Detail Berita',description:'Berita dan informasi Kelurahan Cikoko.',icon:Icons.newspaper_outlined),
   const SizedBox(height:12),
   if(photos.isNotEmpty)...[
     SizedBox(
-      height:215,
+      height:185,
       child:PageView.builder(
         itemCount:photos.length,
         onPageChanged:(v)=>setState(()=>page=v),
@@ -386,13 +386,21 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
     const SizedBox(height:6),
     Text('${page+1} / ${photos.length}',textAlign:TextAlign.center,style:const TextStyle(fontSize:11,color:Colors.blueGrey)),
   ],
-  const SizedBox(height:14),Text('${x['title']??''}',style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:civicNavy)),const SizedBox(height:10),Text('${x['body']??''}'),const SizedBox(height:12),
+  const SizedBox(height:12),
+  const Text('BERITA KELURAHAN',style:TextStyle(color:V6.blue,fontSize:10,fontWeight:FontWeight.w900)),
+  const SizedBox(height:6),
+  Text((x['title']??'').toString(),style:const TextStyle(fontSize:18.2,fontWeight:FontWeight.w900,color:V6.ink)),
+  const SizedBox(height:6),
+  Text(cikokoDateOnly(x['created_at']??''),style:const TextStyle(fontSize:10.5,color:V6.secondary)),
+  const SizedBox(height:12),
+  Text((x['body']??'').toString(),style:const TextStyle(fontSize:12.2,height:1.55,color:V6.ink)),
+  const SizedBox(height:14),
   Row(mainAxisAlignment:MainAxisAlignment.spaceEvenly,children:[
    _shareIcon(Icons.chat_outlined,'WhatsApp',Colors.green,()=>share('wa')),
    _shareIcon(Icons.facebook,'Facebook',Colors.blue,()=>share('fb')),
    _shareIcon(Icons.camera_alt_outlined,'Instagram',Colors.deepPurple,()=>share('instagram')),
    _shareIcon(Icons.link,'Salin tautan',Colors.blueGrey,()=>share('copy')),
-  ]),const Divider(height:26),const Text('Komentar dan Tanggapan',style:TextStyle(fontWeight:FontWeight.w800,fontSize:15,color:civicNavy)),const SizedBox(height:8),
+  ]),const Divider(height:26),const Text('Komentar dan Tanggapan',style:TextStyle(fontWeight:FontWeight.w800,fontSize:15,color:V6.ink)),const SizedBox(height:8),
   if(replyTo!=null)Row(children:[Expanded(child:Text('Membalas komentar #$replyTo',style:const TextStyle(fontSize:11))),TextButton(onPressed:()=>setState(()=>replyTo=null),child:const Text('Batal'))]),
   Row(children:[Expanded(child:TextField(controller:comment,maxLines:3,minLines:1,decoration:const InputDecoration(hintText:'Tulis komentar yang santun…'))),IconButton(onPressed:send,tooltip:'Kirim komentar',icon:const Icon(Icons.send_rounded,color:civicBlue))]),const SizedBox(height:8),
   FutureBuilder<Map<String,dynamic>>(future:comments,builder:(ctx,s){if(!s.hasData)return const Padding(padding:EdgeInsets.all(12),child:Text('Memuat komentar…'));final rows=List<dynamic>.from(s.data?['items']??[]);return Column(children:[for(final r in rows)Card(child:ListTile(dense:true,leading:const CircleAvatar(radius:17,child:Icon(Icons.person_outline,size:18)),title:Text('${r['display_name']??'Pengguna'}',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${r['body']??''}'),const SizedBox(height:5),TextButton(onPressed:()=>setState(()=>replyTo=int.tryParse('${r['id']}')),child:const Text('Balas',style:TextStyle(fontSize:11)))]),trailing:widget.api.profile?['role']=='admin'||widget.api.profile?['role']=='admin_kelurahan'?IconButton(tooltip:'Sembunyikan komentar',icon:const Icon(Icons.visibility_off_outlined,size:18),onPressed:()async{await widget.api.call('v211_comment_moderate',body:{'id':r['id']});if(mounted)setState(reload);}):null)),if(rows.isEmpty)const Text('Belum ada komentar.',style:TextStyle(color:Colors.blueGrey,fontSize:12))]);}),
