@@ -33,7 +33,7 @@ import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
 import 'lpj_pages.dart';
 
-const navy=Color(0xff10375f), blue=Color(0xff226fda), pale=Color(0xfff3f7fc);
+const navy=V6.ink, blue=V6.blue, pale=V6.background;
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
 final api=CikokoApi();
 void main(){WidgetsFlutterBinding.ensureInitialized();runApp(const CikokoApp());}
@@ -392,7 +392,7 @@ class _HomeState extends State<HomePage> {
     case 'Pesan Masuk':return const AdminChatPage();
     case 'Notifikasi':return V6NotificationPage(guest:guest,events:events,onOpen:openNotification,login:openLogin);
     case 'Inovasi':return InnovationPage(api:api);
-    case 'Profil':return guest?profilePage():CivicProfilePage(api:api);
+    case 'Profil':return guest?profilePage():CivicProfilePage(api:api,onNavigate:switchTo,onLogout:()async{await api.logout();widget.onLogout();});
     case 'Verifikasi Laporan':return const AdminReports();
     case 'Verifikasi Ahli Waris':return role=='admin' ? const AdminReports(onlyKind:'waris',allowWarisDate:true) : const Center(child:Text('Khusus Admin Utama.'));
     case 'Laporan Kegiatan Admin':return role=='admin' ? const AdminReports(onlyKind:'report') : const Center(child:Text('Khusus Admin Utama.'));
