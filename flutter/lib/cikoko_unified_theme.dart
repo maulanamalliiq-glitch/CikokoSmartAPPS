@@ -122,9 +122,9 @@ ThemeData cikokoUnifiedTheme() {
       behavior: SnackBarBehavior.floating,
     ),
     textTheme: const TextTheme(
-      headlineSmall: TextStyle(fontSize: 22, color: navy, fontWeight: FontWeight.w850),
+      headlineSmall: TextStyle(fontSize: 22, color: navy, fontWeight: FontWeight.w800),
       titleLarge: TextStyle(fontSize: 19, color: navy, fontWeight: FontWeight.w800),
-      titleMedium: TextStyle(fontSize: 15, color: navy, fontWeight: FontWeight.w750),
+      titleMedium: TextStyle(fontSize: 15, color: navy, fontWeight: FontWeight.w700),
       bodyLarge: TextStyle(fontSize: 14, color: navy),
       bodyMedium: TextStyle(fontSize: 13, color: navy),
       bodySmall: TextStyle(fontSize: 12, color: CikokoPalette.muted),
