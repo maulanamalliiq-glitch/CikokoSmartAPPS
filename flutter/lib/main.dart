@@ -1,6 +1,7 @@
 import 'profile_editor.dart';
 import 'cikoko_unified_theme.dart';
 import 'cikoko_v4_public_pages.dart';
+import 'cikoko_v5_shell.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -180,7 +181,7 @@ void notify(BuildContext c,String text,{bool error=false}){ScaffoldMessenger.of(
 class HomePage extends StatefulWidget{final VoidCallback onLogout,onAuthenticated;const HomePage({super.key,required this.onLogout,required this.onAuthenticated});@override State<HomePage> createState()=>_HomeState();}
 class _HomeState extends State<HomePage> {
   String section='Dashboard';
-  int nav=0;
+  int nav=2;
   List<dynamic> items=[],events=[];
   List<Map<String,dynamic>> activeServices=cikokoDefaultIntegratedServices();
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
@@ -247,31 +248,33 @@ class _HomeState extends State<HomePage> {
     ));
     if(loggedIn==true&&mounted){widget.onAuthenticated();}
   }
-  void switchTo(String s) {
-    if(s=='Persyaratan Ahli Waris'){
+  void switchTo(String route) {
+    if(route=='Persyaratan Ahli Waris'){
       showCikokoWarisRequirements(context,
         onApply:(){if(mounted)switchTo('Surat Ahli Waris');});
       return;
     }
-    if(guest&&_needsLogin(s)){openLogin();return;}
-    setState(() {
-      section=s;
-      if(s=='Dashboard'){nav=0;}
-      else if(s=='Berita & Kegiatan'||s=='Pengumuman'){nav=2;}
-      else if(s=='Profil'){nav=3;}
-      else {nav=1;}
+    if(guest&&_needsLogin(route)){openLogin();return;}
+    setState((){
+      section=route;
+      if(route=='Laporan Terpadu')nav=0;
+      else if(route=='Layanan Online')nav=1;
+      else if(route=='Dashboard')nav=2;
+      else if(route=='Berita & Kegiatan')nav=3;
+      else if(route=='Tentang Kami')nav=4;
     });
   }
-  void selectNav(int value){
-    switch(value){
-      case 0: switchTo('Dashboard');break;
+  void selectNav(int index){
+    switch(index){
+      case 0: switchTo('Laporan Terpadu');break;
       case 1: switchTo('Layanan Online');break;
-      case 2: switchTo('Berita & Kegiatan');break;
-      default: switchTo('Profil');
+      case 2: switchTo('Dashboard');break;
+      case 3: switchTo('Berita & Kegiatan');break;
+      case 4: switchTo('Tentang Kami');break;
     }
   }
   IconData iconFor(String s)=>switch(s){
-    'Dashboard'=>Icons.home_outlined,'Menu Cikoko'=>Icons.grid_view_rounded,
+    'Dashboard'=>Icons.home_outlined,'Laporan Terpadu'=>Icons.assignment_outlined,'Tentang Kami'=>Icons.info_outline,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Persyaratan Ahli Waris'=>Icons.fact_check_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
@@ -320,32 +323,22 @@ class _HomeState extends State<HomePage> {
       },
     )),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
-    bottomNavigationBar:NavigationBar(
-      height:64,
-      selectedIndex:nav,
-      labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
-      onDestinationSelected:selectNav,
-      destinations:const [
-        NavigationDestination(icon:Icon(Icons.home_outlined),
-          selectedIcon:Icon(Icons.home),label:'Beranda'),
-        NavigationDestination(icon:Icon(Icons.widgets_outlined),
-          selectedIcon:Icon(Icons.widgets_rounded),label:'Layanan'),
-        NavigationDestination(icon:Icon(Icons.newspaper_outlined),
-          selectedIcon:Icon(Icons.newspaper),label:'Berita'),
-        NavigationDestination(icon:Icon(Icons.person_outline),
-          selectedIcon:Icon(Icons.person),label:'Profil'),
-      ],
-    ),
-    floatingActionButton:section=='Hubungi Kami'?null:FloatingActionButton.small(tooltip:'Hubungi Admin',onPressed:()=>switchTo('Hubungi Kami'),backgroundColor:blue,foregroundColor:Colors.white,child:const Icon(Icons.chat_bubble_outline)),
+    bottomNavigationBar:CikokoV5BottomNav(selected:nav,onSelected:selectNav),
+    floatingActionButton:null,
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
+    case 'Laporan Terpadu':return CikokoV5ReportsHub(
+      role:role,guest:guest,modules:modules,letterCounts:letterCounts,
+      navigate:switchTo,onLetterStatus:(value)=>showPublicLetterStatus(context,api,category:value));
+    case 'Tentang Kami':return CikokoV5About(guest:guest,navigate:switchTo);
     case 'Menu Cikoko':return menuPage();
-    case 'Berita & Kegiatan':return feed('berita');
+    case 'Berita & Kegiatan':return CikokoV5NewsFeed(
+      api:api,items:items,onArticle:_openV5Article);
     case 'Agenda':return CikokoV4Agenda(content:items);
     case 'Profil Wilayah':return CikokoV4Region(navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return CikokoV4Services(guest:guest,navigate:switchTo);
+    case 'Layanan Online':return CikokoV5ServicesHub(guest:guest,navigate:switchTo);
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
     case 'Galeri':return CikokoV4Gallery(api:api,content:items);
@@ -417,138 +410,41 @@ class _HomeState extends State<HomePage> {
     }
     return modules.take(6).toList();
   }
-  Widget adminDashboard()=>ListView(padding:const EdgeInsets.all(13),children:[
-    const CivicV4Header(title:'Dashboard Admin',
-      subtitle:'Ringkasan pelayanan dan administrasi Kelurahan Cikoko',
-      icon:Icons.dashboard_outlined),
-    const SizedBox(height:12),
-    GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-      crossAxisCount:2,mainAxisSpacing:9,crossAxisSpacing:9,
-      childAspectRatio:1.9,children:[
-        _adminCount('Surat Masuk',letterCounts?['masuk'],Icons.description_outlined,const Color(0xff216fdf)),
-        _adminCount('Diproses',letterCounts?['proses'],Icons.timelapse_outlined,const Color(0xffe99024)),
-        _adminCount('Selesai',letterCounts?['selesai'],Icons.check_circle_outline,const Color(0xff15975a)),
-        _adminCount('Aktivitas Baru',unreadCount,Icons.notifications_none,const Color(0xff8b54d8)),
-      ]),
-    const SizedBox(height:15),
-    Text('Menu Cepat',style:Theme.of(context).textTheme.titleMedium),
-    const SizedBox(height:9),
-    GridView.count(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-      crossAxisCount:3,crossAxisSpacing:8,mainAxisSpacing:8,childAspectRatio:1.08,
-      children:[
-        CikokoV4QuickTile(title:'Kelola Layanan',icon:Icons.widgets_outlined,onTap:()=>switchTo('Kelola Layanan Terpadu')),
-        CikokoV4QuickTile(title:'Verifikasi',icon:Icons.verified_user_outlined,onTap:()=>switchTo('Verifikasi Laporan')),
-        CikokoV4QuickTile(title:'Ahli Waris',icon:Icons.fact_check_outlined,onTap:()=>switchTo('Verifikasi Ahli Waris')),
-        CikokoV4QuickTile(title:'Berita',icon:Icons.newspaper_outlined,onTap:()=>switchTo('Tambah Berita')),
-        CikokoV4QuickTile(title:'Inovasi',icon:Icons.auto_awesome_outlined,onTap:()=>switchTo('Inovasi')),
-        CikokoV4QuickTile(title:'Akun',icon:Icons.manage_accounts_outlined,onTap:()=>switchTo('Kelola Akun Petugas')),
-      ]),
-    const SizedBox(height:17),
-    Row(children:[Expanded(child:Text('Aktivitas Terbaru',
-      style:Theme.of(context).textTheme.titleMedium)),
-      TextButton(onPressed:()=>switchTo('Notifikasi'),child:const Text('Lihat Semua →'))]),
-    if(events.isEmpty)const CivicV4Empty(message:'Belum ada aktivitas yang dapat ditampilkan.'),
-    for(final event in events.take(5))Card(child:ListTile(
-      leading:const Icon(Icons.notifications_active_outlined,color:blue),
-      title:Text((event['title']??'Aktivitas').toString(),
-        style:const TextStyle(fontSize:12.5,fontWeight:FontWeight.w700)),
-      subtitle:Text((event['created_at']??'').toString(),
-        style:const TextStyle(fontSize:10,color:Colors.blueGrey)),
-      trailing:const Icon(Icons.chevron_right),
-      onTap:()=>openNotification(Map<String,dynamic>.from(event)))),
-  ]);
-  Widget _adminCount(String title,int? count,IconData icon,Color accent)=>Card(
-    child:Padding(padding:const EdgeInsets.all(10),child:Row(children:[
-      CircleAvatar(backgroundColor:accent.withValues(alpha:.12),
-        child:Icon(icon,color:accent,size:19)),
-      const SizedBox(width:9),
-      Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,
-        crossAxisAlignment:CrossAxisAlignment.start,children:[
-         Text(title,maxLines:1,overflow:TextOverflow.ellipsis,
-          style:const TextStyle(fontSize:10.5,color:Colors.blueGrey)),
-         Text(count==null?'—':'$count',
-          style:const TextStyle(fontWeight:FontWeight.w900,fontSize:19,color:navy)),
-      ])),
-    ])));
-  Widget home()=>role=='admin'?adminDashboard():ListView(
-    padding:const EdgeInsets.fromLTRB(12,10,12,20),children:[
-    CikokoOfficeHero(onService:()=>switchTo('Layanan Online'),onProfile:()=>switchTo('Profil Wilayah')),
-    if(guest)Padding(padding:const EdgeInsets.only(top:8),child:Material(
-      color:const Color(0xffe9f1fa),borderRadius:BorderRadius.circular(11),
-      child:ListTile(dense:true,contentPadding:const EdgeInsets.symmetric(horizontal:10),
-        leading:const Icon(Icons.lock_open_outlined,color:blue,size:20),
-        title:const Text('Silakan login untuk menikmati lebih banyak layanan.',style:TextStyle(fontSize:11.5,fontWeight:FontWeight.w700)),
-        trailing:TextButton(onPressed:openLogin,child:const Text('Masuk',style:TextStyle(fontSize:11))),
-      ),
-    )),
-    if(guest||role=='warga'||role=='admin')Padding(padding:const EdgeInsets.only(top:8),child:CikokoLetterCounters(
-      counts:letterCounts,onStatusTap:(category)=>
-          role=='admin' && category=='all'
-            ? showPublicLetterPie(context,api)
-            : showPublicLetterStatus(context,api,category:category))),
-    Padding(padding:const EdgeInsets.only(top:12,bottom:7),child:Row(
-      mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[
-        Text(role=='warga'||guest?'Layanan Masyarakat':'Menu Cepat',style:const TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800)),
-        TextButton(onPressed:()=>switchTo(role=='warga'?'Layanan Online':'Menu Cikoko'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11))),
-      ])),
-    if(role=='warga'||guest)
-      LayoutBuilder(builder:(context,box)=>GridView.count(
-        crossAxisCount:box.maxWidth>650?6:3,
-        childAspectRatio:box.maxWidth>650?1.8:1.03,
-        crossAxisSpacing:8,mainAxisSpacing:8,
-        shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-        children:[
-          CikokoV4QuickTile(title:'Surat Ahli Waris',icon:Icons.description_outlined,
-            onTap:()=>switchTo('Surat Ahli Waris')),
-          CikokoV4QuickTile(title:'Pengantar RT/RW',icon:Icons.home_work_outlined,
-            onTap:()=>switchTo('Surat Pengantar RT/RW')),
-          CikokoV4QuickTile(title:'Layanan Online',icon:Icons.widgets_outlined,
-            onTap:()=>switchTo('Layanan Online')),
-          CikokoV4QuickTile(title:'Pengaduan',icon:Icons.campaign_outlined,
-            onTap:()=>switchTo('Hubungi Kami')),
-          CikokoV4QuickTile(title:'Inovasi',icon:Icons.auto_awesome_outlined,
-            onTap:()=>switchTo('Inovasi')),
-          CikokoV4QuickTile(title:'Galeri',icon:Icons.photo_library_outlined,
-            onTap:()=>switchTo('Galeri')),
-        ],
-      ))
-    else LayoutBuilder(builder:(ctx,c)=>GridView.builder(
-      shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),
-      gridDelegate:SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:c.maxWidth>680?3:2,mainAxisSpacing:8,crossAxisSpacing:8,
-        mainAxisExtent:80),
-      itemCount:homeShortcuts.length,
-      itemBuilder:(ctx,i){final feature=homeShortcuts[i];return CikokoQuickMenu(
-        title:feature.title,icon:iconFor(feature.route),onTap:()=>switchTo(feature.route));},
-    )),
-    if(role=='warga'||guest)Padding(padding:const EdgeInsets.only(top:9),child:Wrap(spacing:7,runSpacing:2,children:[
-      ActionChip(avatar:const Icon(Icons.description_outlined,size:16,color:blue),label:const Text('Ahli Waris',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Surat Ahli Waris')),
-      ActionChip(avatar:const Icon(Icons.bug_report_outlined,size:16,color:blue),label:const Text('Jumantik',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Laporan Jumantik')),
-      ActionChip(avatar:const Icon(Icons.history,size:16,color:blue),label:const Text('Riwayat',style:TextStyle(fontSize:11)),onPressed:()=>switchTo('Riwayat')),
-    ])),
-    Padding(padding:const EdgeInsets.only(top:17,bottom:8),child:Row(children:[
-      const Expanded(child:Text('Berita & Informasi',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
-      TextButton(onPressed:()=>switchTo('Berita & Kegiatan'),child:const Text('Lihat Semua →',style:TextStyle(fontSize:11)))
-    ])),
-    for(final x in items.where((x)=>x['type']=='berita'||x['type']=='pengumuman').take(3))contentCard(Map<String,dynamic>.from(x)),
-    if(items.isEmpty)const Card(child:ListTile(dense:true,title:Text('Belum ada berita atau pengumuman.'))),
-    Padding(padding:const EdgeInsets.only(top:12,bottom:5),child:Row(children:[
-      Expanded(child:Text('Jelajahi Cikoko Smart',style:Theme.of(context).textTheme.titleMedium)),
-      TextButton(onPressed:()=>switchTo('Agenda'),child:const Text('Lihat Agenda →'))])),
-    Wrap(spacing:8,runSpacing:7,children:[
-      ActionChip(avatar:const Icon(Icons.calendar_month_outlined,color:blue,size:17),label:const Text('Agenda'),onPressed:()=>switchTo('Agenda')),
-      ActionChip(avatar:const Icon(Icons.auto_awesome_outlined,color:blue,size:17),label:const Text('Inovasi'),onPressed:()=>switchTo('Inovasi')),
-      ActionChip(avatar:const Icon(Icons.photo_library_outlined,color:blue,size:17),label:const Text('Galeri'),onPressed:()=>switchTo('Galeri')),
-      ActionChip(avatar:const Icon(Icons.location_on_outlined,color:blue,size:17),label:const Text('Profil Wilayah'),onPressed:()=>switchTo('Profil Wilayah')),
-    ]),
-    if(!guest&&events.isNotEmpty)...[
-      const Padding(padding:EdgeInsets.only(top:12,bottom:7),child:Text('Aktivitas Terbaru',style:TextStyle(color:navy,fontSize:14,fontWeight:FontWeight.w800))),
-      for(final e in events.take(2))Card(child:ListTile(dense:true,leading:const Icon(Icons.notifications_outlined,color:blue),
-        title:Text('${e['title']??''}',maxLines:1),subtitle:Text('${e['created_at']??''}',style:const TextStyle(fontSize:10)))),
-    ],
-    if(!guest && (role=='ppsu'||isAdmin||role=='admin_kelurahan'))PpsuHighlights(api:api),
-    const SizedBox(height:74),
-  ]);
+
+  Widget home(){
+    if(role=='admin'||role=='admin_kelurahan'){
+      return CikokoV5AdminHome(modules:modules,roleLabel:roleLabel,
+        letterCounts:letterCounts,unreadCount:unreadCount,events:events,
+        navigate:switchTo);
+    }
+    return CikokoV5Home(
+      role:role,guest:guest,modules:modules,api:api,
+      items:items,events:events,letterCounts:letterCounts,
+      navigate:switchTo,onRefresh:load,
+      letterStatus:(category)=>showPublicLetterStatus(context,api,category:category),
+      newsTap:_openV5Article,openLogin:openLogin,
+    );
+  }
+
+  Future<void> _openV5Article(Map<String,dynamic> item)async{
+    if(item['type']=='berita'){
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder:(_)=>CivicNewsDetail(api:api,preview:item)));
+      return;
+    }
+    if(!mounted)return;
+    await showModalBottomSheet<void>(context:context,isScrollControlled:true,
+      showDragHandle:true,builder:(sheet)=>SafeArea(
+        child:Padding(padding:const EdgeInsets.all(18),
+          child:SingleChildScrollView(child:Column(
+            mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text((item['title']??'Informasi').toString(),
+                style:Theme.of(sheet).textTheme.titleLarge),
+              const SizedBox(height:12),
+              Text((item['body']??'').toString()),
+              const SizedBox(height:15),
+            ])))));
+  }
  Widget feed(String type)=>ListView(padding:const EdgeInsets.all(14),children:[
     CivicV4Header(title:type=='berita'?'Berita & Informasi':'Pengumuman',subtitle:'Informasi resmi Kelurahan Cikoko',icon:type=='berita'?Icons.newspaper_outlined:Icons.campaign_outlined),
     const SizedBox(height:12),
