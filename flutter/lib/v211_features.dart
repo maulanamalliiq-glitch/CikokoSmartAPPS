@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
+import 'cikoko_v4_public_pages.dart';
 
 const civicBlue=Color(0xff216bd7), civicNavy=Color(0xff12375d);
 const String cikokoPlayStoreUrl=''; // TODO: isi URL Play Store aplikasi Cikoko
@@ -90,8 +91,7 @@ class _InnovationPageState extends State<InnovationPage>{
   if(!s.hasData)return const Center(child:CircularProgressIndicator());
   final items=List<dynamic>.from(s.data?['items']??[]);
   return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},child:ListView(padding:const EdgeInsets.all(14),children:[
-   const Text('Inovasi Kelurahan Cikoko',style:TextStyle(fontSize:20,color:civicNavy,fontWeight:FontWeight.w800)),
-   const SizedBox(height:4),const Text('Program unggulan bagi masyarakat dan lingkungan Kelurahan Cikoko.',style:TextStyle(color:Colors.blueGrey,fontSize:12)),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
+   const CivicV4Header(title:'Inovasi Kelurahan',subtitle:'Program unggulan untuk masyarakat dan lingkungan Cikoko',icon:Icons.auto_awesome_outlined),if(s.data?['offline']==true)Padding(padding:const EdgeInsets.symmetric(vertical:7),child:TextButton.icon(onPressed:()=>setState(reload),icon:const Icon(Icons.sync),label:const Text('Ringkasan sementara · Sinkronkan informasi'))),const SizedBox(height:12),
    for(final raw in items)...[Builder(builder:(context){final item=Map<String,dynamic>.from(raw);return Card(clipBehavior:Clip.antiAlias,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     if('${item['image']??''}'.isNotEmpty)Image.network(widget.api.media('${item['image']}'),height:126,width:double.infinity,fit:BoxFit.cover,errorBuilder:(_,__,___)=>const SizedBox.shrink())
     else Container(height:72,width:double.infinity,color:const Color(0xffe3f0ff),alignment:Alignment.center,child:const Icon(Icons.eco_outlined,color:civicBlue,size:32)),
@@ -128,10 +128,14 @@ class _CivicProfileState extends State<CivicProfilePage>{
  final row=Map<String,dynamic>.from(s.data?['user']??{});if(!editing && fields['name']!.text.isEmpty)fill(row);
  final photoUrl='${CikokoApi.root.replaceFirst('index.php','v211.php')}?action=v211_profile_photo&v=$imageVersion';
  return ListView(padding:const EdgeInsets.all(16),children:[
+  const CivicV4Header(title:'Profil Akun',subtitle:'Data pribadi dan pengaturan akun Cikoko Smart',icon:Icons.person_outline),
+  const SizedBox(height:10),
   Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(children:[
    Stack(children:[CircleAvatar(radius:47,backgroundColor:const Color(0xffdfedff),backgroundImage:(row['has_photo']==true||avatarReady)?NetworkImage(photoUrl,headers:{'Authorization':'Bearer ${widget.api.token}' }):null,child:(row['has_photo']==true||avatarReady)?null:const Icon(Icons.person_outline,size:47,color:civicBlue)),Positioned(bottom:0,right:0,child:IconButton.filled(onPressed:uploadAvatar,tooltip:'Ubah foto profil',icon:const Icon(Icons.camera_alt_outlined,size:18)))]),const SizedBox(height:8),
    Text(fields['name']!.text,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w800,color:civicNavy)),const Text('Profil pengguna Cikoko',style:TextStyle(fontSize:11,color:Colors.blueGrey)),
   ]))),const SizedBox(height:12),
+  Text('Data Pribadi',style:Theme.of(context).textTheme.titleMedium),
+  const SizedBox(height:8),
   for(final e in <String,String>{'name':'Nama Lengkap','username':'Username','phone':'Nomor HP','email':'Email','address':'Alamat Lengkap','nik':'Nomor Induk Kependudukan','rt':'RT','rw':'RW'}.entries)if(!['rt','rw'].contains(e.key)||widget.api.profile?['role']=='warga')Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(
    controller:fields[e.key],enabled:editing && e.key!='username',minLines:e.key=='address'?2:1,maxLines:e.key=='address'?3:1,
    keyboardType:e.key=='rt'||e.key=='rw'?TextInputType.number:e.key=='phone'||e.key=='nik'?TextInputType.phone:e.key=='email'?TextInputType.emailAddress:TextInputType.text,decoration:InputDecoration(labelText:e.value),
@@ -224,6 +228,8 @@ class _CivicNewsState extends State<CivicNewsDetail>{late Future<Map<String,dyna
   }
  }
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Berita Kelurahan Cikoko')),body:FutureBuilder<Map<String,dynamic>>(future:article,builder:(ctx,s){if(s.hasError)return Center(child:TextButton.icon(onPressed:()=>setState(()=>article=loadArticle()),icon:const Icon(Icons.refresh),label:const Text('Muat ulang berita')));if(!s.hasData)return const Center(child:CircularProgressIndicator());final x=Map<String,dynamic>.from(s.data?['item']??widget.preview);final photos=List<dynamic>.from(x['images']??[]).map((v)=>widget.api.media('$v')).where((v)=>v.isNotEmpty).take(5).toList();return ListView(padding:const EdgeInsets.all(14),children:[
+  const CivicV4Header(title:'Detail Berita',subtitle:'Berita dan informasi Kelurahan Cikoko',icon:Icons.newspaper_outlined),
+  const SizedBox(height:12),
   if(photos.isNotEmpty)...[
     SizedBox(
       height:215,
