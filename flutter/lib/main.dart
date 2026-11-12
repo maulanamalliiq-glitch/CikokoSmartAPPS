@@ -284,10 +284,14 @@ class _HomeState extends State<HomePage> {
       final uri=Uri.tryParse(source);
       final valid=uri!=null&&uri.scheme=='https'&&
         uri.host=='datawebs.my.id'&&uri.port==443&&
-        RegExp(r'^/assets/images/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$',
-          caseSensitive:false).hasMatch(uri.path)&&
-        uri.query.isEmpty&&uri.fragment.isEmpty&&
-        !uri.path.contains('..');
+        !uri.path.contains('..')&&uri.fragment.isEmpty&&(
+          (RegExp(r'^/assets/images/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$',
+            caseSensitive:false).hasMatch(uri.path)&&uri.query.isEmpty)
+          || (uri.path=='/mobile-api/index.php'&&
+              uri.queryParameters.length==2&&
+              uri.queryParameters['action']=='home_slide_photo'&&
+              RegExp(r'^[a-f0-9]{40}\.(jpg|png|webp)$').hasMatch(
+                uri.queryParameters['name']??'')));
       final horizontal=(int.tryParse('${hero['x']??50}')??50).clamp(0,100);
       final vertical=(int.tryParse('${hero['y']??50}')??50).clamp(0,100);
       if(mounted)setState((){
