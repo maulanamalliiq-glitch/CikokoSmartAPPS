@@ -1,0 +1,30 @@
+name: Validate Cikoko Website ↔ Android Notifications
+on:
+  push:
+    paths:
+      - 'cpanel/mobile-api/notification_recipients.php'
+      - 'cpanel/mobile-api/website_legacy_broadcast.php'
+      - 'cpanel/mobile-api/cron_dispatch.php'
+      - 'cpanel/includes/cikoko-notifications.php'
+      - 'cpanel/notifikasi-aplikasi.php'
+      - 'cpanel/kelola-inovasi.php'
+      - 'tests/php_notification_routing_test.php'
+      - '.github/workflows/test-php-notifications.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax checks
+        run: |
+          php -l cpanel/mobile-api/notification_recipients.php
+          php -l cpanel/mobile-api/website_legacy_broadcast.php
+          php -l cpanel/mobile-api/cron_dispatch.php
+          php -l cpanel/includes/cikoko-notifications.php
+          php -l cpanel/notifikasi-aplikasi.php
+          php -l cpanel/kelola-inovasi.php
+      - name: Private/public audience isolation tests
+        run: php tests/php_notification_routing_test.php
