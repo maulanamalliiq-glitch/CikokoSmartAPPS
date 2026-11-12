@@ -5,6 +5,7 @@ import 'cikoko_v5_shell.dart';
 import 'cikoko_v6_showcase.dart';
 import 'cikoko_v6_content.dart';
 import 'cikoko_admin_content_hub.dart';
+import 'cikoko_admin_push_page.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -290,7 +291,7 @@ class _HomeState extends State<HomePage> {
     setState((){
       section=route;
       if(route=='Laporan Terpadu')nav=0;
-      else if(route=='Kelola Semua Halaman')nav=0;
+      else if(route=='Kelola Semua Halaman'||route=='Push Notifikasi')nav=0;
       else if(route=='Kelola Layanan Terpadu')nav=1;
       else if(route=='Verifikasi Laporan')nav=3;
       else if(route=='Profil')nav=4;
@@ -333,6 +334,7 @@ class _HomeState extends State<HomePage> {
     'Tambah Arsip Ahli Waris'=>Icons.create_new_folder_outlined,'Arsip Ahli Waris'=>Icons.folder_copy_outlined,
     'Hak Akses Role'=>Icons.admin_panel_settings_outlined,'Kelola Akun Petugas'=>Icons.manage_accounts_outlined,'Manajemen Bendahara RT/RW'=>Icons.account_balance_wallet_outlined,'Riwayat'=>Icons.history,
     'Pesan Masuk'=>Icons.forum_outlined,'Hubungi Kami'=>Icons.chat_bubble_outline,
+    'Push Notifikasi'=>Icons.notifications_active_outlined,
     'Notifikasi'=>Icons.notifications_none,'Inovasi'=>Icons.auto_awesome_outlined,'Profil'=>Icons.person_outline,
     'Agenda'=>Icons.calendar_month_outlined,'Profil Wilayah'=>Icons.place_outlined,'Katalog DKI'=>Icons.account_balance_outlined,
     _=>Icons.category_outlined};
@@ -409,6 +411,10 @@ class _HomeState extends State<HomePage> {
       return role=='admin'||role=='admin_kelurahan'
         ?CikokoAdminContentHub(role:role,openInApp:switchTo)
         :const Center(child:Text('Hanya admin yang dapat mengelola konten.'));
+    case 'Push Notifikasi':
+      return role=='admin'||role=='admin_kelurahan'
+        ?CikokoAdminPushPage(api:api,onSent:refresh)
+        :const Center(child:Text('Menu ini hanya untuk administrator.'));
     case 'Laporan Terpadu':return V6ReportsHub(
       role:role,guest:guest,modules:modules,counts:letterCounts,
       navigate:switchTo,letterStatus:(value)=>showPublicLetterStatus(context,api,category:value));
