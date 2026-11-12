@@ -215,7 +215,7 @@ class _HomeState extends State<HomePage> {
         }
       }
       if(entry!=null){openNotification(entry);}
-      else{refresh();switchTo('Notifikasi');}
+      else{resolveLocalNotification(id);}
     },onOpen:(message){
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
@@ -663,6 +663,18 @@ class _HomeState extends State<HomePage> {
  }
 
  Future<void> share(String link) async {final u=Uri.parse(link);await launchUrl(u,mode:LaunchMode.externalApplication);}
+ Future<void> resolveLocalNotification(int eventId)async{
+   try{
+     final response=await api.call('events');
+     for(final row in List<dynamic>.from(response['events']??[])){
+       if(row is Map&&(row['id']??'').toString()==eventId.toString()){
+         await openNotification(Map<String,dynamic>.from(row));
+         return;
+       }
+     }
+   }catch(_){}
+   if(mounted)switchTo('Notifikasi');
+ }
  Future<void> navigateChatEvent(int id)async{
    if(id>0){
      try{
