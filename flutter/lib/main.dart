@@ -488,7 +488,8 @@ class _HomeState extends State<HomePage> {
     case 'Dashboard':return home();
     case 'Kelola Semua Halaman':
       return role=='admin'||role=='admin_kelurahan'
-        ?CikokoAdminContentHub(role:role,openInApp:switchTo)
+        ?CikokoAdminContentHub(api:api,role:role,openInApp:switchTo,
+         onPublished:(){refreshWebsiteHeader();refreshPublishedContent();})
         :const Center(child:Text('Hanya admin yang dapat mengelola konten.'));
     case 'Push Notifikasi':
       return role=='admin'||role=='admin_kelurahan'
