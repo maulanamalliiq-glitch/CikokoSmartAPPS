@@ -1,0 +1,108 @@
+name: Package cPanel Push Notification Patch 2547
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cpanel/mobile-api/admin_push_center.php'
+      - 'cpanel/mobile-api/admin_push.php'
+      - 'cpanel/mobile-api/cron_dispatch.php'
+      - 'cpanel/notifikasi-aplikasi.php'
+      - '.github/workflows/package-push-cpanel-2547.yml'
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate notification PHP
+        run: |
+          php -l cpanel/mobile-api/admin_push_center.php
+          php -l cpanel/mobile-api/admin_push.php
+          php -l cpanel/mobile-api/cron_dispatch.php
+          php -l cpanel/notifikasi-aplikasi.php
+      - name: Prepare safe cPanel patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package/mobile-api
+          cp cpanel/mobile-api/admin_push_center.php package/mobile-api/
+          cp cpanel/mobile-api/admin_push.php package/mobile-api/
+          cp cpanel/mobile-api/cron_dispatch.php package/mobile-api/
+          cp cpanel/notifikasi-aplikasi.php package/
+          cat > package/PANDUAN_PASANG.txt <<'DOC'
+          CIKOKO SMART - PATCH DIAGNOSTIK + PUSH ADMIN 2.5.47
+
+          PENYEBAB
+          "Tersimpan untuk 19 akun" berarti 19 notifikasi masuk database, BUKAN
+          bukti bahwa Firebase telah mengirim 19 push ke Android.
+
+          CARA PASANG
+          1. Backup public_html/notifikasi-aplikasi.php dan file mobile-api/cron_dispatch.php.
+          2. Pastikan patch notifikasi 2.5.46 telah terpasang. File
+             mobile-api/notification_recipients.php serta website_legacy_broadcast.php
+             harus tetap ada.
+          3. Upload ZIP INI ke root public_html dalam cPanel File Manager.
+          4. Extract dan izinkan overwrite hanya untuk file yang ada pada ZIP ini.
+          5. Jangan menghapus database, mobile-api/private, maupun file index.php.
+          6. Login website admin dan buka:
+             https://datawebs.my.id/notifikasi-aplikasi.php
+          7. Perhatikan diagnostik: Token HP, Antrean Push, FCM diterima,
+             status Cron dan waktu terakhir berjalan.
+          8. Di Android, gunakan aplikasi Cikoko Smart 2.5.47:
+             Admin > Kelola > Push Notifikasi.
+
+          CRON JOBS (SETIAP MENIT)
+          Perintah contoh:
+          /usr/local/bin/php /home/datd1747/public_html/mobile-api/cron_dispatch.php >> /home/datd1747/private/cikoko-push-cron.log 2>&1
+          Catatan: Sesuaikan lokasi binary PHP bila /usr/local/bin/php tidak tersedia.
+          Interval: * * * * *
+
+          FIREBASE
+          Gunakan service-account JSON dari project Firebase aplikasi yang sama.
+          Simpan hanya di:
+          /home/datd1747/private/firebase-service-account.json
+          Pastikan file berada DI LUAR public_html dan tidak dapat diakses lewat web.
+          Cron akan memeriksa lokasi itu secara otomatis jika environment variable
+          CIKOKO_FIREBASE_SA tidak ditetapkan.
+
+          CARA UJI
+          A. Kirim hanya ke SATU akun warga yang login di Android.
+          B. Periksa ikon lonceng; refresh bila perlu.
+          C. Di diagnostik admin, Token HP harus > 0.
+          D. Jalankan Cron, refresh status. FCM diterima > 0 berarti API Firebase
+             menerima permintaan, bukan kepastian Android menampilkannya.
+          E. Tutup aplikasi dan uji notifikasi kedua.
+
+          STATUS
+          not_run          = Cron belum tercatat.
+          fcm_key_missing  = Service-account tidak ditemukan.
+          fcm_auth_failed  = OAuth Firebase gagal.
+          no_devices       = Tidak ada token HP untuk penerima.
+          partial_failure  = Ada token yang gagal dikirim ke Firebase.
+          ok               = Siklus selesai tanpa error API FCM.
+
+          Patch ini tidak memuat kredensial database, file kunci Firebase,
+          atau data pribadi warga.
+          DOC
+          (cd package && zip -q -r ../CikokoSmart_CPanel_Push_2547.zip \
+            notifikasi-aplikasi.php mobile-api PANDUAN_PASANG.txt)
+          unzip -l CikokoSmart_CPanel_Push_2547.zip
+      - name: Publish cPanel patch
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+          GH_REPO: \${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="cikoko-server-push-2547"
+          file="CikokoSmart_CPanel_Push_2547.zip"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$file" --clobber
+          else
+            gh release create "$tag" "$file" --target "$GITHUB_SHA" \
+              --title "Cikoko Smart cPanel Push 2.5.47" \
+              --notes "Endpoint admin push, diagnostik Cron/FCM dan deteksi service-account cPanel. Upload ZIP ke public_html. Tanpa database atau kredensial."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, assets: [.assets[].name]}'
