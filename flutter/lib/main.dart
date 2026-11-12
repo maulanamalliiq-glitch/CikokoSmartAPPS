@@ -203,7 +203,7 @@ class _HomeState extends State<HomePage> {
   bool get isStaff=>role!='warga'&&role!='guest';
   bool get isAdmin=>capabilities['reports:view']==true;
   List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['waris_requirements']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
-  @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start(refresh,onOpen:(message){
+  @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start((){ refresh(); refreshPublishedContent(); },onOpen:(message){
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
         final pushId=int.tryParse('${message.data['event_id']??''}')??0;
@@ -213,8 +213,25 @@ class _HomeState extends State<HomePage> {
     });timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
   Future<void> refresh() async {
-    try {if(api.token==null)return;final v=await api.call('events');final incoming=List<dynamic>.from(v['events']??[]);await push?.onEvents(incoming);if(mounted)setState(()=>events=incoming);}
-    catch(_) {}
+    try {
+      if(api.token==null)return;
+      final v=await api.call('events');
+      final incoming=List<dynamic>.from(v['events']??[]);
+      final oldIds=events.map((e)=>'${e['id']??''}').toSet();
+      final updatedPublications=incoming.any((e)=>
+        !oldIds.contains('${e['id']??''}')&&
+        ['berita','pengumuman','inovasi'].contains('${e['category']??''}'));
+      await push?.onEvents(incoming);
+      if(mounted)setState(()=>events=incoming);
+      if(updatedPublications)await refreshPublishedContent();
+    }catch(_) {}
+  }
+  // Update website-published data without requiring a new APK or a manual restart.
+  Future<void> refreshPublishedContent()async{
+    try{
+      final v=await api.call('content');
+      if(mounted)setState(()=>items=List<dynamic>.from(v['items']??[]));
+    }catch(_){}
   }
   Future<void> load() async {
     if(mounted)setState(()=>loading=true);
@@ -644,6 +661,14 @@ class _HomeState extends State<HomePage> {
     if(category=='rt_rw_surat'||category=='rt_rw_status'){switchTo(isStaff?'Surat Wilayah':'Surat Pengantar RT/RW');return;}
     if(category=='surat'||category=='progres_surat'||category=='laporan_masuk'){
       switchTo(isStaff?'Verifikasi Laporan':'Riwayat');return;
+    }
+    if(category=='berita'||category=='pengumuman'){
+      await refreshPublishedContent();
+      if(mounted)switchTo('Berita & Kegiatan');
+      return;
+    }
+    if(category=='inovasi'){
+      switchTo('Inovasi');return;
     }
     await showDialog<void>(context:context,builder:(c)=>AlertDialog(
       title:Text('${event['title']??'Notifikasi'}'),content:Text('${event['message']??''}'),
