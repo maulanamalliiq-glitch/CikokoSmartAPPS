@@ -28,7 +28,7 @@ void main(){
  testWidgets('Admin has a direct in-app Push Notifikasi menu',(tester)async{
   String? route;
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:
-    CikokoAdminContentHub(role:'admin',openInApp:(v)=>route=v))));
+    CikokoAdminContentHub(api:_FakeAdminApi(),role:'admin',openInApp:(v)=>route=v))));
   await tester.tap(find.byKey(const Key('admin_push_menu')));
   expect(route,'Push Notifikasi');
  });
