@@ -102,6 +102,14 @@ if($action==='chat_v2548_send'&&$method==='POST'){
  cikoko_rate_limit($db,'chat_v2548_message',$myId,90,3600);
  $result=cikoko_chat_store($db,$owner,$staff?'Petugas Kelurahan':(string)$user['username'],
    $staff?'admin':'warga',$message);
+ // Preserve the existing after-hours automatic acknowledgement for residents.
+ if(!$staff&&is_file(__DIR__.'/chat_offline_bot_2545.php')){
+  try{
+   require_once __DIR__.'/chat_offline_bot_2545.php';
+   $auto=cikoko_chat_offline_ack($db,$owner);
+   if($auto!==null)$result['auto_reply']=$auto;
+  }catch(Throwable $e){error_log('[Cikoko offline chat acknowledgement] '.$e->getMessage());}
+ }
  cikoko_chat_v2548_notify($db,$owner,$staff);
  mobile_json($result);
 }
