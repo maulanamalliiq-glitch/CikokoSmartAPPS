@@ -122,10 +122,23 @@ class _CikokoIntegratedServicesState extends State<CikokoIntegratedServices> {
     if(confirm==true)await save(entries.where((e)=>e['id']!=entry['id']).toList());
   }
   Widget logoFor(Map<String,dynamic> entry){
-    final url='${entry['logo_url']??''}';
+    final url=(entry['logo_url']??'').toString();
     final uri=Uri.tryParse(url);
     final serviceId=(entry['id']??'').toString();
-    final canProxy=RegExp(r'^[a-zA-Z0-9_-]{1,45}\
+    final canProxy=RegExp(r'^[a-zA-Z0-9_-]{1,45}$').hasMatch(serviceId);
+    final proxy='https://datawebs.my.id/mobile-api/index.php'
+      '?action=integrated_services_logo&id=${Uri.encodeComponent(serviceId)}';
+    Widget fallback(){
+      if(!canProxy)return const Icon(Icons.account_balance_outlined,color:_accent,size:25);
+      return Image.network(proxy,width:42,height:42,fit:BoxFit.contain,
+        errorBuilder:(_,__,___)=>const Icon(Icons.account_balance_outlined,color:_accent,size:25));
+    }
+    if(uri?.scheme=='https'&&uri?.host.isNotEmpty==true){
+      return Image.network(url,width:42,height:42,fit:BoxFit.contain,
+        errorBuilder:(_,__,___)=>fallback());
+    }
+    return fallback();
+  }
   @override Widget build(BuildContext context){
     final visible=widget.admin?entries:entries.where((e)=>e['active']!=false).toList();
     return RefreshIndicator(onRefresh:load,child:ListView(padding:const EdgeInsets.all(14),children:[
