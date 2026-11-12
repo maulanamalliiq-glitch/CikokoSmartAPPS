@@ -375,11 +375,11 @@ class _HomeState extends State<HomePage> {
     case 'Laporan Terpadu':return V6ReportsHub(
       role:role,guest:guest,modules:modules,counts:letterCounts,
       navigate:switchTo,letterStatus:(value)=>showPublicLetterStatus(context,api,category:value));
-    case 'Tentang Kami':return V6AboutPage(navigate:switchTo);
+    case 'Tentang Kami':return V6AboutPage(api:api,navigate:switchTo);
     case 'Menu Cikoko':return menuPage();
     case 'Berita & Kegiatan':return V6NewsPage(api:api,content:items,onOpen:_openV5Article);
     case 'Agenda':return V6AgendaPage(content:items);
-    case 'Profil Wilayah':return V6RegionPage(navigate:switchTo);
+    case 'Profil Wilayah':return V6RegionPage(api:api,navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
     case 'Layanan Online':return V6ServicesPage(guest:guest,onOpen:_openV6Service);
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
