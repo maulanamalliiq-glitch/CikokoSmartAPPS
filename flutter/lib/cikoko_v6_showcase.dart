@@ -399,6 +399,7 @@ class V6AdminHome extends StatelessWidget {
  @override Widget build(BuildContext context) {
   final allowed=modules.map((m)=>m.route).toSet();
   const actions=[
+   ('Kelola Halaman','Kelola Semua Halaman',Icons.dashboard_customize_outlined),
    ('Verifikasi Laporan','Verifikasi Laporan',Icons.fact_check_outlined),
    ('Verifikasi Ahli Waris','Verifikasi Ahli Waris',Icons.verified_user_outlined),
    ('Kelola Layanan','Kelola Layanan Terpadu',Icons.widgets_outlined),
