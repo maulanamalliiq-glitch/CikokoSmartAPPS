@@ -5,6 +5,9 @@
  */
 if(PHP_SAPI!=='cli'){http_response_code(403);exit('Forbidden');}
 require __DIR__.'/bootstrap.php';
+require_once __DIR__.'/website_legacy_broadcast.php';
+// Deliver legacy website publications to in-app inboxes even before FCM setup.
+cikoko_distribute_legacy_website_events(mobile_db());
 function oauth_token(string $path):?string {
  $sa=json_decode(file_get_contents($path),true);
  if(!is_array($sa)||empty($sa['client_email'])||empty($sa['private_key']))return null;
