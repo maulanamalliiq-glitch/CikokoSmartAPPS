@@ -263,7 +263,7 @@ class _HomeState extends State<HomePage> {
       final uri=Uri.tryParse(source);
       final valid=uri!=null&&uri.scheme=='https'&&
         uri.host=='datawebs.my.id'&&uri.port==443&&
-        RegExp(r'^/assets/images/[A-Za-z0-9._-]+\\.(jpg|jpeg|png|webp)$',
+        RegExp(r'^/assets/images/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$',
           caseSensitive:false).hasMatch(uri.path)&&
         uri.query.isEmpty&&uri.fragment.isEmpty&&
         !uri.path.contains('..');
