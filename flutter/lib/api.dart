@@ -51,8 +51,9 @@ class CikokoApi {
   Map<String,dynamic>? profile;
   Future<void> restore() async { token = await _storage.read(key:'cikoko_token'); if(token!=null) {try {profile = (await call('me'))['user'] as Map<String,dynamic>?;}catch(_) {/* Saat server sementara tidak tersedia, jangan hapus sesi tersimpan. */}} }
   Future<Map<String,dynamic>> call(String action, {Map<String,dynamic>? body, bool authorized = false}) async {
-    final target=action.startsWith('admin_push_')?root.replaceFirst('index.php','admin_push.php')
-      :(action.startsWith('v211_')?root.replaceFirst('index.php','v211.php'):root);
+    final target=action.startsWith('chat_v2548_')?root.replaceFirst('index.php','chat_v2548.php')
+      :(action.startsWith('admin_push_')?root.replaceFirst('index.php','admin_push.php')
+      :(action.startsWith('v211_')?root.replaceFirst('index.php','v211.php'):root));
     final u=Uri.parse('$target?action=$action');
     final progressId=body!=null?CikokoRequestProgress.begin():null;
     var successful=false;
@@ -93,7 +94,7 @@ class CikokoApi {
   Future<Map<String,dynamic>> upload(String action,Map<String,String> fields,
       Map<String,List<String>> files,{void Function(double)? progress}) async {
     final req=http.MultipartRequest('POST',Uri.parse(
-      "${action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root}?action=$action"));
+      "${action.startsWith('chat_v2548_') ? root.replaceFirst('index.php','chat_v2548.php') : (action.startsWith('v211_') ? root.replaceFirst('index.php','v211.php') : root)}?action=$action"));
     req.headers['Accept']='application/json';
     if(token!=null)req.headers['Authorization']='Bearer $token';
     req.fields.addAll(fields);
