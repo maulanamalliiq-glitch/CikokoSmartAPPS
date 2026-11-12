@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
 import 'role_catalog.dart';
+import 'cikoko_home_sections.dart';
 
 /// Single design vocabulary based on the supplied Cikoko Smart V4 16-screen showcase.
 /// Keep server values and permissions as the source of truth: no demo reports or fake service data.
@@ -334,28 +335,32 @@ class V6Home extends StatelessWidget{
  final List<RoleFeature> modules;
  final CikokoApi api;
  final List<dynamic> items;
+ final List<Map<String,dynamic>> integratedServices;
  final Map<String,int>? letterCounts;
  final void Function(String) navigate;
  final void Function(String) letterStatus;
+ final ValueChanged<Map<String,dynamic>> integratedTap;
  final void Function(Map<String,dynamic>) articleTap;
  final Future<void> Function() reload;
  const V6Home({super.key,required this.role,required this.guest,
   required this.modules,required this.api,required this.items,
-  required this.letterCounts,required this.navigate,required this.letterStatus,
+  required this.integratedServices,required this.letterCounts,
+  required this.navigate,required this.letterStatus,required this.integratedTap,
   required this.articleTap,required this.reload});
  @override Widget build(BuildContext context){
-  final articles=items.where((row)=>row is Map && 
+  final articles=items.where((row)=>row is Map &&
      (row['type']=='berita'||row['type']=='pengumuman')).take(3).toList();
   return RefreshIndicator(onRefresh:reload,child:ListView(
    key:const Key('v6_home'),padding:const EdgeInsets.fromLTRB(14,12,14,30),
    children:[
     V6Hero(onServices:()=>navigate('Layanan Online'),
       onAbout:()=>navigate('Tentang Kami')),
-    const SizedBox(height:20),
-    V6ReportPanel(role:role,guest:guest,modules:modules,
-      letterCounts:letterCounts,navigate:navigate,letterStatus:letterStatus),
+    const SizedBox(height:13),
+    V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
     V6CitizenServices(navigate:navigate),
+    const SizedBox(height:22),
+    V6IntegratedServiceGrid(entries:integratedServices,onOpen:integratedTap),
     const SizedBox(height:21),
     V6Section(title:'Berita & Informasi Terbaru',action:'Lihat Semua',
       onAction:()=>navigate('Berita & Kegiatan')),
@@ -364,12 +369,13 @@ class V6Home extends StatelessWidget{
     for(final item in articles)V6ArticleCard(
       item:Map<String,dynamic>.from(item as Map),api:api,
       onTap:()=>articleTap(Map<String,dynamic>.from(item))),
+    const SizedBox(height:16),
+    V6InnovationPreview(api:api,onAll:()=>navigate('Inovasi')),
     const SizedBox(height:17),
     const V6Section(title:'Informasi & Kegiatan'),
     Wrap(spacing:7,runSpacing:7,children:[
       for(final item in const [
        ('Agenda',Icons.event_outlined,'Agenda'),
-       ('Inovasi',Icons.auto_awesome_outlined,'Inovasi'),
        ('Galeri',Icons.photo_library_outlined,'Galeri'),
        ('Profil Wilayah',Icons.place_outlined,'Profil Wilayah')
       ])ActionChip(label:Text(item.$1,style:const TextStyle(fontSize:10.5)),
