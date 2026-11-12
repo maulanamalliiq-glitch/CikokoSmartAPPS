@@ -5,6 +5,8 @@ on:
       - 'cpanel/mobile-api/notification_recipients.php'
       - 'cpanel/mobile-api/website_legacy_broadcast.php'
       - 'cpanel/mobile-api/cron_dispatch.php'
+      - 'cpanel/mobile-api/admin_push_center.php'
+      - 'cpanel/mobile-api/index.php'
       - 'cpanel/includes/cikoko-notifications.php'
       - 'cpanel/notifikasi-aplikasi.php'
       - 'cpanel/kelola-inovasi.php'
@@ -23,6 +25,8 @@ jobs:
           php -l cpanel/mobile-api/notification_recipients.php
           php -l cpanel/mobile-api/website_legacy_broadcast.php
           php -l cpanel/mobile-api/cron_dispatch.php
+          php -l cpanel/mobile-api/admin_push_center.php
+          php -l cpanel/mobile-api/index.php
           php -l cpanel/includes/cikoko-notifications.php
           php -l cpanel/notifikasi-aplikasi.php
           php -l cpanel/kelola-inovasi.php
