@@ -227,12 +227,20 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
-      // Layanan terpadu kini ditampilkan langsung di Beranda untuk warga dan pengunjung.
+      // Katalog aktif dan logo yang sama untuk pengunjung, warga, dan pegawai.
+      // Fallback endpoint lama dipakai hanya saat patch API publik belum dipasang.
       try{
-        final data=await api.call('integrated_services');
+        Map<String,dynamic> data;
+        try{
+          data=await api.call('integrated_services_public');
+        }catch(_){
+          if(api.token==null)rethrow;
+          data=await api.call('integrated_services');
+        }
         final all=List<dynamic>.from(data['items']??[]);
-        if(mounted)setState(()=>activeServices=all.map((e)=>Map<String,dynamic>.from(e as Map)).toList());
-      }catch(_){/* Katalog bawaan tetap tersedia saat koneksi terputus. */}
+        if(mounted)setState(()=>activeServices=all.map(
+          (e)=>Map<String,dynamic>.from(e as Map)).toList());
+      }catch(_){/* Tampilkan katalog bawaan saat server belum diperbarui. */}
       // This is public letter service-wide data, not the user's private history.
       try {
         final summary=await api.call('public_letter_status');
