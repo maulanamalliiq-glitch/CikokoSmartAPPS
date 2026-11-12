@@ -40,6 +40,20 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+// Public read-only appearance data for the existing Flutter app.
+// The image remains on the same cPanel website; never expose filesystem paths.
+if($action==='appearance_public'&&$method==='GET'){
+ $hero=ap('hero');
+ $path=ltrim(trim((string)($hero['file']??'')),'/');
+ $valid=(bool)preg_match('~^assets/images/[a-zA-Z0-9._-]+\\.(?:jpe?g|png|webp)$~iD',$path);
+ if(!$valid||str_contains($path,'..')||!is_file(dirname(__DIR__).'/'.$path))$path='';
+ mobile_json(['ok'=>true,'hero'=>[
+  'image_url'=>$path!==''?'https://datawebs.my.id/'.$path:'',
+  'fit'=>($hero['fit']??'cover')==='contain'?'contain':'cover',
+  'x'=>max(0,min(100,(int)($hero['x']??50))),
+  'y'=>max(0,min(100,(int)($hero['y']??50))),
+ ]]);
+}
 if(in_array($action,['home_slides','home_slide_photo','home_slide_upload','home_slides_save'],true)){
  require_once __DIR__.'/home_slides.php';
  cikoko_home_slides_dispatch($action,$method);
