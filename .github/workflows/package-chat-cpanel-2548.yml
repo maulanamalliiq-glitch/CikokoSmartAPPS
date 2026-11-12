@@ -1,0 +1,74 @@
+name: Validate and Package Cikoko Chat 2548
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cpanel/mobile-api/chat_v2548.php'
+      - '.github/workflows/package-chat-cpanel-2548.yml'
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: php -l cpanel/mobile-api/chat_v2548.php
+      - name: Check private photo access conditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "mobile_auth()" cpanel/mobile-api/chat_v2548.php
+          grep -q "mobile_file('photo',true)" cpanel/mobile-api/chat_v2548.php
+          grep -q "photo\\['owner_id'\\]" cpanel/mobile-api/chat_v2548.php
+          grep -q "chat_v2548_target" cpanel/mobile-api/chat_v2548.php
+          grep -q "mobile_chat_receipts" cpanel/mobile-api/release_core.php
+      - name: Create isolated cPanel patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package/mobile-api
+          cp cpanel/mobile-api/chat_v2548.php package/mobile-api/
+          cat > package/PANDUAN_CIKOKO_CHAT_2548.txt <<'DOC'
+          CIKOKO SMART - CHAT 2.5.48
+          1. Backup folder mobile-api dan database lewat cPanel.
+          2. Patch Mobile API 2.5.46 dan 2.5.47 tetap diperlukan.
+          3. Upload ZIP ini ke ROOT public_html (bukan dalam mobile-api).
+          4. Extract; hanya mobile-api/chat_v2548.php yang ditambahkan.
+          5. Jangan hapus index.php, database, gambar, atau akun yang sudah ada.
+          6. Instal APK 2.5.48 atau melalui Pengujian Internal Google Play.
+          7. Login akun warga dan akun petugas chat:reply di perangkat berbeda.
+          8. Kirim pesan, buka inbox petugas: tanda ✓ berubah ✓✓.
+          9. Buka detail percakapan petugas: tanda ✓✓ berubah hijau.
+          10. Kirim foto dari galeri dan kamera, uji di kedua akun.
+          11. Ketuk notifikasi chat: buka percakapan yang sesuai.
+          
+          PENTING:
+          - Hampir real-time memakai polling 2 detik saat chat terbuka,
+            bukan koneksi WebSocket.
+          - Lampiran hanya dilayani lewat API yang memverifikasi sesi dan
+            kepemilikan percakapan; berkas tersimpan di mobile-api/private.
+          - Server membutuhkan PHP dengan fileinfo, PDO dan fitur upload aktif.
+          - FCM ketika aplikasi ditutup membutuhkan Cron Jobs dan Firebase aktif.
+          - Notifikasi chat bisa masuk inbox walaupun FCM belum aktif.
+          DOC
+          (cd package && zip -q -r ../CikokoSmart_ChatRealtime_2548_CPanel.zip mobile-api PANDUAN_CIKOKO_CHAT_2548.txt)
+          unzip -l CikokoSmart_ChatRealtime_2548_CPanel.zip
+      - name: Publish cPanel chat patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="cikoko-server-chat-2548"
+          file="CikokoSmart_ChatRealtime_2548_CPanel.zip"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$file" --clobber
+          else
+            gh release create "$tag" "$file" --target "$GITHUB_SHA" \
+             --title "Cikoko Smart Chat Realtime 2.5.48 — Patch cPanel" \
+             --notes "Chat warga-petugas 2 s polling, tanda delivery/read, foto dari galeri/kamera dan notifikasi ke percakapan. Tanpa data warga, database atau kredensial."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, files: [.assets[].name]}'
