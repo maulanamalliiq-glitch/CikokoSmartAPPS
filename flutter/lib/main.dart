@@ -277,6 +277,26 @@ class _HomeState extends State<HomePage> {
   }
   // Read the header photo managed in the website admin, without changing app identity.
   Future<void> refreshWebsiteHeader()async{
+    // First use the original public slideshow API already used by the website.
+    // Works before additional appearance endpoints have been deployed.
+    try{
+      final data=await api.call('home_slides');
+      final list=data['slides'] as List<dynamic>? ?? [];
+      for(final entry in list){
+        if(entry is! Map)continue;
+        final filename=(entry['name']??'').toString();
+        if(!RegExp(r'^[a-f0-9]{40}\.(jpg|png|webp)$').hasMatch(filename))continue;
+        final url=Uri.https('datawebs.my.id','/mobile-api/index.php',
+          {'action':'home_slide_photo','name':filename}).toString();
+        if(mounted)setState((){
+          websiteHeroUrl=url;
+          websiteHeroFit=BoxFit.cover;
+          websiteHeroAlignment=Alignment.center;
+        });
+        return;
+      }
+    }catch(_){/* Older backend or temporary network outage. */}
+    // Fallback supports the website appearance slot when no slides exist.
     try{
       final result=await api.call('appearance_public');
       final hero=Map<String,dynamic>.from(result['hero'] as Map? ?? {});
