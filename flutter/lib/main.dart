@@ -207,8 +207,15 @@ class _HomeState extends State<HomePage> {
   bool get isAdmin=>capabilities['reports:view']==true;
   List<RoleFeature> get modules=>role=='guest'?[roleFeatures['services']!,roleFeatures['waris']!,roleFeatures['waris_requirements']!,roleFeatures['jumantik']!,roleFeatures['news']!,roleFeatures['announcements']!,roleFeatures['gallery']!]:modulesForRole(role,capabilities);
   @override void initState(){super.initState();load();if(api.token!=null){push=PushService(api);push!.start((){ refresh(); refreshPublishedContent(); },onLocalOpen:(id){
-      api.call('event_read',body:{'id':id}).then((_)=>refresh()).catchError((_){});
-      navigateChatEvent(id);
+      Map<String,dynamic>? entry;
+      for(final candidate in events){
+        if(candidate is Map && (candidate['id']??'').toString()==id.toString()){
+          entry=Map<String,dynamic>.from(candidate);
+          break;
+        }
+      }
+      if(entry!=null){openNotification(entry);}
+      else{refresh();switchTo('Notifikasi');}
     },onOpen:(message){
       WidgetsBinding.instance.addPostFrameCallback((_){
         if(!mounted)return;
