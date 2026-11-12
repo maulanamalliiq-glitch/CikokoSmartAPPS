@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
 import 'cikoko_v6_showcase.dart';
+import 'cikoko_kelurahan_profile.dart';
 import 'role_catalog.dart';
 
 class V6ServicesPage extends StatefulWidget{
@@ -341,41 +342,11 @@ class _V6GalleryState extends State<V6GalleryPage>{
 }
 
 class V6AboutPage extends StatelessWidget{
+ final CikokoApi api;
  final void Function(String) navigate;
- const V6AboutPage({super.key,required this.navigate});
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14),children:[
-   const V6PageHeader(title:'Tentang Kami',
-     description:'Profil dan informasi resmi Kelurahan Cikoko.',icon:Icons.info_outline),
-   ClipRRect(borderRadius:V6.radius(12),child:Image.asset(
-     'assets/kantor-cikoko.jpg',height:185,width:double.infinity,fit:BoxFit.cover)),
-   const SizedBox(height:13),
-   const V6Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text('Profil Kelurahan Cikoko',style:TextStyle(fontSize:15.5,color:V6.ink,fontWeight:FontWeight.w900)),
-    SizedBox(height:7),
-    Text('Kelurahan Cikoko merupakan kelurahan di Kecamatan Pancoran, Kota Administrasi Jakarta Selatan.',
-      style:TextStyle(fontSize:11.8,color:V6.secondary,height:1.5)),
-    SizedBox(height:11),
-    Row(children:[Icon(Icons.location_city_outlined,color:V6.blue,size:18),SizedBox(width:8),
-      Expanded(child:Text('Kecamatan Pancoran · Jakarta Selatan',
-         style:TextStyle(fontSize:11.7,fontWeight:FontWeight.w700,color:V6.ink)))]),
-   ])),
-   const SizedBox(height:16),
-   const V6Section(title:'Informasi Terkait'),
-   for(final e in const [
-    ('Profil Wilayah','Profil Wilayah',Icons.place_outlined),
-    ('Agenda Kegiatan','Agenda',Icons.event_outlined),
-    ('Berita & Informasi','Berita & Kegiatan',Icons.newspaper_outlined),
-    ('Inovasi Kelurahan','Inovasi',Icons.auto_awesome_outlined),
-    ('Galeri Kegiatan','Galeri',Icons.photo_library_outlined),
-    ('Profil Akun','Profil',Icons.person_outline),
-   ])Padding(padding:const EdgeInsets.only(bottom:8),child:V6Panel(
-    padding:EdgeInsets.zero,child:ListTile(
-     onTap:()=>navigate(e.$2),
-     leading:Icon(e.$3,color:V6.blue,size:22),
-     title:Text(e.$1,style:const TextStyle(fontSize:12.3,color:V6.ink,fontWeight:FontWeight.w800)),
-     trailing:const Icon(Icons.chevron_right_rounded,color:V6.secondary),
-   ))),
- ]);
+ const V6AboutPage({super.key,required this.api,required this.navigate});
+ @override Widget build(BuildContext context)=>CikokoKelurahanProfilePage(
+   api:api,title:'Tentang Kami',navigate:navigate);
 }
 
 class V6NotificationPage extends StatelessWidget{
@@ -486,40 +457,11 @@ class _V6OnboardingState extends State<V6Onboarding>{
 
 
 class V6RegionPage extends StatelessWidget{
+ final CikokoApi api;
  final void Function(String) navigate;
- const V6RegionPage({super.key,required this.navigate});
- @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(14),children:[
-  const V6PageHeader(title:'Profil Wilayah',description:'Mengenal Kelurahan Cikoko.',icon:Icons.place_outlined),
-  ClipRRect(borderRadius:V6.radius(13),child:Image.asset('assets/kantor-cikoko.jpg',
-    height:195,width:double.infinity,fit:BoxFit.cover)),
-  const SizedBox(height:12),
-  const V6Panel(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   Text('Profil Kelurahan Cikoko',style:TextStyle(color:V6.ink,fontSize:15.5,fontWeight:FontWeight.w900)),
-   SizedBox(height:8),
-   Text('Kelurahan Cikoko merupakan salah satu kelurahan di Kecamatan Pancoran, Kota Administrasi Jakarta Selatan.',
-    style:TextStyle(color:V6.secondary,fontSize:11.7,height:1.5)),
-   SizedBox(height:12),
-   Row(children:[
-    Icon(Icons.place_outlined,color:V6.blue,size:19),SizedBox(width:8),
-    Expanded(child:Text('Cikoko · Pancoran · Jakarta Selatan',
-      style:TextStyle(fontWeight:FontWeight.w800,color:V6.ink,fontSize:11.5))),
-   ]),
-  ])),
-  const SizedBox(height:15),
-  const V6Section(title:'Informasi Terkait'),
-  for(final e in const [
-   ('Layanan Online','Layanan Online',Icons.widgets_outlined),
-   ('Agenda Kegiatan','Agenda',Icons.event_outlined),
-   ('Galeri Kegiatan','Galeri',Icons.photo_library_outlined),
-   ('Inovasi Kelurahan','Inovasi',Icons.auto_awesome_outlined),
-  ])Padding(padding:const EdgeInsets.only(bottom:8),child:V6Panel(padding:EdgeInsets.zero,
-   child:ListTile(
-    leading:Icon(e.$3,color:V6.blue),
-    title:Text(e.$1,style:const TextStyle(color:V6.ink,fontWeight:FontWeight.w800,fontSize:12)),
-    trailing:const Icon(Icons.chevron_right_rounded,color:V6.secondary),
-    onTap:()=>navigate(e.$2),
-   ))),
- ]);
+ const V6RegionPage({super.key,required this.api,required this.navigate});
+ @override Widget build(BuildContext context)=>CikokoKelurahanProfilePage(
+   api:api,title:'Profil Wilayah',navigate:navigate);
 }
 
 class V6ReportsHub extends StatelessWidget{
