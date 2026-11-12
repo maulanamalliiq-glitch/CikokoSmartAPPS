@@ -105,7 +105,7 @@ class _EntryState extends State<Entry>{
 }
 class Logo extends StatelessWidget{final double size;const Logo({super.key,this.size=58});@override Widget build(BuildContext c)=>ClipOval(child:Image.asset('assets/logo.png',width:size,height:size,fit:BoxFit.cover));}
 class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPage({super.key,required this.onLogin});@override State<LoginPage> createState()=>_LoginState();}
-class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
+class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;bool hideLoginPassword=true,hideSignupPassword=true,hideConfirmPassword=true;final fields=<String,TextEditingController>{};
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
  Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
@@ -145,21 +145,42 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
         'phone':'Nomor Telepon','email':'Email',
        }.entries)Padding(padding:const EdgeInsets.only(bottom:12),
         child:TextField(controller:ctrl(e.key),
-         obscureText:e.key=='password'||e.key=='confirm',
+         obscureText:e.key=='password'?hideSignupPassword:
+           e.key=='confirm'?hideConfirmPassword:false,
          keyboardType:e.key=='email'?TextInputType.emailAddress:
            (e.key=='phone'||e.key=='rt'||e.key=='rw')?TextInputType.number:TextInputType.text,
-         decoration:InputDecoration(labelText:e.value))),
+         decoration:InputDecoration(labelText:e.value,
+           suffixIcon:e.key=='password'||e.key=='confirm'
+            ?IconButton(
+              key:Key('toggle_${e.key}_visibility'),
+              tooltip:(e.key=='password'?hideSignupPassword:hideConfirmPassword)
+                ?'Lihat kata sandi':'Sembunyikan kata sandi',
+              icon:Icon((e.key=='password'?hideSignupPassword:hideConfirmPassword)
+                ?Icons.visibility_outlined:Icons.visibility_off_outlined),
+              onPressed:()=>setState((){
+                if(e.key=='password')hideSignupPassword=!hideSignupPassword;
+                else hideConfirmPassword=!hideConfirmPassword;
+              }),
+            ):null))),
       ] else ...[
        TextField(controller:user,textInputAction:TextInputAction.next,
         decoration:const InputDecoration(
          prefixIcon:Icon(Icons.person_outline,color:V6.secondary),
          labelText:'Username / NIK / Email')),
        const SizedBox(height:13),
-       TextField(controller:pass,obscureText:true,
+       TextField(controller:pass,obscureText:hideLoginPassword,
+        key:const Key('login_password_field'),
         onSubmitted:(_){if(!busy)submit();},
-        decoration:const InputDecoration(
-         prefixIcon:Icon(Icons.lock_outline,color:V6.secondary),
-         labelText:'Kata Sandi')),
+        decoration:InputDecoration(
+         prefixIcon:const Icon(Icons.lock_outline,color:V6.secondary),
+         labelText:'Kata Sandi',
+         suffixIcon:IconButton(
+           key:const Key('toggle_login_password_visibility'),
+           tooltip:hideLoginPassword?'Lihat kata sandi':'Sembunyikan kata sandi',
+           icon:Icon(hideLoginPassword
+             ?Icons.visibility_outlined:Icons.visibility_off_outlined),
+           onPressed:()=>setState(()=>hideLoginPassword=!hideLoginPassword),
+         ))),
       ],
       const SizedBox(height:20),
       SizedBox(height:46,child:FilledButton(
