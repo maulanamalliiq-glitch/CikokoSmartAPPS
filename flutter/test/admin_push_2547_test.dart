@@ -42,7 +42,7 @@ void main(){
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:CikokoAdminPushPage(api:api))));
   await tester.pumpAndSettle();
   expect(find.text('Push Notifikasi'),findsOneWidget);
-  expect(find.text('fcm_key_missing',findRichText:true),findsWidgets);
+  expect(find.textContaining('fcm_key_missing'),findsWidgets);
   expect(find.text('Kirim Notifikasi'),findsOneWidget);
   expect(find.textContaining('Berhasil menyimpan bukan berarti push',findRichText:true),findsOneWidget);
  });
