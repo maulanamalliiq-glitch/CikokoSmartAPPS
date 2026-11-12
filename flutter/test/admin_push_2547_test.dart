@@ -34,7 +34,7 @@ void main(){
  });
  testWidgets('Warga cannot see admin push menu',(tester)async{
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:
-   CikokoAdminContentHub(role:'warga',openInApp:(_){ }))));
+   CikokoAdminContentHub(api:_FakeAdminApi(),role:'warga',openInApp:(_){ }))));
   expect(find.byKey(const Key('admin_push_menu')),findsNothing);
  });
  testWidgets('Push screen distinguishes stored inbox from delivered FCM',(tester)async{
