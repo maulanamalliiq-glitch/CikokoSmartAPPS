@@ -14,9 +14,14 @@ $myId=(string)$user['user_id'];
 $staff=mobile_can($user,'chat:reply');
 $owner=$myId;
 if($staff){
- $owner=mobile_text(($method==='POST'?($_POST['user_id']??''):($_GET['user_id']??'')),80);
- if($action==='chat_v2548_send')$owner=mobile_text(mobile_body()['user_id']??'',80);
- if($owner==='')mobile_error('Pilih percakapan warga terlebih dahulu.',422);
+ // Target and photo-read endpoints are resolved by event/photo ID, not a supplied thread ID.
+ if(in_array($action,['chat_v2548_target','chat_v2548_photo'],true)){
+  $owner=$myId;
+ }else{
+  $owner=mobile_text(($method==='POST'?($_POST['user_id']??''):($_GET['user_id']??'')),80);
+  if($action==='chat_v2548_send')$owner=mobile_text(mobile_body()['user_id']??'',80);
+  if($owner==='')mobile_error('Pilih percakapan warga terlebih dahulu.',422);
+ }
 }
 if(!$staff&&$owner!==$myId)mobile_error('Tidak diizinkan membaca percakapan lain.',403);
 if(!preg_match('/^[A-Za-z0-9_-]{2,80}$/D',$owner))mobile_error('Akun percakapan tidak valid',422);
