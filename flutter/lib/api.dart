@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'photo_upload.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -82,7 +83,22 @@ class CikokoApi {
     await _storage.write(key:'cikoko_token',value:token);
   }
   Future<void> register(Map<String,dynamic> fields) async { await call('register',body:fields); }
-  Future<void> logout() async {if(token!=null){try{await call('logout',body:{});}catch(_){}}token=null;profile=null;await _storage.delete(key:'cikoko_token');}
+  Future<void> logout() async {
+    if(token!=null){
+      // Detach this physical device before destroying this account session.
+      // Avoid delivering a former user's private chat push to the next user.
+      try{
+        final fcm=await FirebaseMessaging.instance.getToken()
+            .timeout(const Duration(seconds:4));
+        if(fcm!=null&&fcm.length>=40){
+          await call('device_unregister',body:{'fcm_token':fcm})
+            .timeout(const Duration(seconds:6));
+        }
+      }catch(_){}
+      try{await call('logout',body:{});}catch(_){}
+    }
+    token=null;profile=null;await _storage.delete(key:'cikoko_token');
+  }
   String media(String? path) {
     final p=path??'';
     if(p.isEmpty)return '';
