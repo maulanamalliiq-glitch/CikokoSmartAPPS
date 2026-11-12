@@ -63,6 +63,17 @@ class CikokoAdminContentHub extends StatelessWidget {
       style:TextStyle(fontSize:10.8,color:V6.secondary,height:1.4))),
     ])),
     const SizedBox(height:15),
+    V6Panel(padding:EdgeInsets.zero,child:ListTile(
+      key:const Key('admin_push_menu'),
+      onTap:()=>openInApp('Push Notifikasi'),
+      leading:const Icon(Icons.notifications_active_outlined,color:V6.blue),
+      title:const Text('Push Notifikasi',style:TextStyle(
+        fontWeight:FontWeight.w900,fontSize:13,color:V6.ink)),
+      subtitle:const Text('Kirim dari aplikasi dan periksa token perangkat, Cron, serta Firebase.',
+        style:TextStyle(color:V6.secondary,fontSize:10.5)),
+      trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue),
+    )),
+    const SizedBox(height:15),
     for(final group in groups)...[
      Padding(padding:const EdgeInsets.symmetric(vertical:7),
       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
