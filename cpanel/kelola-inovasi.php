@@ -48,7 +48,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
      'title'=>substr($title,0,160),'summary'=>substr($summary,0,500),
      'body'=>substr($body,0,8000),'images'=>$images,'image'=>$images[0]??''
     ]);
-    $message=db_write('cikoko_innovations',$items)?'Inovasi dan foto berhasil disimpan.':'Penyimpanan gagal.';
+    $saved=db_write('cikoko_innovations',$items);
+    $message=$saved?'Inovasi dan foto berhasil disimpan.':'Penyimpanan gagal.';
+    if($saved){
+      try{
+        require_once __DIR__.'/mobile-api/bootstrap.php';
+        mobile_emit('inovasi','Inovasi Kelurahan Diperbarui',
+          (string)$items[$index]['title'],'public');
+      }catch(Throwable $e){
+        error_log('Cikoko innovation notification: '.$e->getMessage());
+      }
+    }
    }
    if($message!=='Inovasi dan foto berhasil disimpan.')foreach($added as $file)@unlink(__DIR__.'/'.$file);
   }
