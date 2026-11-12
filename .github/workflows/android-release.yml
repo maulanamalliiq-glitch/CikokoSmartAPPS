@@ -70,6 +70,13 @@ jobs:
           test -s build/app/outputs/flutter-apk/app-debug.apk
           mkdir -p "$GITHUB_WORKSPACE/cikoko-downloads"
           cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-TEST.apk"
+      - name: Save test APK as GitHub Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2548-TEST-APK
+          path: cikoko-downloads/Cikoko-v2548-TEST.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Publish test APK immediately to GitHub Release
         shell: bash
         env:
@@ -81,11 +88,15 @@ jobs:
           apk="cikoko-downloads/Cikoko-v2548-TEST.apk"
           test -s "$apk"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "$apk" --clobber
+            if ! gh release upload "$tag" "$apk" --clobber; then
+              echo "::warning::GitHub Release upload blocked; test APK remains downloadable as Actions artifact."
+            fi
           else
-            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes "APK TEST v2548 sudah tersedia. APK bertanda tangan Play Store dan AAB akan ditambahkan jika pemeriksaan build release berhasil. Gunakan APK TEST hanya untuk pengujian, bukan pembaruan langsung Play Store."
+            if ! gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes "APK TEST v2548 sudah tersedia. APK release dan AAB tersedia dari GitHub Actions artifacts jika Release tidak diizinkan."; then
+              echo "::warning::GitHub Release creation blocked; continue to signed Play build."
+            fi
           fi
-          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}'
+          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}' || true
       - name: Clear debug build outputs before release AAB
         working-directory: flutter
         shell: bash
@@ -163,7 +174,8 @@ jobs:
           # signing stage fails; this does not use the full Actions artifact quota.
           cp "$aab" "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab"
           gh release upload "v2.5.48-build2548" \
-            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab" --clobber
+            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab" --clobber || \
+            echo "::warning::Release AAB upload blocked; signed AAB remains in output for Actions artifact."
           # Signed AAB is safely published. Recover space before APK build.
           echo "Disk before AAB output cleanup:"
           df -h /
@@ -209,7 +221,17 @@ jobs:
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
           cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-UNSIGNED-NOT-FOR-PLAY.aab"
-      - name: Publish APK and AAB directly to GitHub Release (no Artifacts quota)
+      - name: Save signed AAB and APK as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2548-PLAY-SIGNED-AAB-APK
+          path: |
+            cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab
+            cikoko-downloads/Cikoko-v2548-RELEASE-arm64.apk
+            cikoko-downloads/Cikoko-v2548-UNSIGNED-NOT-FOR-PLAY.aab
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Publish APK and AAB directly to GitHub Release (optional)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -230,12 +252,12 @@ jobs:
           Rilis aplikasi ini tidak otomatis memperbarui backend cPanel. Pasang patch cPanel secara terpisah.
           NOTES
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "${files[@]}" --clobber
-            gh release edit "$tag" --notes-file /tmp/cikoko-release-notes.md
+            gh release upload "$tag" "${files[@]}" --clobber || echo "::warning::Release upload forbidden; Actions artifacts are available."
+            gh release edit "$tag" --notes-file /tmp/cikoko-release-notes.md || true
           else
-            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes-file /tmp/cikoko-release-notes.md
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes-file /tmp/cikoko-release-notes.md || echo "::warning::Release creation forbidden; Actions artifacts are available."
           fi
-          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}'
+          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}' || true
       - name: Remove private keystore from build environment
         if: always()
         run: rm -f flutter/android/cikoko_upload.jks
