@@ -1,4 +1,4 @@
-name: Build Android v2548 (GitHub Release Downloads)
+name: Build Android v2549 (GitHub Release Downloads)
 on:
   workflow_dispatch:
   push:
@@ -7,10 +7,10 @@ on:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
 
-# Keep only the latest v2548 build running to prevent older commits
+# Keep only the latest v2549 build running to prevent older commits
 # from replacing the downloadable APK in the same GitHub Release.
 concurrency:
-  group: cikoko-android-2548-${{ github.ref }}
+  group: cikoko-android-2549-${{ github.ref }}
   cancel-in-progress: true
 
 # Release uploads are separate from GitHub Actions artifact quota.
@@ -69,12 +69,12 @@ jobs:
           flutter build apk --debug
           test -s build/app/outputs/flutter-apk/app-debug.apk
           mkdir -p "$GITHUB_WORKSPACE/cikoko-downloads"
-          cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-TEST.apk"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2549-TEST.apk"
       - name: Save test APK as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2548-TEST-APK
-          path: cikoko-downloads/Cikoko-v2548-TEST.apk
+          name: Cikoko-v2549-TEST-APK
+          path: cikoko-downloads/Cikoko-v2549-TEST.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish test APK immediately to GitHub Release
@@ -84,15 +84,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag="v2.5.48-build2548"
-          apk="cikoko-downloads/Cikoko-v2548-TEST.apk"
+          tag="v2.5.49-build2549"
+          apk="cikoko-downloads/Cikoko-v2549-TEST.apk"
           test -s "$apk"
           if gh release view "$tag" >/dev/null 2>&1; then
             if ! gh release upload "$tag" "$apk" --clobber; then
               echo "::warning::GitHub Release upload blocked; test APK remains downloadable as Actions artifact."
             fi
           else
-            if ! gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes "APK TEST v2548 sudah tersedia. APK release dan AAB tersedia dari GitHub Actions artifacts jika Release tidak diizinkan."; then
+            if ! gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.49 (2549) APK + AAB" --notes "APK TEST v2549 sudah tersedia. APK release dan AAB tersedia dari GitHub Actions artifacts jika Release tidak diizinkan."; then
               echo "::warning::GitHub Release creation blocked; continue to signed Play build."
             fi
           fi
@@ -172,9 +172,9 @@ jobs:
           fi
           # A verified AAB is safe to publish even if the separate APK
           # signing stage fails; this does not use the full Actions artifact quota.
-          cp "$aab" "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab"
-          gh release upload "v2.5.48-build2548" \
-            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab" --clobber || \
+          cp "$aab" "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2549-PLAY-SIGNED.aab"
+          gh release upload "v2.5.49-build2549" \
+            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2549-PLAY-SIGNED.aab" --clobber || \
             echo "::warning::Release AAB upload blocked; signed AAB remains in output for Actions artifact."
           # Signed AAB is safely published. Recover space before APK build.
           echo "Disk before AAB output cleanup:"
@@ -187,7 +187,7 @@ jobs:
           apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
           test -s "$apk"
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
-          signed_apk="$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-RELEASE-arm64.apk"
+          signed_apk="$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2549-RELEASE-arm64.apk"
           # Explicitly sign the APK with the same verified upload key instead of
           # trusting the APK produced by Flutter/Gradle to use that key.
           # Passwords are read from protected environment variables, not argv.
@@ -220,15 +220,15 @@ jobs:
         run: |
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2548-UNSIGNED-NOT-FOR-PLAY.aab"
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2549-UNSIGNED-NOT-FOR-PLAY.aab"
       - name: Save signed AAB and APK as Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2548-PLAY-SIGNED-AAB-APK
+          name: Cikoko-v2549-PLAY-SIGNED-AAB-APK
           path: |
-            cikoko-downloads/Cikoko-v2548-PLAY-SIGNED.aab
-            cikoko-downloads/Cikoko-v2548-RELEASE-arm64.apk
-            cikoko-downloads/Cikoko-v2548-UNSIGNED-NOT-FOR-PLAY.aab
+            cikoko-downloads/Cikoko-v2549-PLAY-SIGNED.aab
+            cikoko-downloads/Cikoko-v2549-RELEASE-arm64.apk
+            cikoko-downloads/Cikoko-v2549-UNSIGNED-NOT-FOR-PLAY.aab
           if-no-files-found: warn
           retention-days: 14
       - name: Publish APK and AAB directly to GitHub Release (optional)
@@ -238,11 +238,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag="v2.5.48-build2548"
+          tag="v2.5.49-build2549"
           files=(cikoko-downloads/*)
-          test -s "cikoko-downloads/Cikoko-v2548-TEST.apk"
+          test -s "cikoko-downloads/Cikoko-v2549-TEST.apk"
           cat > /tmp/cikoko-release-notes.md <<'NOTES'
-          Cikoko SmartApp v2.5.48 (versionCode 2548)
+          Cikoko SmartApp v2.5.49 (versionCode 2549)
 
           - APK TEST: untuk pengujian manual di Android. Ini debug APK, bukan pembaruan langsung dari Play Store.
           - PLAY-SIGNED.aab: hanya tersedia jika signing upload Play Store berhasil diverifikasi.
@@ -255,7 +255,7 @@ jobs:
             gh release upload "$tag" "${files[@]}" --clobber || echo "::warning::Release upload forbidden; Actions artifacts are available."
             gh release edit "$tag" --notes-file /tmp/cikoko-release-notes.md || true
           else
-            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.48 (2548) APK + AAB" --notes-file /tmp/cikoko-release-notes.md || echo "::warning::Release creation forbidden; Actions artifacts are available."
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.49 (2549) APK + AAB" --notes-file /tmp/cikoko-release-notes.md || echo "::warning::Release creation forbidden; Actions artifacts are available."
           fi
           gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}' || true
       - name: Remove private keystore from build environment
