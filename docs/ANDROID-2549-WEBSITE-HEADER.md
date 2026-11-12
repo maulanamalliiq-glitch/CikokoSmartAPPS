@@ -43,3 +43,23 @@ Jika `image_url` kosong, periksa apakah foto diunggah melalui menu Website Admin
 - Jangan merge/unggah Play Store secara otomatis sebelum User Acceptance Testing.
 
 Perubahan pada repo lain `cikokosmarthome-ctrl/SmartCikoko` adalah aplikasi berbeda dan **tidak boleh dijadikan update** aplikasi ini.
+
+## Perbaikan Admin Native (tambahan v2549)
+
+- Login **mata buka/tutup** berlaku untuk kata sandi login, kata sandi registrasi, dan konfirmasi registrasi.
+- Tombol **Kelola Semua Halaman** tidak lagi membuka `https://datawebs.my.id/admin/...`. Setiap tile menggunakan halaman edit Flutter yang berbeda, bukan WebView.
+- **Ganti Foto Header** memakai langsung `home_slides` (GET), `home_slide_upload` (POST foto) dan `home_slides_save` (POST JSON). API yang sama menjadi sumber slideshow pada `cpanel/index.php` dan gambar hero pada `flutter/lib/main.dart`. Android mengambil **foto pertama** dari daftar, sementara website menampilkan maksimal lima foto dalam slideshow. Bisa pakai kamera/galeri, urutan dan hapus dari daftar. Aksi penghapusan daftar tidak menghapus file asli secara fisik.
+- Berita, pengumuman, galeri kegiatan dan daftar konten layanan menggunakan JSON website yang sama melalui `cms_content_list`, `cms_content_save`, `cms_content_delete` dan `cms_media_upload`. Perubahan tampil setelah API publik `content` di-refresh.
+- Pengaturan tampilan (logo/slot foto/posisi/fit) menggunakan JSON website `appearance` melalui `cms_appearance_list` dan `cms_appearance_save`.
+- Inovasi menggunakan API lama `v211_innovations` / `v211_innovations_update`.
+- Editor judul/isi **CMS Halaman, PPID, agenda, pimpinan, wilayah, kontak dan laporan publik** saat ini menyimpan ke `cikoko_pages_cms` melalui `cms_page_list` / `cms_page_save`. **Penyimpanan belum membuktikan bahwa template setiap halaman website live membaca nilai tersebut**; integrasi dengan template `page.php`/CMS spesifik perlu divalidasi pada cPanel sebelum klaim sinkronisasi semua halaman.
+- Penulisan CMS hanya untuk **Admin Utama** yang berhasil login dengan token Bearer; server memverifikasi role kembali pada setiap request.
+
+## Persyaratan Deployment CMS
+
+- Endpoint `home_slides` sudah terdapat pada source sebelumnya; sinkronisasi header Android dapat memakai endpoint itu tanpa menunggu `appearance_public`.
+- Editor native untuk CRUD konten dan tampilan **perlu deploy** `cpanel/mobile-api/app_cms.php` dan penambahan routing pada `cpanel/mobile-api/index.php`. Menyalin APK saja tidak akan memasang perubahan PHP di hosting. Backup dan **merge** dengan mobile-api terbaru di cPanel, jangan menimpa patch live.
+- Uji login Admin Utama → **Kelola Semua Halaman → Ganti Foto Header** → Galeri/Kamera → Simpan → reload website dan tarik-untuk-refresh halaman Beranda Android.
+- Uji hak akses akun bukan admin, unggah foto JPG/PNG/WebP maksimum 4 MB, berita, pengumuman, galeri, layanan, perubahan logo website, dan kesalahan jaringan.
+- UAT signed build ada pada workflow `.github/workflows/android-uat-2549.yml` dan tag prerelease `v2.5.49-uat2549` setelah berhasil. GitHub Secrets signing asli tetap digunakan; keystore tidak dimasukkan ke source.
+- **Jangan menghapus aplikasi Play Store yang sudah terpasang.** APK yang ditandatangani upload key mungkin berbeda dari app signing key Google Play; untuk pengguna Play Store gunakan jalur update melalui Play Internal Testing.
