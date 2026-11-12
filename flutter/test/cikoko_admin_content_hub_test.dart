@@ -37,8 +37,9 @@ void main(){
      body:CikokoAdminContentHub(api:_FakeCmsApi(),
        role:'admin',openInApp:(_){ }))));
    await tester.ensureVisible(find.byKey(const Key('cms_beranda-aplikasi')));
+   await tester.pumpAndSettle();
    await tester.tap(find.byKey(const Key('cms_beranda-aplikasi')));
-   await tester.pump();
+   await tester.pumpAndSettle();
    expect(find.byType(CikokoHomeSlidesEditor),findsOneWidget);
    expect(find.text('Ganti Foto Header'),findsWidgets);
  });
