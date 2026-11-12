@@ -65,6 +65,15 @@ if($action==='appearance_public'&&$method==='GET'){
   'y'=>$slides?50:max(0,min(100,(int)($hero['y']??50))),
  ],'slides'=>$slides]);
 }
+// Native administration uses the same content and appearance JSON stores as website.
+if(in_array($action,[
+ 'cms_content_list','cms_content_save','cms_content_delete',
+ 'cms_media_upload','cms_appearance_list','cms_appearance_save',
+ 'cms_page_list','cms_page_save',
+],true)){
+ require_once __DIR__.'/app_cms.php';
+ cikoko_mobile_cms_route($action,$method);
+}
 if(in_array($action,['home_slides','home_slide_photo','home_slide_upload','home_slides_save'],true)){
  require_once __DIR__.'/home_slides.php';
  cikoko_home_slides_dispatch($action,$method);
