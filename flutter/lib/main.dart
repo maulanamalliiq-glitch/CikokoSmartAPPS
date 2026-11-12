@@ -198,7 +198,7 @@ class _HomeState extends State<HomePage> {
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
-  bool loading=true,permissionsOk=false;
+  bool loading=true,permissionsOk=false,_refreshingEvents=false;
   Timer? timer;
   PushService? push;
   String get role => api.token==null?'guest':'${api.profile?['role']??'warga'}';
@@ -230,8 +230,15 @@ class _HomeState extends State<HomePage> {
     });timer=Timer.periodic(const Duration(seconds:15),(_)=>refresh());}}
   @override void dispose(){timer?.cancel();push?.dispose();super.dispose();}
   Future<void> refresh() async {
+    if(api.token==null||_refreshingEvents)return;
+    _refreshingEvents=true;
     try {
-      if(api.token==null)return;
+      // Delivery acknowledgement is not a read receipt. A visible app inbox
+      // acknowledges that the receiving device fetched the relevant chat.
+      try{
+        if(role=='warga')await api.call('chat_inbox');
+        else if(capabilities['chat:reply']==true)await api.call('chat_threads');
+      }catch(_){}
       final v=await api.call('events');
       final incoming=List<dynamic>.from(v['events']??[]);
       final oldIds=events.map((e)=>'${e['id']??''}').toSet();
@@ -241,7 +248,8 @@ class _HomeState extends State<HomePage> {
       await push?.onEvents(incoming);
       if(mounted)setState(()=>events=incoming);
       if(updatedPublications)await refreshPublishedContent();
-    }catch(_) {}
+    }catch(_){}
+    finally{_refreshingEvents=false;}
   }
   // Update website-published data without requiring a new APK or a manual restart.
   Future<void> refreshPublishedContent()async{
