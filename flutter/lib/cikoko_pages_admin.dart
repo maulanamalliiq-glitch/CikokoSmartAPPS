@@ -153,7 +153,7 @@ class _CikokoInnovationsAdminState extends State<CikokoInnovationsAdmin>{
   if(mounted)setState((){loading=true;error=null;});
   try{
    final r=await widget.api.call('v211_innovations');
-   if(mounted)setState(()=>items=(r['items'] as List<dynamic>???[])
+   if(mounted)setState(()=>items=(r['items'] as List<dynamic>? ?? [])
      .whereType<Map>().map((v)=>Map<String,dynamic>.from(v)).toList());
   }catch(e){if(mounted)setState(()=>
    error='Inovasi tidak dapat dimuat: '+e.toString());}
