@@ -93,6 +93,10 @@ if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
+if(in_array($action,['admin_push_diagnostics','admin_push_accounts','admin_push_send'],true)){
+ require_once __DIR__.'/admin_push_center.php';
+ cikoko_admin_push_route($action,$method,$db,$u);
+}
 require_once __DIR__.'/chat_storage_2544.php';
 require_once __DIR__.'/chat_offline_bot_2545.php';
 if($action==='chat_presence'&&$method==='POST'){
