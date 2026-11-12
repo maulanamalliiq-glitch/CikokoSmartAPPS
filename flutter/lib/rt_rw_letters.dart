@@ -250,8 +250,26 @@ class _RtRwLettersState extends State<RtRwLettersPage> {
             return const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
           }
           if (result.hasError) {
-            return TextButton.icon(onPressed: () => setState(refresh),
-              icon: const Icon(Icons.refresh), label: Text('Gagal memuat: ${result.error}. Coba lagi'));
+            return Card(child:Padding(
+              padding:const EdgeInsets.all(13),
+              child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                const Row(children:[
+                  Icon(Icons.warning_amber_rounded,color:Colors.orange,size:20),
+                  SizedBox(width:8),
+                  Expanded(child:Text('Riwayat surat belum dapat dimuat',
+                    style:TextStyle(fontSize:12.8,fontWeight:FontWeight.w800))),
+                ]),
+                const SizedBox(height:7),
+                const Text('Ada kendala saat mengambil daftar dari server RT/RW. '
+                  'Silakan muat ulang. Jika tetap gagal, petugas perlu memeriksa API dan struktur tabel surat.',
+                  style:TextStyle(fontSize:11.4,height:1.4)),
+                const SizedBox(height:9),
+                OutlinedButton.icon(
+                  onPressed:()=>setState(refresh),
+                  icon:const Icon(Icons.refresh,size:18),
+                  label:const Text('Coba Lagi')),
+              ]),
+            ));
           }
           final rows = List<Map<String, dynamic>>.from(
             (result.data?['items'] as List<dynamic>? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
