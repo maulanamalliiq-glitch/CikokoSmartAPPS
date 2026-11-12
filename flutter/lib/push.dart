@@ -25,7 +25,8 @@ class PushService {
   final Set<String> _seenEventIds={};
   bool _seeded=false;
   bool _initialized=false;
-  Future<void> start(void Function() onRefresh,{void Function(RemoteMessage)? onOpen}) async {
+  Future<void> start(void Function() onRefresh,{void Function(RemoteMessage)? onOpen,
+    void Function(int eventId)? onLocalOpen}) async {
     // Notifications while the app is open work even when FCM configuration
     // is temporarily unavailable. Android notification channels are immutable,
     // hence a new channel ID for a user-visible default sound.
@@ -34,7 +35,12 @@ class PushService {
         description:'Berita, surat, laporan dan chat Cikoko',importance:Importance.high,
         playSound:true,enableVibration:true);
       await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
-      await local.initialize(const InitializationSettings(android:AndroidInitializationSettings('@drawable/ic_launcher')));
+      await local.initialize(
+        const InitializationSettings(android:AndroidInitializationSettings('@drawable/ic_launcher')),
+        onDidReceiveNotificationResponse:(response){
+          final id=int.tryParse(response.payload??'')??0;
+          if(id>0)onLocalOpen?.call(id);
+        });
       await local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
       _initialized=true;
     }catch(_){ /* In-app event inbox remains available. */ }
@@ -53,7 +59,8 @@ class PushService {
           await local.show(m.hashCode,n.title,n.body,
             const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates_v2',
               'Aktivitas dan Pelayanan Cikoko',importance:Importance.max,priority:Priority.high,
-              playSound:true,enableVibration:true)));
+              playSound:true,enableVibration:true)),
+              payload:(m.data['event_id']??'').toString());
         }
         onRefresh();
       });
@@ -75,7 +82,8 @@ class PushService {
     for(final e in newer){
       try{await local.show(int.tryParse('${e['id']}')??DateTime.now().millisecondsSinceEpoch%1000000,
         '${e['title']??'Aktivitas Cikoko'}','${e['message']??''}',
-        const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates_v2','Kegiatan dan Pelayanan',importance:Importance.max,priority:Priority.high,playSound:true,enableVibration:true)));
+        const NotificationDetails(android:AndroidNotificationDetails('cikoko_updates_v2','Kegiatan dan Pelayanan',importance:Importance.max,priority:Priority.high,playSound:true,enableVibration:true)),
+        payload:(e['id']??'').toString());
       }catch(_){ }
     }
   }
