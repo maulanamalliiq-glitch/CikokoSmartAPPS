@@ -145,7 +145,12 @@ class V6BottomNavigation extends StatelessWidget {
 
 class V6Hero extends StatelessWidget{
  final VoidCallback onServices,onAbout;
- const V6Hero({super.key,required this.onServices,required this.onAbout});
+ final String? photoUrl;
+ final BoxFit photoFit;
+ final Alignment photoAlignment;
+ const V6Hero({super.key,required this.onServices,required this.onAbout,
+   this.photoUrl,this.photoFit=BoxFit.cover,
+   this.photoAlignment=Alignment.center});
  @override Widget build(BuildContext context)=>Container(
   height:178,clipBehavior:Clip.antiAlias,
   decoration:BoxDecoration(borderRadius:V6.radius(15),border:Border.all(color:const Color(0xFFCFE4FA)),
@@ -154,8 +159,13 @@ class V6Hero extends StatelessWidget{
    const Positioned(left:0,right:0,bottom:0,child:V6Skyline(height:53)),
    Positioned(right:0,top:0,bottom:0,width:159,child:ClipRRect(
      borderRadius:const BorderRadius.only(topRight:Radius.circular(14),bottomRight:Radius.circular(14)),
-     child:Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover,
-       alignment:Alignment.center))),
+     child:photoUrl!=null&&photoUrl!.isNotEmpty
+       ?Image.network(photoUrl!,key:const Key('cikoko_live_website_header'),
+          fit:photoFit,alignment:photoAlignment,
+          errorBuilder:(_,__,___)=>Image.asset('assets/kantor-cikoko.jpg',
+            fit:BoxFit.cover,alignment:Alignment.center))
+       :Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover,
+          alignment:Alignment.center))),
    const Positioned(right:137,top:0,bottom:0,width:60,child:DecoratedBox(
      decoration:BoxDecoration(gradient:LinearGradient(colors:[
        Color(0xFFE5F3FF),Color(0xE2E5F3FF),Color(0x00E5F3FF)])))),
@@ -342,11 +352,16 @@ class V6Home extends StatelessWidget{
  final ValueChanged<Map<String,dynamic>> integratedTap;
  final void Function(Map<String,dynamic>) articleTap;
  final Future<void> Function() reload;
+ final String? websiteHeroUrl;
+ final BoxFit websiteHeroFit;
+ final Alignment websiteHeroAlignment;
  const V6Home({super.key,required this.role,required this.guest,
   required this.modules,required this.api,required this.items,
   required this.integratedServices,required this.letterCounts,
   required this.navigate,required this.letterStatus,required this.integratedTap,
-  required this.articleTap,required this.reload});
+  required this.articleTap,required this.reload,
+  this.websiteHeroUrl,this.websiteHeroFit=BoxFit.cover,
+  this.websiteHeroAlignment=Alignment.center});
  @override Widget build(BuildContext context){
   final articles=items.where((row)=>row is Map &&
      (row['type']=='berita'||row['type']=='pengumuman')).take(3).toList();
@@ -354,7 +369,9 @@ class V6Home extends StatelessWidget{
    key:const Key('v6_home'),padding:const EdgeInsets.fromLTRB(14,12,14,30),
    children:[
     V6Hero(onServices:()=>navigate('Layanan Online'),
-      onAbout:()=>navigate('Tentang Kami')),
+      onAbout:()=>navigate('Tentang Kami'),
+      photoUrl:websiteHeroUrl,photoFit:websiteHeroFit,
+      photoAlignment:websiteHeroAlignment),
     const SizedBox(height:13),
     V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
