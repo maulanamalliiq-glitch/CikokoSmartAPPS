@@ -40,19 +40,30 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
-// Public read-only appearance data for the existing Flutter app.
-// The image remains on the same cPanel website; never expose filesystem paths.
+// Public website header image is sourced from the SAME five-photo slideshow
+// that the live website's index.php renders. The appearance.hero slot is a
+// backward-compatible fallback when no published slideshow exists.
 if($action==='appearance_public'&&$method==='GET'){
  $hero=ap('hero');
  $path=ltrim(trim((string)($hero['file']??'')),'/');
  $valid=(bool)preg_match('~^assets/images/[a-zA-Z0-9._-]+\\.(?:jpe?g|png|webp)$~iD',$path);
  if(!$valid||str_contains($path,'..')||!is_file(dirname(__DIR__).'/'.$path))$path='';
+ $url=$path!==''?'https://datawebs.my.id/'.$path:'';
+ $slides=[];
+ foreach(db_read('cikoko_home_slides') as $row){
+  $name=is_array($row)?(string)($row['name']??''):'';
+  if(!preg_match('/^[a-f0-9]{40}\\.(jpg|png|webp)$/D',$name))continue;
+  if(!is_file(__DIR__.'/private/home-slides/'.$name))continue;
+  $slides[]='https://datawebs.my.id/mobile-api/index.php?action=home_slide_photo&name='.rawurlencode($name);
+  if(count($slides)>=5)break;
+ }
+ if($slides)$url=$slides[0];
  mobile_json(['ok'=>true,'hero'=>[
-  'image_url'=>$path!==''?'https://datawebs.my.id/'.$path:'',
-  'fit'=>($hero['fit']??'cover')==='contain'?'contain':'cover',
-  'x'=>max(0,min(100,(int)($hero['x']??50))),
-  'y'=>max(0,min(100,(int)($hero['y']??50))),
- ]]);
+  'image_url'=>$url,
+  'fit'=>$slides?'cover':(($hero['fit']??'cover')==='contain'?'contain':'cover'),
+  'x'=>$slides?50:max(0,min(100,(int)($hero['x']??50))),
+  'y'=>$slides?50:max(0,min(100,(int)($hero['y']??50))),
+ ],'slides'=>$slides]);
 }
 if(in_array($action,['home_slides','home_slide_photo','home_slide_upload','home_slides_save'],true)){
  require_once __DIR__.'/home_slides.php';
