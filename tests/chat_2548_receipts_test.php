@@ -20,20 +20,20 @@ $db->exec("INSERT INTO mobile_chat(user_id,name,sender,message,created_at)
  VALUES('warga_uji','Warga Uji','warga','Uji tanda terima','2026-11-12 13:00:00')");
 $id=(int)$db->lastInsertId();
 $initial=cikoko_chat_page($db,'warga_uji','warga');
-check(($initial['receipt_updates'][(string)$id]??'')==='sent',
+check((((array)$initial['receipt_updates'])[(string)$id]??'')==='sent',
  'New message has exactly sent status');
 cikoko_chat_ack($db,'warga_uji','admin','delivered',$id);
 $afterDelivery=cikoko_chat_receipt_data($db,'warga_uji');
 check((int)$afterDelivery['admin_read_id']===0,
  'Inbox delivery alone does not falsely mark read');
 $delivered=cikoko_chat_page($db,'warga_uji','warga');
-check(($delivered['receipt_updates'][(string)$id]??'')==='delivered',
+check((((array)$delivered['receipt_updates'])[(string)$id]??'')==='delivered',
  'Delivered status has two checks but is not green');
 $seenByStaff=cikoko_chat_page($db,'warga_uji','admin');
-check(($seenByStaff['receipt_updates'][(string)$id]??'')==='read',
+check((((array)$seenByStaff['receipt_updates'])[(string)$id]??'')==='read',
  'Opening staff thread acknowledges actual read');
 $read=cikoko_chat_page($db,'warga_uji','warga');
-check(($read['receipt_updates'][(string)$id]??'')==='read',
+check((((array)$read['receipt_updates'])[(string)$id]??'')==='read',
  'Warga sees green double-check after staff opens chat');
 $db->exec("INSERT INTO mobile_chat(user_id,name,sender,message,created_at)
  VALUES('warga_lain','Warga Lain','warga','Percakapan privat','2026-11-12 13:01:00')");
