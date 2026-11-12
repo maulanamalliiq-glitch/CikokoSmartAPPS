@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'cpanel/mobile-api/chat_v2548.php'
+      - 'tests/chat_2548_receipts_test.php'
       - '.github/workflows/package-chat-cpanel-2548.yml'
 permissions:
   contents: write
@@ -15,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
         run: php -l cpanel/mobile-api/chat_v2548.php
+      - name: Verify sent-delivered-read server receipt semantics
+        run: php tests/chat_2548_receipts_test.php
       - name: Check private photo access conditions
         shell: bash
         run: |
