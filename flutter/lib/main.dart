@@ -227,13 +227,12 @@ class _HomeState extends State<HomePage> {
       await refresh();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
-      if(role=='warga'){
-        try{
-          final data=await api.call('integrated_services');
-          final all=List<dynamic>.from(data['items']??[]);
-          if(mounted)setState(()=>activeServices=all.map((e)=>Map<String,dynamic>.from(e as Map)).toList());
-        }catch(_){/* Katalog bawaan tetap tersedia saat koneksi terputus. */}
-      }
+      // Layanan terpadu kini ditampilkan langsung di Beranda untuk warga dan pengunjung.
+      try{
+        final data=await api.call('integrated_services');
+        final all=List<dynamic>.from(data['items']??[]);
+        if(mounted)setState(()=>activeServices=all.map((e)=>Map<String,dynamic>.from(e as Map)).toList());
+      }catch(_){/* Katalog bawaan tetap tersedia saat koneksi terputus. */}
       // This is public letter service-wide data, not the user's private history.
       try {
         final summary=await api.call('public_letter_status');
@@ -247,7 +246,7 @@ class _HomeState extends State<HomePage> {
     finally {if(mounted)setState(()=>loading=false);}
   }
   bool get guest=>api.token==null;
-  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route=='Surat Pengantar RT/RW'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Verifikasi Ahli Waris'||route=='Laporan Kegiatan Admin'||route=='Hubungi Kami';
+  bool _needsLogin(String route)=>route=='Surat Ahli Waris'||route=='Surat Pengantar RT/RW'||route.startsWith('Laporan ')||route=='Jumantik Warga'||route=='Riwayat'||route=='Verifikasi Laporan'||route=='Verifikasi Ahli Waris'||route=='Laporan Kegiatan Admin'||route=='Hubungi Kami'||route=='Edit Profil';
   Future<void> openLogin() async {
     if(!mounted)return;
     final loggedIn=await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
@@ -329,8 +328,9 @@ class _HomeState extends State<HomePage> {
        IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),
          icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),
            child:const Icon(Icons.notifications_none_outlined,color:V6.ink))),
-       IconButton(tooltip:'Muat Ulang',onPressed:load,
-         icon:const Icon(Icons.refresh_rounded,color:V6.ink)),
+       IconButton(tooltip:'Edit Profil Pengguna',
+         onPressed:guest?openLogin:()=>switchTo('Edit Profil'),
+         icon:const Icon(Icons.account_circle_outlined,color:V6.ink)),
       ],
     ),
     drawer:Drawer(child:CikokoStructuredDrawer(
@@ -352,7 +352,15 @@ class _HomeState extends State<HomePage> {
     )),
     body:loading?const Center(child:CircularProgressIndicator()):_page(),
     bottomNavigationBar:V6BottomNavigation(selected:nav,onSelected:selectNav),
-    floatingActionButton:null,
+    floatingActionButton:(guest||role=='warga')&&section!='Hubungi Kami'
+      ?FloatingActionButton.small(
+        heroTag:'cikoko-quick-report-chat',
+        tooltip:'Lapor cepat melalui chat',
+        onPressed:()=>switchTo('Hubungi Kami'),
+        backgroundColor:V6.blue,
+        foregroundColor:Colors.white,
+        child:const Icon(Icons.chat_bubble_outline_rounded))
+      :null,
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
@@ -392,7 +400,13 @@ class _HomeState extends State<HomePage> {
     case 'Pesan Masuk':return const AdminChatPage();
     case 'Notifikasi':return V6NotificationPage(guest:guest,events:events,onOpen:openNotification,login:openLogin);
     case 'Inovasi':return InnovationPage(api:api);
-    case 'Profil':return guest?profilePage():CivicProfilePage(api:api,onNavigate:switchTo,onLogout:()async{await api.logout();widget.onLogout();});
+    case 'Profil':return guest?profilePage():CivicProfilePage(
+      key:const ValueKey('cikoko-profile-view'),api:api,onNavigate:switchTo,
+      onLogout:()async{await api.logout();widget.onLogout();});
+    case 'Edit Profil':return guest?profilePage():CivicProfilePage(
+      key:const ValueKey('cikoko-profile-edit'),api:api,startEditing:true,
+      onNavigate:switchTo,
+      onLogout:()async{await api.logout();widget.onLogout();});
     case 'Verifikasi Laporan':return const AdminReports();
     case 'Verifikasi Ahli Waris':return role=='admin' ? const AdminReports(onlyKind:'waris',allowWarisDate:true) : const Center(child:Text('Khusus Admin Utama.'));
     case 'Laporan Kegiatan Admin':return role=='admin' ? const AdminReports(onlyKind:'report') : const Center(child:Text('Khusus Admin Utama.'));
@@ -449,9 +463,26 @@ class _HomeState extends State<HomePage> {
     }
     return V6Home(role:role,guest:guest,modules:modules,
       api:api,items:items,letterCounts:letterCounts,
+      integratedServices:activeServices,integratedTap:_openIntegratedService,
       navigate:_openV6Service,reload:load,
       letterStatus:(value)=>showPublicLetterStatus(context,api,category:value),
       articleTap:_openV5Article);
+  }
+
+  Future<void> _openIntegratedService(Map<String,dynamic> entry) async{
+    final title=(entry['title']??'layanan').toString();
+    final raw=(entry['url']??'').toString().trim();
+    final target=Uri.tryParse(raw);
+    if(target==null||target.scheme!='https'||target.host.isEmpty){
+      if(mounted)notify(context,'Tautan '+title+' belum tersedia. Silakan hubungi pengelola.',error:true);
+      return;
+    }
+    try{
+      final opened=await launchUrl(target,mode:LaunchMode.externalApplication);
+      if(!opened&&mounted)notify(context,'Tautan '+title+' belum dapat dibuka.',error:true);
+    }catch(_){
+      if(mounted)notify(context,'Layanan '+title+' belum dapat dibuka. Silakan mencoba kembali.',error:true);
+    }
   }
 
   void _openV6Service(String route){
