@@ -3,6 +3,27 @@ declare(strict_types=1);
 require __DIR__.'/lib.php';
 need_admin();
 require_once __DIR__.'/mobile-api/bootstrap.php';
+require_once __DIR__.'/mobile-api/admin_push_center.php';
+$pushHealth=['status'=>'not_run','cron_active'=>false,'devices'=>0,
+ 'pending'=>0,'accepted'=>0,'last_run'=>'Belum ada'];
+try{
+ $pushDb=mobile_db();
+ cikoko_push_health_schema($pushDb);
+ $heartbeat=$pushDb->query('SELECT last_run_at,status,fcm_accepted FROM
+   mobile_push_dispatch_health WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+ $pushHealth['devices']=(int)$pushDb->query('SELECT COUNT(*) FROM mobile_devices
+   WHERE fcm_token<>""')->fetchColumn();
+ $pushHealth['pending']=(int)$pushDb->query('SELECT COUNT(*) FROM mobile_events
+   WHERE audience="personal" AND dispatched_at IS NULL')->fetchColumn();
+ if($heartbeat){
+   $pushHealth['status']=(string)$heartbeat['status'];
+   $pushHealth['accepted']=(int)$heartbeat['fcm_accepted'];
+   $pushHealth['last_run']=(string)$heartbeat['last_run_at'];
+   $lastTs=strtotime((string)$heartbeat['last_run_at']);
+   $pushHealth['cron_active']=$lastTs!==false && time()-$lastTs<=300;
+ }
+}catch(Throwable $e){error_log('[Cikoko web push diagnostic] '.$e->getMessage());}
+
 
 $accountList=[['id'=>'admin','name'=>'Administrator Utama','role'=>'admin']];
 foreach(db_read('portal_users') as $account){
@@ -129,6 +150,24 @@ footer{font-size:11px;color:#72849b;margin-top:18px}
 </header><main>
 <article>
 <h1>Kirim Notifikasi ke Aplikasi</h1>
+<div class="note">
+<b>Diagnostik Pengiriman ke HP</b>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px">
+<div><b>Token HP</b><div style="font-size:23px;color:#0967e7"><?=esc((string)$pushHealth['devices'])?></div></div>
+<div><b>Antrean push</b><div style="font-size:23px;color:#cf8114"><?=esc((string)$pushHealth['pending'])?></div></div>
+<div><b>FCM diterima (siklus terakhir)</b><div style="font-size:23px;color:#178750"><?=esc((string)$pushHealth['accepted'])?></div></div>
+</div>
+<p style="margin:9px 0 0">
+Cron: <b><?=esc($pushHealth['cron_active']?'Terdeteksi aktif':'Belum terdeteksi aktif')?></b>
+ · Status: <b><?=esc((string)$pushHealth['status'])?></b>
+ · Terakhir: <?=esc((string)$pushHealth['last_run'])?>
+</p>
+<p style="margin:6px 0 0">
+<b>Catatan:</b> angka akun penerima hanya menunjukkan penyimpanan notifikasi.
+Push ke HP memerlukan token perangkat dan proses Firebase yang berhasil.
+Jika token HP = 0, login aplikasi Android dan aktifkan izin notifikasi.
+Jika Cron tidak aktif, periksa Cron Jobs di cPanel.</p>
+</div>
 <p>Notifikasi disampaikan ke akun sesuai kelompok penerima. Tidak perlu
 mengubah APK saat admin menerbitkan informasi baru.</p>
 <?php if($notice!==''):?><div class="alert ok"><?=esc($notice)?></div><?php endif;?>
