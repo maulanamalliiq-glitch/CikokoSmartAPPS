@@ -55,14 +55,17 @@ void main(){
   await tester.enterText(fields.at(1),'Informasi layanan warga dari Kelurahan Cikoko.');
   final send=find.widgetWithText(FilledButton,'Kirim Notifikasi');
   await tester.ensureVisible(send);
+  await tester.pumpAndSettle();
   await tester.tap(send);
   await tester.pumpAndSettle();
   expect(api.sent,isNull);
   final checkbox=find.byType(CheckboxListTile);
   await tester.ensureVisible(checkbox);
+  await tester.pumpAndSettle();
   await tester.tap(checkbox);
   await tester.pumpAndSettle();
   await tester.ensureVisible(send);
+  await tester.pumpAndSettle();
   await tester.tap(send);
   await tester.pumpAndSettle();
   expect(find.text('Konfirmasi Pengiriman'),findsOneWidget);
