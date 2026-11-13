@@ -59,29 +59,100 @@ class _PppkState extends State<CikokoPppkPerformancePage> {
   await Navigator.push(context,MaterialPageRoute(builder:(_)=>_PppkEditor(api:widget.api,month:month,report:detail,admin:admin)));
   await refresh();
  }
- @override Widget build(BuildContext context)=>Scaffold(
-  appBar:AppBar(title:Text(admin?'Persetujuan Kinerja PPPK':'Kinerja Bulanan PPPK')),
-  floatingActionButton:admin?null:FloatingActionButton.extended(onPressed:()=>openReport(),icon:const Icon(Icons.add),label:const Text('Isi Bulan Ini')),
-  body:RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(14),children:[
-   const Card(child:Padding(padding:EdgeInsets.all(14),child:Text('Laporan kinerja bulanan: empat kegiatan, masing-masing Periode 1 dan Periode 2. QR Kasi Ekonomi dan Pembangunan hanya muncul setelah persetujuan Admin.'))),
-   if(busy)const LinearProgressIndicator(),
-   if(reports.isEmpty&&!busy)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada laporan kinerja.')),
-   for(final item in reports)
-    Card(child:ListTile(
-     title:Text('${item['employee_name']} — ${item['report_month']}'),
-     subtitle:Text('Status: ${item['status']}${item['review_note']!=null&&'${item['review_note']}'.isNotEmpty?' • ${item['review_note']}':''}'),
-     trailing:const Icon(Icons.chevron_right),onTap:()=>openReport(Map<String,dynamic>.from(item)),
-    )),
-   if(admin)for(final item in reports)
-    if(item['status']=='pending_admin')
-     Padding(padding:const EdgeInsets.only(bottom:10),child:Row(children:[
-      Expanded(child:OutlinedButton(onPressed:()=>review(Map<String,dynamic>.from(item),false),child:const Text('Tolak'))),
-      const SizedBox(width:8),
-      Expanded(child:FilledButton(onPressed:()=>review(Map<String,dynamic>.from(item),true),child:const Text('Setujui'))),
+ static const navy=Color(0xff14345c);
+ static const blue=Color(0xff1768cc);
+ String statusLabel(String v)=>switch(v){
+  'approved'=>'Disetujui','pending_admin'=>'Menunggu Persetujuan',
+  'rejected'=>'Perlu Perbaikan',_=>'Draf',
+ };
+ Color statusColor(String v)=>switch(v){
+  'approved'=>const Color(0xff18794e),'pending_admin'=>const Color(0xffa3680b),
+  'rejected'=>const Color(0xffbd4040),_=>const Color(0xff63748a),
+ };
+ @override Widget build(BuildContext context){
+  final pending=reports.where((e)=>e['status']=='pending_admin').length;
+  final approved=reports.where((e)=>e['status']=='approved').length;
+  return Scaffold(
+   backgroundColor:const Color(0xfff3f6fb),
+   appBar:AppBar(title:Text(admin?'Verifikasi Kinerja PPPK':'Kinerja Bulanan PPPK'),backgroundColor:Colors.white),
+   floatingActionButton:admin?null:FloatingActionButton.extended(
+    backgroundColor:blue,foregroundColor:Colors.white,onPressed:()=>openReport(),
+    icon:const Icon(Icons.add_rounded),label:const Text('Buat Laporan')),
+   body:RefreshIndicator(onRefresh:refresh,child:ListView(padding:const EdgeInsets.all(16),children:[
+    Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(
+     gradient:const LinearGradient(colors:[navy,Color(0xff246fc4)]),
+     borderRadius:BorderRadius.circular(20)),
+     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Icon(Icons.assessment_outlined,color:Colors.white,size:32),
+      const SizedBox(height:14),
+      Text(admin?'Panel Persetujuan PPPK':'Laporan Kinerja Bulanan',
+       style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold,fontSize:21)),
+      const SizedBox(height:6),
+      Text(admin?'Periksa dokumentasi dan setujui laporan pegawai.':
+       'Dokumentasikan 4 kegiatan, 2 periode setiap bulan.',
+       style:const TextStyle(color:Color(0xffdcecff))),
+      const SizedBox(height:18),
+      Row(children:[
+       _summaryChip('Total',reports.length.toString()),
+       const SizedBox(width:8),_summaryChip('Menunggu',pending.toString()),
+       const SizedBox(width:8),_summaryChip('Disetujui',approved.toString()),
+      ]),
      ])),
-   const SizedBox(height:80),
-  ])),
- );
+    const SizedBox(height:22),
+    Row(children:[
+     const Expanded(child:Text('Daftar Laporan',style:TextStyle(fontSize:18,fontWeight:FontWeight.w800,color:navy))),
+     IconButton(tooltip:'Muat ulang',onPressed:refresh,icon:const Icon(Icons.refresh)),
+    ]),
+    if(busy)const LinearProgressIndicator(),
+    if(reports.isEmpty&&!busy)Container(
+     padding:const EdgeInsets.symmetric(vertical:40,horizontal:24),
+     decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16)),
+     child:Column(children:[
+      const Icon(Icons.description_outlined,size:54,color:Color(0xff8fa3bd)),
+      const SizedBox(height:12),
+      const Text('Belum ada laporan',style:TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
+      const SizedBox(height:6),
+      Text(admin?'Belum ada laporan PPPK untuk ditinjau.':'Tekan Buat Laporan untuk mulai mengisi kegiatan bulan ini.',textAlign:TextAlign.center),
+     ])),
+    for(final item in reports)Container(
+     margin:const EdgeInsets.only(bottom:12),decoration:BoxDecoration(
+      color:Colors.white,borderRadius:BorderRadius.circular(16),
+      border:Border.all(color:const Color(0xffe4ebf4))),
+     child:Column(children:[
+      ListTile(contentPadding:const EdgeInsets.fromLTRB(16,12,12,8),
+       leading:Container(padding:const EdgeInsets.all(10),
+        decoration:BoxDecoration(color:const Color(0xffe9f2ff),borderRadius:BorderRadius.circular(12)),
+        child:const Icon(Icons.article_outlined,color:blue)),
+       title:Text('${item['employee_name']}',style:const TextStyle(fontWeight:FontWeight.w700,color:navy)),
+       subtitle:Padding(padding:const EdgeInsets.only(top:5),child:Text('Periode ${item['report_month']}')),
+       trailing:const Icon(Icons.chevron_right_rounded),
+       onTap:()=>openReport(Map<String,dynamic>.from(item))),
+      Padding(padding:const EdgeInsets.fromLTRB(16,0,16,12),child:Align(
+       alignment:Alignment.centerLeft,child:Container(
+        padding:const EdgeInsets.symmetric(horizontal:12,vertical:6),
+        decoration:BoxDecoration(color:statusColor('${item['status']}').withValues(alpha:.10),borderRadius:BorderRadius.circular(20)),
+        child:Text(statusLabel('${item['status']}'),
+         style:TextStyle(color:statusColor('${item['status']}'),fontWeight:FontWeight.w700,fontSize:12))))),
+      if(admin&&item['status']=='pending_admin')
+       Padding(padding:const EdgeInsets.fromLTRB(12,0,12,12),child:Row(children:[
+        Expanded(child:OutlinedButton.icon(onPressed:()=>review(Map<String,dynamic>.from(item),false),
+         icon:const Icon(Icons.close_rounded),label:const Text('Tolak'))),
+        const SizedBox(width:8),
+        Expanded(child:FilledButton.icon(onPressed:()=>review(Map<String,dynamic>.from(item),true),
+         icon:const Icon(Icons.check_rounded),label:const Text('Setujui'))),
+       ])),
+     ])),
+    const SizedBox(height:100),
+   ])),
+  );
+ }
+ Widget _summaryChip(String label,String value)=>Expanded(child:Container(
+  padding:const EdgeInsets.symmetric(vertical:10,horizontal:8),
+  decoration:BoxDecoration(color:Colors.white.withValues(alpha:.14),borderRadius:BorderRadius.circular(12)),
+  child:Column(children:[Text(value,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.bold)),
+   Text(label,style:const TextStyle(color:Colors.white,fontSize:11))]),
+ )));
+
 }
 class _PppkEditor extends StatefulWidget {
  final CikokoApi api;final String month;final Map<String,dynamic>? report;final bool admin;
