@@ -277,37 +277,118 @@ class _PppkEditorState extends State<_PppkEditor>{
   try{await widget.api.call('pppk_submit',body:{'id':id});notify('Laporan dikirim untuk persetujuan Admin');if(mounted)Navigator.pop(context);}
   catch(e){notify(e);}
  }
- @override Widget build(BuildContext context)=>Scaffold(
-  appBar:AppBar(title:Text('Laporan PPPK $month')),
-  body:ListView(padding:const EdgeInsets.all(12),children:[
-   Text('Status: $status',style:Theme.of(context).textTheme.titleMedium),
-   if(editable)ListTile(leading:const Icon(Icons.calendar_month),title:Text('Bulan laporan: $month'),subtitle:const Text('Ketuk untuk memilih bulan'),onTap:()async{
-    final initial=DateTime(int.parse(month.substring(0,4)),int.parse(month.substring(5,7)));
-    final chosen=await showDatePicker(context:context,initialDate:initial,firstDate:DateTime(2025),lastDate:DateTime(DateTime.now().year+1,12),initialDatePickerMode:DatePickerMode.year);
-    if(chosen!=null&&mounted)setState(()=>month='${chosen.year}-${chosen.month.toString().padLeft(2,'0')}');
-   }),
-   if(status=='approved')const Text('Disetujui Admin. QR Kasi akan ditampilkan pada PDF resmi.'),
-   TextField(controller:name,readOnly:!editable,decoration:const InputDecoration(labelText:'Nama pegawai')),
-   TextField(controller:nip,readOnly:!editable,decoration:const InputDecoration(labelText:'NIP / No. Pegawai')),
-   for(var i=0;i<4;i++)Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text('${i+1}. ${_PppkState.titles[i]}',style:const TextStyle(fontWeight:FontWeight.bold)),
-    for(var j=0;j<2;j++)Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-     const SizedBox(height:12),
-     Text('Periode ${j+1}',style:const TextStyle(fontWeight:FontWeight.w600)),
-     if(photos.containsKey('${i+1}-${j+1}'))
-      Image.memory(photos['${i+1}-${j+1}']!,height:130),
-     if(stored.contains('${i+1}-${j+1}'))const Text('Foto tersimpan di server'),
-     if(editable)TextButton.icon(onPressed:()=>pick(i,j),icon:const Icon(Icons.add_photo_alternate),label:const Text('Pilih Foto')),
-     TextField(controller:descriptions[i][j],readOnly:!editable,maxLines:2,decoration:const InputDecoration(labelText:'Keterangan kegiatan')),
-    ]),
-   ]))),
-   if(id!=null)OutlinedButton.icon(onPressed:busy?null:printReport,icon:const Icon(Icons.picture_as_pdf),label:const Text('Cetak PDF A4')),
-   if(editable)...[
-    FilledButton(onPressed:busy?null:save,child:const Text('Simpan Draf')),
-    const SizedBox(height:8),
-    OutlinedButton(onPressed:busy?null:submit,child:const Text('Kirim untuk Persetujuan Admin')),
-   ],
-   const SizedBox(height:60),
-  ]),
- );
+ static const navy=Color(0xff14345c);
+ static const blue=Color(0xff1768cc);
+ @override Widget build(BuildContext context){
+  final completed=List.generate(4,(i)=>List.generate(2,(j){
+   final key='${i+1}-${j+1}';
+   return descriptions[i][j].text.trim().isNotEmpty&&(stored.contains(key)||photos.containsKey(key));
+  }).where((v)=>v).length).fold<int>(0,(a,b)=>a+b);
+  return Scaffold(
+   backgroundColor:const Color(0xfff3f6fb),
+   appBar:AppBar(title:Text('Laporan PPPK $month'),backgroundColor:Colors.white),
+   body:ListView(padding:const EdgeInsets.all(16),children:[
+    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(
+     gradient:const LinearGradient(colors:[navy,Color(0xff236dbd)]),borderRadius:BorderRadius.circular(18)),
+     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Text('LAPORAN KINERJA BULANAN',style:TextStyle(color:Color(0xffcfe2ff),fontSize:11,fontWeight:FontWeight.bold,letterSpacing:1.3)),
+      const SizedBox(height:6),
+      Text(month,style:const TextStyle(color:Colors.white,fontSize:25,fontWeight:FontWeight.w800)),
+      const SizedBox(height:10),
+      Text('Status: $status',style:const TextStyle(color:Colors.white)),
+      const SizedBox(height:12),
+      ClipRRect(borderRadius:BorderRadius.circular(6),child:LinearProgressIndicator(
+       value:completed/8,minHeight:8,backgroundColor:Colors.white24,valueColor:const AlwaysStoppedAnimation<Color>(Color(0xff8ce0b5)))),
+      const SizedBox(height:8),
+      Text('$completed dari 8 dokumentasi lengkap',style:const TextStyle(color:Colors.white,fontSize:12)),
+     ])),
+    const SizedBox(height:16),
+    if(status=='approved')const Card(child:Padding(padding:EdgeInsets.all(14),
+     child:Row(children:[Icon(Icons.verified,color:Colors.green),SizedBox(width:10),
+      Expanded(child:Text('Disetujui Admin. QR verifikasi tersedia pada PDF resmi.'))]))),
+    if(status=='rejected')const Card(child:Padding(padding:EdgeInsets.all(14),
+     child:Text('Laporan dikembalikan. Perbaiki dokumentasi, lalu kirim kembali.'))),
+    Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(16),child:Column(
+     crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Row(children:[Icon(Icons.badge_outlined,color:blue),SizedBox(width:8),
+       Text('Identitas Pegawai',style:TextStyle(fontWeight:FontWeight.w800,color:navy,fontSize:16))]),
+      const SizedBox(height:12),
+      if(editable)ListTile(contentPadding:EdgeInsets.zero,leading:const Icon(Icons.calendar_month,color:blue),
+       title:Text('Bulan laporan: $month'),subtitle:const Text('Pilih bulan laporan'),
+       onTap:()async{
+        final initial=DateTime(int.parse(month.substring(0,4)),int.parse(month.substring(5,7)));
+        final chosen=await showDatePicker(context:context,initialDate:initial,firstDate:DateTime(2025),
+         lastDate:DateTime(DateTime.now().year+1,12),initialDatePickerMode:DatePickerMode.year);
+        if(chosen!=null&&mounted)setState(()=>month='${chosen.year}-${chosen.month.toString().padLeft(2,'0')}');
+       }),
+      TextField(controller:name,readOnly:!editable,decoration:const InputDecoration(
+       labelText:'Nama lengkap',prefixIcon:Icon(Icons.person_outline),border:OutlineInputBorder())),
+      const SizedBox(height:12),
+      TextField(controller:nip,readOnly:!editable,decoration:const InputDecoration(
+       labelText:'NIP / No. Pegawai',prefixIcon:Icon(Icons.numbers),border:OutlineInputBorder())),
+     ]))),
+    const SizedBox(height:12),
+    for(var i=0;i<4;i++)Container(
+     margin:const EdgeInsets.only(bottom:14),
+     decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(16),
+      border:Border.all(color:const Color(0xffdce6f3))),
+     child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(14),
+       decoration:const BoxDecoration(color:Color(0xffeaf2ff),borderRadius:BorderRadius.vertical(top:Radius.circular(16))),
+       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Text('KEGIATAN ${i+1} / 4',style:const TextStyle(color:blue,fontWeight:FontWeight.bold,fontSize:11,letterSpacing:1)),
+        const SizedBox(height:6),
+        Text(_PppkState.titles[i],style:const TextStyle(fontWeight:FontWeight.w700,color:navy)),
+       ])),
+      for(var j=0;j<2;j++)Padding(
+       padding:const EdgeInsets.fromLTRB(14,12,14,10),
+       child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[
+         Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:5),
+          decoration:BoxDecoration(color:const Color(0xffe8f6ef),borderRadius:BorderRadius.circular(8)),
+          child:Text('Periode ${j+1}',style:const TextStyle(fontWeight:FontWeight.w700,color:Color(0xff17744b)))),
+         const Spacer(),
+         if(stored.contains('${i+1}-${j+1}'))const Icon(Icons.cloud_done,color:Color(0xff178154),size:20),
+        ]),
+        const SizedBox(height:10),
+        Container(height:150,width:double.infinity,
+         decoration:BoxDecoration(color:const Color(0xfff6f8fc),
+          borderRadius:BorderRadius.circular(12),border:Border.all(color:const Color(0xffdce6f3))),
+         child:photos.containsKey('${i+1}-${j+1}')
+          ?ClipRRect(borderRadius:BorderRadius.circular(12),
+            child:Image.memory(photos['${i+1}-${j+1}']!,fit:BoxFit.contain))
+          :Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+           Icon(stored.contains('${i+1}-${j+1}')?Icons.check_circle_outline:Icons.add_photo_alternate_outlined,
+            color:const Color(0xff7291b3),size:34),
+           const SizedBox(height:6),
+           Text(stored.contains('${i+1}-${j+1}')?'Foto sudah tersimpan':'Belum ada foto',
+            style:const TextStyle(color:Color(0xff657c96))),
+          ])),
+        if(editable)Align(alignment:Alignment.centerRight,child:TextButton.icon(
+         onPressed:()=>pick(i,j),icon:const Icon(Icons.photo_library_outlined),
+         label:Text(stored.contains('${i+1}-${j+1}')?'Ganti Foto':'Unggah Foto'))),
+        const SizedBox(height:8),
+        TextField(controller:descriptions[i][j],readOnly:!editable,maxLines:2,
+         onChanged:(_)=>setState((){}),
+         decoration:const InputDecoration(labelText:'Keterangan / hasil kegiatan',
+          hintText:'Tuliskan hasil pekerjaan pada periode ini',border:OutlineInputBorder())),
+       ])),
+     ])),
+    const SizedBox(height:4),
+    if(id!=null)OutlinedButton.icon(onPressed:busy?null:printReport,
+     icon:const Icon(Icons.picture_as_pdf_outlined),label:const Text('Pratinjau & Cetak PDF A4')),
+    if(editable)...[
+     const SizedBox(height:8),
+     FilledButton.icon(onPressed:busy?null:save,icon:const Icon(Icons.save_outlined),
+      label:const Text('Simpan Draf')),
+     const SizedBox(height:8),
+     FilledButton.icon(onPressed:busy?null:submit,icon:const Icon(Icons.send_outlined),
+      label:const Text('Kirim ke Admin')),
+    ],
+    if(busy)const Padding(padding:EdgeInsets.all(12),child:LinearProgressIndicator()),
+    const SizedBox(height:60),
+   ]),
+  );
+ }
+
 }
