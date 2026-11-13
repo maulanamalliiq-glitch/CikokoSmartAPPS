@@ -1,0 +1,72 @@
+name: Cikoko PPSU Leave Backend - MySQL and cPanel ZIP
+on:
+  push:
+    branches: [feat/sync-website-header-android-2549]
+    paths:
+      - 'cpanel/mobile-api/pjlp_*'
+      - 'cpanel/mobile-api/migrate_pjlp_leave.sql'
+      - 'cpanel/mobile-api/index.php'
+      - '.github/workflows/qa-pjlp-leave.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-pass-only
+          MYSQL_DATABASE: pjlp_leave_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-pass-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax hardcheck
+        run: |
+          set -euo pipefail
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/pjlp_leave.php
+          php -l cpanel/mobile-api/pjlp_leave_pdf.php
+          php -l cpanel/mobile-api/pdf_native.php
+      - name: MySQL schema migration and constraints
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
+          test "$(mysql -N -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci -e 'SHOW TABLES' | grep -c '^pjlp_')" -eq 7
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
+      - name: Build cPanel overlay
+        run: |
+          set -euo pipefail
+          mkdir -p dist/public_html/mobile-api dist/PANDUAN
+          cp cpanel/mobile-api/index.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/pjlp_leave.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/pjlp_leave_pdf.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/pdf_native.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/migrate_pjlp_leave.sql dist/PANDUAN/
+          cat > dist/PANDUAN/INSTALL.md <<'EOF'
+          CIKOKO PPSU CUTI V2550 - TAHAP INSTALASI
+          1. Backup public_html, private/ dan database sebelum pembaruan.
+          2. Impor migrate_pjlp_leave.sql melalui phpMyAdmin.
+          3. Upload isi folder public_html dari ZIP ini ke public_html website yang sama.
+             Jangan menghapus mobile-api/private atau file konfigurasi.
+          4. Pastikan PHP 8+, PDO MySQL, GD, dan fileinfo tersedia.
+          5. Pastikan mobile-api/private/pjlp/ tidak dapat diakses via web.
+          6. Login ke aplikasi, daftarkan akun PPSU, atasan ASN, Lurah,
+             tetapkan jatah masing-masing dan unggah gambar QR tetap.
+          7. Uji alur satu pegawai, persetujuan, nomor surat, dan cetak PDF.
+          8. QR statis bukan tanda tangan elektronik tersertifikasi.
+          CATATAN: Paket tidak otomatis terpasang ke cPanel.
+          EOF
+          (cd dist && zip -qr ../CIKOKO_PPSU_CPANEL_V2550.zip .)
+          unzip -t CIKOKO_PPSU_CPANEL_V2550.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-PPSU-CPANEL-v2550
+          path: CIKOKO_PPSU_CPANEL_V2550.zip
+          retention-days: 30
+          if-no-files-found: error
