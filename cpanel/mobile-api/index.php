@@ -88,6 +88,10 @@ if(in_array($action,['integrated_services','integrated_services_save','integrate
 if(in_array($action,['account_help','account_request','account_requests','account_request_resolve'],true)){
  require_once __DIR__.'/account_support.php';cikoko_account_dispatch($action,$method);
 }
+if(in_array($action,['password_otp_request','password_otp_reset'],true)){
+ require_once __DIR__.'/password_otp.php';
+ cikoko_password_otp_dispatch($action,$method);
+}
 if($action==='login'&&$method==='POST'){
  $limitDb=mobile_db();cikoko_rate_limit($limitDb,'login_ip',(string)($_SERVER['REMOTE_ADDR']??''),200,900);
  $body=mobile_body();$username=mobile_text($body['username']??'',100);$pass=(string)($body['password']??'');$found=null;
