@@ -60,6 +60,43 @@ function pjlp_private_dir(string $part):string {
  if(!is_dir($base)&&!mkdir($base,0750,true)&&!is_dir($base))pjlp_fail('Penyimpanan berkas cuti belum siap',503);
  return $base;
 }
+/**
+ * Fetch a QR PNG encoding only the public random-token URL (no personal data).
+ * QuickChart is a QR rendering service; never send private profile fields.
+ */
+function pjlp_generate_public_qr(string $token):string {
+ $public='https://datawebs.my.id/mobile-api/pjlp_profile.php?id='.$token;
+ $service='https://quickchart.io/qr?size=360&margin=2&format=png&text='.rawurlencode($public);
+ if(!function_exists('curl_init'))pjlp_fail('Hosting memerlukan ekstensi cURL untuk membuat QR otomatis',503);
+ $ch=curl_init($service);
+ curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,
+  CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>true,
+  CURLOPT_MAXREDIRS=>0,CURLOPT_HTTPHEADER=>['Accept: image/png']]);
+ $bytes=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+ if(!is_string($bytes)||$code!==200||strlen($bytes)>300000||strlen($bytes)<100)
+  pjlp_fail('Layanan pembuatan QR sedang tidak tersedia. Silakan coba lagi.',503);
+ $info=@getimagesizefromstring($bytes);
+ if(!$info||($info[2]??0)!==IMAGETYPE_PNG||$info[0]<200||$info[0]>800||$info[1]<200||$info[1]>800)
+  pjlp_fail('Gambar QR dari layanan eksternal tidak valid',503);
+ $filename=bin2hex(random_bytes(16)).'.png';
+ if(file_put_contents(pjlp_private_dir('qr').'/'.$filename,$bytes,LOCK_EX)===false)
+  pjlp_fail('Tidak dapat menyimpan QR pimpinan',503);
+ return $filename;
+}
+function pjlp_store_photo(string $encoded):string {
+ if(strlen($encoded)>2900000)pjlp_fail('Foto maksimal 2 MB');
+ $bytes=base64_decode($encoded,true);
+ if($bytes===false||strlen($bytes)<100||strlen($bytes)>2097152)pjlp_fail('Foto tidak valid');
+ $info=@getimagesizefromstring($bytes);
+ if(!$info||$info[0]<100||$info[1]<100||$info[0]>2400||$info[1]>2400||$info[0]*$info[1]>4000000)
+  pjlp_fail('Resolusi foto tidak sesuai');
+ $ext=[IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png'][$info[2]??0]??null;
+ if(!$ext)pjlp_fail('Foto harus JPG/PNG');
+ $filename=bin2hex(random_bytes(16)).'.'.$ext;
+ if(file_put_contents(pjlp_private_dir('photos').'/'.$filename,$bytes,LOCK_EX)===false)
+  pjlp_fail('Foto gagal disimpan',503);
+ return $filename;
+}
 function pjlp_mobile_dispatch(string $action,string $method):void {
  $actor=mobile_auth();$db=mobile_db();$uid=(string)$actor['user_id'];
  $role=(string)$actor['user_role'];$admin=pjlp_admin($actor);
@@ -103,7 +140,7 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
  }
  if($action==='pjlp_officials'&&$method==='GET'){
   if(!$admin)pjlp_fail('Akses admin diperlukan',403);
-  $rows=$db->query('SELECT user_id,full_name,title,nip,qr_file IS NOT NULL AS has_qr FROM pjlp_officials ORDER BY full_name')->fetchAll(PDO::FETCH_ASSOC);
+  $rows=$db->query('SELECT user_id,full_name,title,nip,work_unit,is_public,public_token,photo_file IS NOT NULL AS has_photo,qr_file IS NOT NULL AS has_qr FROM pjlp_officials ORDER BY full_name')->fetchAll(PDO::FETCH_ASSOC);
   mobile_json(['ok'=>true,'items'=>$rows]);
  }
  if($action==='pjlp_employee_save'&&$method==='POST'){
@@ -155,28 +192,31 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
  }
  if($action==='pjlp_official_save'&&$method==='POST'){
   if(!$admin)pjlp_fail('Akses admin diperlukan',403);
-  $b=mobile_body();$person=mobile_text($b['user_id']??'',80);
-  $name=mobile_text($b['full_name']??'',160);$title=mobile_text($b['title']??'',160);$nip=mobile_text($b['nip']??'',40);
-  if(!$person||!$name||!$title||!$nip)pjlp_fail('Akun, nama, jabatan, dan NIP pejabat wajib diisi');
+  $body=mobile_body();
+  $person=mobile_text($body['user_id']??'',80);
+  $name=mobile_text($body['full_name']??'',160);
+  $title=mobile_text($body['title']??'',160);
+  $nip=mobile_text($body['nip']??'',40);
+  $unit=mobile_text($body['work_unit']??'Kelurahan Cikoko',160);
+  $public=($body['is_public']??true)!==false;
+  if(!$person||!$name||!$title||!$nip||!$unit)pjlp_fail('Akun, nama, jabatan, NIP, dan unit kerja wajib diisi');
   $allowed=false;
-  foreach(db_read('portal_users') as $p){if((string)($p['id']??'')===$person&&($p['active']??false)&&in_array($p['role']??'', ['lurah','asn','admin_kelurahan'],true))$allowed=true;}
-  if(!$allowed)pjlp_fail('Akun pejabat tidak aktif atau tidak berwenang');
-  $qr=null;$encoded=(string)($b['qr_base64']??'');
-  if($encoded!==''){
-   if(strlen($encoded)>2800000)pjlp_fail('Gambar QR maksimal 2 MB');
-   $bytes=base64_decode($encoded,true);
-   if($bytes===false||strlen($bytes)>2097152||strlen($bytes)<60)pjlp_fail('Data QR tidak valid');
-   $dim=@getimagesizefromstring($bytes);
-   if(!$dim||$dim[0]<80||$dim[1]<80||$dim[0]>2000||$dim[1]>2000||$dim[0]*$dim[1]>2500000)pjlp_fail('Resolusi QR tidak valid');
-   $ext=[IMAGETYPE_PNG=>'png',IMAGETYPE_JPEG=>'jpg'][$dim[2]??0]??null;
-   if(!$ext)pjlp_fail('QR harus PNG/JPG');
-   $qr=bin2hex(random_bytes(16)).'.'.$ext;
-   if(file_put_contents(pjlp_private_dir('qr').'/'.$qr,$bytes,LOCK_EX)===false)pjlp_fail('QR tidak bisa disimpan',503);
+  foreach(db_read('portal_users') as $p){
+   if((string)($p['id']??'')===$person&&($p['active']??false)&&in_array($p['role']??'', ['lurah','asn','admin_kelurahan'],true))$allowed=true;
   }
-  $s=$db->prepare('INSERT INTO pjlp_officials(user_id,full_name,title,nip,qr_file) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE full_name=VALUES(full_name),title=VALUES(title),nip=VALUES(nip),qr_file=COALESCE(VALUES(qr_file),qr_file)');
-  $s->execute([$person,$name,$title,$nip,$qr]);
-  pjlp_audit($db,null,$uid,'official_saved',['user_id'=>$person,'qr_updated'=>$qr!==null]);
-  mobile_json(['ok'=>true]);
+  if(!$allowed)pjlp_fail('Akun pejabat tidak aktif atau tidak berwenang');
+  $previous=pjlp_valid_official($db,$person);
+  $token=(string)($previous['public_token']??'');
+  if(!preg_match('/^[a-f0-9]{48}$/D',$token))$token=bin2hex(random_bytes(24));
+  $qr=(string)($previous['qr_file']??'');
+  if($qr===''||!is_file(pjlp_private_dir('qr').'/'.$qr))$qr=pjlp_generate_public_qr($token);
+  $photo=(string)($previous['photo_file']??'');
+  $encoded=(string)($body['photo_base64']??'');
+  if($encoded!=='')$photo=pjlp_store_photo($encoded);
+  $st=$db->prepare('INSERT INTO pjlp_officials(user_id,full_name,title,nip,qr_file,public_token,photo_file,work_unit,is_public) VALUES(?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE full_name=VALUES(full_name),title=VALUES(title),nip=VALUES(nip),qr_file=VALUES(qr_file),public_token=VALUES(public_token),photo_file=VALUES(photo_file),work_unit=VALUES(work_unit),is_public=VALUES(is_public)');
+  $st->execute([$person,$name,$title,$nip,$qr,$token,$photo,$unit,$public?1:0]);
+  pjlp_audit($db,null,$uid,'official_profile_saved',['user_id'=>$person,'photo_updated'=>$encoded!=='','public'=>$public]);
+  mobile_json(['ok'=>true,'profile_url'=>'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='.$token]);
  }
  if($action==='pjlp_apply'&&$method==='POST'){
   if($role!=='ppsu'||!$self)pjlp_fail('Admin harus mendaftarkan akun PPSU Anda terlebih dahulu',403);
