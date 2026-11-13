@@ -211,8 +211,8 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   if(!$admin)pjlp_fail('Hanya admin yang dapat mengisi nomor surat',403);
   $b=mobile_body();$id=(int)($b['request_id']??0);$number=mobile_text($b['official_number']??'',100);
   if($id<1||!preg_match('/^[a-zA-Z0-9.\/ -]{4,100}$/D',$number))pjlp_fail('Nomor surat tidak valid');
-  $s=$db->prepare("UPDATE pjlp_leave_requests SET official_number=? WHERE id=? AND status='pending_lurah'");
-  $s->execute([$number,$id]);if($s->rowCount()!==1)pjlp_fail('Nomor hanya bisa diisi saat menunggu Lurah',409);
+  $s=$db->prepare("UPDATE pjlp_leave_requests SET official_number=? WHERE id=? AND status='pending_admin'");
+  $s->execute([$number,$id]);if($s->rowCount()!==1)pjlp_fail('Nomor surat diisi sebelum persetujuan admin',409);
   pjlp_audit($db,$id,$uid,'letter_number_set',['number'=>$number]);mobile_json(['ok'=>true]);
  }
  if($action==='pjlp_review'&&$method==='POST'){
@@ -224,17 +224,23 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   try {
    $db->beginTransaction();$r=pjlp_request($db,$id,true);
    if(!$r)pjlp_fail('Pengajuan tidak ditemukan',404);
-   $status=(string)$r['status'];$stage='';
-   if($status==='pending_admin'&&$admin)$stage='admin';
-   elseif($status==='pending_supervisor'&&$uid===(string)$r['supervisor_user_id'])$stage='supervisor';
-   elseif($status==='pending_lurah'&&$role==='lurah')$stage='lurah';
-   if($stage==='')pjlp_fail('Anda tidak berwenang memutuskan pengajuan pada tahap ini',403);
-   $next=$decision==='approve'?(['admin'=>'pending_supervisor','supervisor'=>'pending_lurah','lurah'=>'approved'][$stage]):(['revision'=>'revision','defer'=>'deferred','reject'=>'rejected'][$decision]);
-   if($stage==='lurah'&&$decision==='approve'){
-    if(trim((string)$r['official_number'])==='')pjlp_fail('Admin harus menetapkan nomor surat sebelum persetujuan Lurah');
+   // Satu tahap: admin Kelurahan memberi keputusan langsung, tanpa antrean akun atasan/Lurah.
+   // Data pejabat pada formulir adalah referensi jabatan; keputusan elektronik dicatat atas nama admin.
+   if(!$admin||!in_array((string)$r['status'],['pending_admin','pending_supervisor','pending_lurah'],true))
+    pjlp_fail('Hanya admin yang dapat memutuskan pengajuan yang masih diproses',403);
+   $stage='admin';
+   $next=$decision==='approve'?'approved':(['revision'=>'revision','defer'=>'deferred','reject'=>'rejected'][$decision]);
+   if($next==='approved'){
+    if(trim((string)$r['official_number'])==='')pjlp_fail('Isi nomor surat sebelum menyetujui cuti');
     $sup=pjlp_valid_official($db,(string)$r['supervisor_user_id']);
-    $lurah=pjlp_valid_official($db,$uid);
-    foreach([$sup,$lurah] as $off)if(!$off||empty($off['qr_file'])||!is_file(pjlp_private_dir('qr').'/'.$off['qr_file']))pjlp_fail('Data dan QR tetap atasan/Lurah belum lengkap');
+    $lurahRow=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $lurah=$lurahRow?pjlp_valid_official($db,(string)$lurahRow['user_id']):null;
+    if(!$sup||!$lurah)pjlp_fail('Admin harus melengkapi data atasan langsung dan Lurah');
+    // QR pejabat hanya boleh dicetak jika admin memang berwenang memakai QR tetap mereka.
+    foreach([$sup,$lurah] as $off){
+     if(empty($off['qr_file'])||!is_file(pjlp_private_dir('qr').'/'.$off['qr_file']))
+      pjlp_fail('QR resmi atasan/Lurah belum tersedia');
+    }
    }
    $st=$db->prepare('INSERT INTO pjlp_leave_approvals(request_id,stage,actor_user_id,decision,reason) VALUES(?,?,?,?,?)');
    $st->execute([$id,$stage,$uid,$decision,$reason]);
@@ -253,7 +259,6 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    }
    $db->commit();
    pjlp_notify($db,(string)$r['user_id'],'Status cuti PPSU','Pengajuan nomor '.$id.' berstatus '.$next);
-   if($next==='pending_lurah')pjlp_notify($db,'lurah','Keputusan cuti PPSU','Surat nomor '.$id.' memerlukan keputusan Lurah');
    mobile_json(['ok'=>true,'status'=>$next]);
   }catch(Throwable $e){
    if($db->inTransaction())$db->rollBack();
