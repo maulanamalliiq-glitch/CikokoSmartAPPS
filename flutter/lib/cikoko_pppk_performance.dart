@@ -228,14 +228,14 @@ class _PppkEditorState extends State<_PppkEditor>{
    final bold=pw.Font.helveticaBold();
    final ink=PdfColors.black;
    final green=PdfColor.fromInt(0xff27733c);
-   final monthValue='\u0024{data['month']??month}';
+   final monthValue="${data['month']??month}";
    const monthNames=['','JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
    final parts=monthValue.split('-');
    final monthNumber=parts.length>1?int.tryParse(parts[1])??0:0;
    final monthTitle=monthNumber>=1&&monthNumber<=12?monthNames[monthNumber]:'';
    final yearTitle=parts.isNotEmpty?parts[0]:'';
-   final person='\u0024{data['employee_name']??''}';
-   final employeeNip='\u0024{data['employee_nip']??''}';
+   final person="${data['employee_name']??''}";
+   final employeeNip="${data['employee_nip']??''}";
    pw.Text tx(String value,{double size=8,bool strong=false,pw.TextAlign align=pw.TextAlign.left})=>
     pw.Text(value,style:pw.TextStyle(font:strong?bold:regular,fontSize:size,color:ink),textAlign:align);
    pw.Widget identity(String label,String value)=>pw.Row(children:[
@@ -244,9 +244,9 @@ class _PppkEditorState extends State<_PppkEditor>{
     pw.Expanded(child:tx(value,size:8)),
    ]);
    pw.Widget progress(int i,int j){
-    final key='\u0024{i+1}-\u0024{j+1}';
+    final key='${i+1}-${j+1}';
     final entry=i<entries.length&&entries[i] is Map?entries[i] as Map:{};
-    final desc='\u0024{entry['period\u0024{j+1}']??''}'.trim();
+    final desc="${entry['period${j+1}']??''}".trim();
     return pw.Padding(padding:const pw.EdgeInsets.all(6),child:pw.Column(
      crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
       pw.Row(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
@@ -268,7 +268,7 @@ class _PppkEditorState extends State<_PppkEditor>{
      pw.Center(child:pw.Column(children:[
       tx('LAPORAN KINERJA BULANAN',size:12,strong:true,align:pw.TextAlign.center),
       tx('PEGAWAI PEMERINTAH DENGAN PERJANJIAN KERJA PARUH WAKTU',size:9,strong:true,align:pw.TextAlign.center),
-      tx('BULAN \u0024monthTitle \u0024yearTitle',size:9,strong:true,align:pw.TextAlign.center),
+      tx('BULAN $monthTitle $yearTitle',size:9,strong:true,align:pw.TextAlign.center),
      ])),
      pw.SizedBox(height:9),
      pw.Container(height:.8,color:PdfColors.black),
@@ -291,7 +291,7 @@ class _PppkEditorState extends State<_PppkEditor>{
          child:tx(h,size:7.5,strong:true,align:pw.TextAlign.center)),
       ]),
       for(var i=0;i<4;i++)pw.TableRow(children:[
-       pw.Container(height:113,alignment:pw.Alignment.center,child:tx('\u0024{i+1}',size:8)),
+       pw.Container(height:113,alignment:pw.Alignment.center,child:tx('${i+1}',size:8)),
        pw.Container(height:113,padding:const pw.EdgeInsets.all(6),
         child:tx(_PppkState.titles[i],size:7)),
        pw.Container(height:113,child:progress(i,0)),
@@ -300,10 +300,10 @@ class _PppkEditorState extends State<_PppkEditor>{
      ]),
      pw.SizedBox(height:10),
      tx('Keterangan :',size:8,strong:true),
-     tx('- Progres Periode 1 laporan Pegawai dari tanggal 1 - 15 \u0024monthTitle \u0024yearTitle',size:7.3),
-     tx('- Progres Periode 2 laporan Pegawai dari tanggal 16 - akhir \u0024monthTitle \u0024yearTitle',size:7.3),
+     tx('- Progres Periode 1 laporan Pegawai dari tanggal 1 - 15 $monthTitle $yearTitle',size:7.3),
+     tx('- Progres Periode 2 laporan Pegawai dari tanggal 16 - akhir $monthTitle $yearTitle',size:7.3),
      pw.Spacer(),
-     pw.Align(alignment:pw.Alignment.centerRight,child:tx('Jakarta, \u0024{DateTime.now().day} \u0024monthTitle \u0024yearTitle',size:7.5)),
+     pw.Align(alignment:pw.Alignment.centerRight,child:tx('Jakarta, ${DateTime.now().day} $monthTitle $yearTitle',size:7.5)),
      pw.SizedBox(height:8),
      pw.Row(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
       pw.Expanded(child:pw.Column(children:[
@@ -312,7 +312,7 @@ class _PppkEditorState extends State<_PppkEditor>{
        tx('KELURAHAN CIKOKO',size:7.5,align:pw.TextAlign.center),
        pw.SizedBox(height:64),
        tx(person,size:8,strong:true,align:pw.TextAlign.center),
-       tx('NI PPPK \u0024employeeNip',size:7,align:pw.TextAlign.center),
+       tx('NI PPPK $employeeNip',size:7,align:pw.TextAlign.center),
       ])),
       pw.Expanded(child:pw.Column(children:[
        tx('Mengetahui,',size:8,align:pw.TextAlign.center),
@@ -321,7 +321,7 @@ class _PppkEditorState extends State<_PppkEditor>{
        pw.SizedBox(height:5),
        if(approved&&token.length==48)
         pw.BarcodeWidget(barcode:pw.Barcode.qrCode(),
-         data:'https://datawebs.my.id/mobile-api/pppk_verify.php?token=\u0024token',width:54,height:54)
+         data:'https://datawebs.my.id/mobile-api/pppk_verify.php?token=$token',width:54,height:54)
        else pw.SizedBox(height:54,child:pw.Center(child:tx('Menunggu persetujuan Admin',size:6.5))),
        tx('Desi Andriyani',size:8,strong:true,align:pw.TextAlign.center),
        tx('NIP 198712292010012024',size:7,align:pw.TextAlign.center),
