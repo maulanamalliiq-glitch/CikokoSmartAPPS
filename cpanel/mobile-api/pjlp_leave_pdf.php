@@ -22,9 +22,12 @@ function pjlp_pdf_safe(string $s,int $chars=100):string {
 function pjlp_pdf_build(PDO $db,array $r):string {
  $a=$db->prepare('SELECT * FROM pjlp_leave_approvals WHERE request_id=? ORDER BY id');
  $a->execute([(int)$r['id']]);$approvals=$a->fetchAll(PDO::FETCH_ASSOC);
- $supUid=(string)$r['supervisor_user_id'];$lurahUid='';
- foreach($approvals as $approval)if($approval['stage']==='lurah'&&$approval['decision']==='approve')$lurahUid=(string)$approval['actor_user_id'];
+ $supUid=(string)$r['supervisor_user_id'];
  $super=pjlp_valid_official($db,$supUid);
+ // The document names the responsible Lurah from the admin-maintained roster;
+ // its administrative approval is separately recorded under the admin actor.
+ $lurahSt=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY id LIMIT 1");
+ $lurahUid=(string)($lurahSt->fetchColumn()?:'');
  $lurah=$lurahUid?pjlp_valid_official($db,$lurahUid):null;
  if(!$super||!$lurah||empty($super['qr_file'])||empty($lurah['qr_file']))pjlp_fail('Data QR pejabat belum lengkap',503);
  $base=pjlp_private_dir('qr').'/';
