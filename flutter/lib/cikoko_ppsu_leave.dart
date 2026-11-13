@@ -209,15 +209,145 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
     if(decision=='approve')...[
      const SizedBox(height:12),
      TextField(controller:number,decoration:const InputDecoration(
-      labelText:'Nomor Surat Cuti',hintText:'12/KG 11.01',
-      helperText:'Dapat diubah sebelum disetujui')),
+      labelText:'Nomor Surat Cuti (opsional)',hintText:'Otomatis: 35/KG 11.01',
+      helperText:'Kosongkan agar nomor dibuat berurutan saat disetujui; bisa diisi manual')),
     ],
     if(decision!='approve')TextField(controller:reason,maxLines:2,
      decoration:const InputDecoration(labelText:'Alasan keputusan')),
    ])),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),
     FilledButton(onPressed:()async{
-     if(decision=='approve'&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}$').hasMatch(number.text.trim())){
+     if(decision=='approve'&&number.text.trim().isNotEmpty&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}
+      toast('Isi nomor surat resmi, contoh: 12/KG 11.01');return;
+     }
+     await post(dialog,'pjlp_review',{
+      'request_id':r['id'],'decision':decision,'reason':reason.text,
+      'official_number':number.text.trim()
+     });
+    },child:Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
+  )));
+  reason.dispose();number.dispose();
+ }
+ Future<void> printLetter(Map<String,dynamic> r)async{
+  try{
+   final uri=Uri.parse(CikokoApi.root+'?action=pjlp_pdf&id='+r['id'].toString());
+   final response=await http.get(uri,headers:{
+    'Authorization':'Bearer '+(widget.api.token??''),'Accept':'application/pdf'
+   }).timeout(const Duration(seconds:40));
+   if(response.statusCode!=200||!response.headers['content-type'].toString().contains('application/pdf'))throw ApiError('Surat PDF belum tersedia.');
+   await Printing.layoutPdf(name:'Cuti-PPSU-'+r['id'].toString()+'.pdf',onLayout:(_)=>response.bodyBytes);
+  }catch(e){toast(e);}
+ }
+ Widget employeePanel(){
+  final e=profile['employee'] as Map<String,dynamic>?;
+  final b=profile['balance'] as Map<String,dynamic>?;
+  if(e==null)return const Card(child:ListTile(
+   title:Text('Akun PPSU belum didaftarkan admin'),subtitle:Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
+  int num(dynamic v)=>int.tryParse(v?.toString()??'')??0;
+  final remaining=num(b?['allowance_days'])+num(b?['adjustment_days'])-num(b?['used_days'])-num(b?['held_days']);
+  return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(
+   crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text(e['full_name'].toString(),style:const TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
+    Text('ID PHL: '+e['id_phl'].toString()),
+    Text('Jatah: '+(b?['allowance_days']?.toString()??'Belum diatur')+' hari'),
+    Text('Terpakai: '+num(b?['used_days']).toString()+' hari; proses: '+num(b?['held_days']).toString()+' hari'),
+    Text('Sisa tersedia: '+(b==null?'-':remaining.toString())+' hari'),
+    const SizedBox(height:10),
+    FilledButton.icon(onPressed:b==null?null:apply,icon:const Icon(Icons.add),label:const Text('Ajukan Cuti')),
+   ])));
+ }
+ Widget adminPanel(){
+  final employees=adminData['employees'] as List<dynamic>? ?? [];
+  return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+   Wrap(spacing:8,runSpacing:8,children:[
+    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const Text('Daftar PPSU')),
+    OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const Text('QR Pejabat')),
+    OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const Text('Hari Libur')),
+   ]),
+   const SizedBox(height:8),
+   Text('Pegawai terdaftar: '+employees.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+   for(final raw in employees)
+    Card(child:ListTile(
+     title:Text(raw['full_name'].toString()),
+     subtitle:Text('ID PHL: '+raw['id_phl'].toString()+' · Jatah: '+(raw['allowance_days']??'-').toString()),
+     trailing:PopupMenuButton<String>(
+      itemBuilder:(_)=>const [
+       PopupMenuItem(value:'edit',child:Text('Edit Pegawai')),
+       PopupMenuItem(value:'balance',child:Text('Atur Jatah Cuti')),
+      ],
+      onSelected:(choice){
+       final r=Map<String,dynamic>.from(raw as Map);
+       if(choice=='edit')employeeEditor(r);
+       if(choice=='balance')balanceEditor(r);
+      },
+     ),
+    )),
+   const SizedBox(height:12),
+   const Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
+   for(final raw in officials)
+    Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
+     crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      Text(raw['title'].toString()+' · '+raw['nip'].toString()),
+      if(raw['public_token']!=null&&raw['public_token'].toString().isNotEmpty)...[
+       Center(child:QrImageView(
+        data:'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString(),
+        version:QrVersions.auto,size:148)),
+       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const Text('Lihat Halaman Hasil Scan'),
+        onPressed:()async{
+         final url=Uri.parse('https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString());
+         if(!await launchUrl(url,mode:LaunchMode.externalApplication))toast('Tidak dapat membuka profil');
+        }),
+      ],
+     ]))),
+
+  ]);
+ }
+ String statusText(String s)=>switch(s){
+  'pending_admin'=>'Menunggu Admin','pending_supervisor'=>'Menunggu Admin',
+  'pending_lurah'=>'Menunggu Admin','approved'=>'Disetujui',
+  'revision'=>'Perubahan','deferred'=>'Ditangguhkan','rejected'=>'Ditolak',_=>s
+ };
+ Widget requestItem(Map<String,dynamic> r){
+  final status=r['status'].toString();
+  final permitted=admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah');
+  return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
+   crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
+     style:const TextStyle(fontWeight:FontWeight.bold)),
+    Text(r['start_date'].toString()+' - '+r['end_date'].toString()+' · '+r['requested_days'].toString()+' hari'),
+    Text(r['reason'].toString(),maxLines:2,overflow:TextOverflow.ellipsis),
+    Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
+    Wrap(spacing:8,children:[
+     if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const Text('Keputusan')),
+     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const Text('Nomor Surat')),
+     if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const Text('Cetak PDF')),
+    ])
+   ])));
+ }
+ @override Widget build(BuildContext context)=>RefreshIndicator(onRefresh:reload,child:ListView(
+  padding:const EdgeInsets.all(14),children:[
+   const Text('CUTI PJLP / PPSU',style:TextStyle(fontWeight:FontWeight.bold,fontSize:21,color:Color(0xFF155997))),
+   const Text('Kelurahan Cikoko · Kecamatan Pancoran'),
+   const SizedBox(height:12),
+   if(loading)const Center(child:CircularProgressIndicator()),
+   if(error!=null)Card(child:ListTile(title:Text(error!),subtitle:const Text('Pastikan backend PHP dan database telah dipasang'),
+    trailing:IconButton(onPressed:reload,icon:const Icon(Icons.refresh)))),
+   if(!loading&&error==null)...[
+    if(ppsu)employeePanel(),
+    if(admin)adminPanel(),
+    Text('Riwayat / Pengajuan ('+requests.length.toString()+')',
+     style:const TextStyle(fontWeight:FontWeight.bold,fontSize:16)),
+    if(requests.isEmpty)const Card(child:ListTile(title:Text('Belum ada pengajuan'))),
+    for(final r in requests)requestItem(Map<String,dynamic>.from(r as Map)),
+   ],
+   const SizedBox(height:25),
+   const Text('QR tetap dari admin bukan TTE tersertifikasi.',
+    style:TextStyle(color:Colors.blueGrey,fontSize:11)),
+  ],
+ ));
+}
+).hasMatch(number.text.trim())){
       toast('Isi nomor surat resmi, contoh: 12/KG 11.01');return;
      }
      await post(dialog,'pjlp_review',{
