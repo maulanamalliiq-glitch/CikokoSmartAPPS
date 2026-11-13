@@ -1,5 +1,6 @@
 name: cikoko
 version: 2.5.53+2553
+# Rebuild signed APK and AAB 2553 with PJLP leave menu enabled.
 description: Aplikasi native Kelurahan Cikoko untuk warga dan petugas.
 publish_to: none
 environment:
