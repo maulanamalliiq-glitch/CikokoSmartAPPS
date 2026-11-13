@@ -9,7 +9,7 @@ on:
       - '.github/workflows/qa-pjlp-leave.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   validate-and-package:
     runs-on: ubuntu-latest
@@ -70,3 +70,19 @@ jobs:
           path: CIKOKO_PPSU_CPANEL_V2550.zip
           retention-days: 30
           if-no-files-found: error
+
+      - name: Publish direct cPanel ZIP download (optional)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CIKOKO_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag='v2.5.50-ppsu-cpanel'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" CIKOKO_PPSU_CPANEL_V2550.zip --clobber || true
+          else
+            gh release create "$tag" CIKOKO_PPSU_CPANEL_V2550.zip --target "$GITHUB_SHA" \
+              --title 'Cikoko PPSU Cuti - cPanel v2550' --prerelease \
+              --notes 'Overlay PHP dan SQL. Tidak otomatis terpasang ke cPanel. Backup dan impor SQL dahulu.' || true
+          fi
