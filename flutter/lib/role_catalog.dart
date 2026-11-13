@@ -68,8 +68,8 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['leave_admin','push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
- 'admin_kelurahan':['leave_admin','leave_approval','push_manage','pages_manage','surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
+ 'admin':['performance_pppk','leave_admin','push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin_kelurahan':['performance_pppk','leave_admin','leave_approval','push_manage','pages_manage','surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['leave_approval','verify','archive_list','approval','monitor','protap','performance','news','announcements'],
  'asn':['leave_approval','verify','archive_list','monitor','kegiatan','news','announcements'],
  'pppk':['kegiatan','attendance','roster','performance_pppk','leave','history','news'],
