@@ -35,6 +35,9 @@ const roleFeatures = <String,RoleFeature>{
   'lmk': RoleFeature('Laporan LMK','Musyawarah dan aspirasi warga','Laporan LMK',capability:'report:lmk'),
   'posyandu': RoleFeature('Laporan Posyandu','Dokumentasi kegiatan pelayanan','Laporan Posyandu',capability:'report:posyandu'),
   'dasawisma': RoleFeature('Laporan Dasawisma','Kegiatan dan pendataan keluarga','Laporan Dasawisma',capability:'report:pkk'),
+  'leave_ppsu': RoleFeature('Cuti Saya','Pengajuan dan cetak surat cuti PPSU','Cuti PPSU'),
+  'leave_admin': RoleFeature('Kelola Cuti PPSU','Pegawai, saldo, QR pimpinan dan verifikasi','Kelola Cuti PPSU'),
+  'leave_approval': RoleFeature('Persetujuan Cuti PPSU','Keputusan cuti sesuai kewenangan pejabat','Persetujuan Cuti PPSU'),
   'ppsu': RoleFeature('Laporan PPSU','Foto kegiatan kebersihan dan pekerjaan','Laporan PPSU',capability:'report:ppsu'),
   'bakti': RoleFeature('Kerja Bakti','Dokumentasi kerja bakti wilayah','Laporan Kerja Bakti',capability:'report:kerja_bakti'),
   'verify': RoleFeature('Verifikasi Laporan','Tinjau dan ubah status permohonan','Verifikasi Laporan',capability:'reports:view'),
@@ -63,10 +66,10 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
- 'admin_kelurahan':['push_manage','pages_manage','surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
- 'lurah':['verify','archive_list','approval','monitor','protap','performance','news','announcements'],
- 'asn':['verify','archive_list','monitor','kegiatan','news','announcements'],
+ 'admin':['leave_admin','push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin_kelurahan':['leave_admin','leave_approval','push_manage','pages_manage','surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
+ 'lurah':['leave_approval','verify','archive_list','approval','monitor','protap','performance','news','announcements'],
+ 'asn':['leave_approval','verify','archive_list','monitor','kegiatan','news','announcements'],
  'pppk':['kegiatan','attendance','roster','performance','leave','history','news'],
  'pjlp':['kegiatan','attendance','roster','performance','protap','leave','history'],
  'ptsp':['verify','archive_list','civil','kegiatan','history','services'],
@@ -82,7 +85,7 @@ const roleMenus = <String,List<String>>{
  'dasawisma':['dasawisma','family','history','announcements'],
  'pkk':['dasawisma','history','announcements'],
  'posyandu':['posyandu','kegiatan','history','news','announcements'],
- 'ppsu':['ppsu','bakti','kegiatan','history','news','announcements'],
+ 'ppsu':['leave_ppsu','ppsu','bakti','kegiatan','history','news','announcements'],
  'warga':['surat_pengantar','services','waris','waris_requirements','jumantik','history','news','announcements','gallery'],
 };
 List<RoleFeature> modulesForRole(String role, Map<String,bool> caps) {
