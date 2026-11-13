@@ -126,6 +126,10 @@ if($action==='public_letter_status' && $method==='GET'){
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
+if(str_starts_with($action,'pjlp_')){
+ require_once __DIR__.'/pjlp_leave.php';
+ pjlp_mobile_dispatch($action,$method);
+}
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 if(in_array($action,['admin_push_diagnostics','admin_push_accounts','admin_push_send'],true)){
  require_once __DIR__.'/admin_push_center.php';
