@@ -28,13 +28,13 @@ void main(){
  testWidgets('Admin has a direct in-app Push Notifikasi menu',(tester)async{
   String? route;
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:
-    CikokoAdminContentHub(role:'admin',openInApp:(v)=>route=v))));
+    CikokoAdminContentHub(api:_FakeAdminApi(),role:'admin',openInApp:(v)=>route=v))));
   await tester.tap(find.byKey(const Key('admin_push_menu')));
   expect(route,'Push Notifikasi');
  });
  testWidgets('Warga cannot see admin push menu',(tester)async{
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:
-   CikokoAdminContentHub(role:'warga',openInApp:(_){ }))));
+   CikokoAdminContentHub(api:_FakeAdminApi(),role:'warga',openInApp:(_){ }))));
   expect(find.byKey(const Key('admin_push_menu')),findsNothing);
  });
  testWidgets('Push screen distinguishes stored inbox from delivered FCM',(tester)async{

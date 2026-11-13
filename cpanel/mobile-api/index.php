@@ -40,6 +40,40 @@ if($action==='health'){
 }
 require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
+// Public website header image is sourced from the SAME five-photo slideshow
+// that the live website's index.php renders. The appearance.hero slot is a
+// backward-compatible fallback when no published slideshow exists.
+if($action==='appearance_public'&&$method==='GET'){
+ $hero=ap('hero');
+ $path=ltrim(trim((string)($hero['file']??'')),'/');
+ $valid=(bool)preg_match('~^assets/images/[a-zA-Z0-9._-]+\\.(?:jpe?g|png|webp)$~iD',$path);
+ if(!$valid||str_contains($path,'..')||!is_file(dirname(__DIR__).'/'.$path))$path='';
+ $url=$path!==''?'https://datawebs.my.id/'.$path:'';
+ $slides=[];
+ foreach(db_read('cikoko_home_slides') as $row){
+  $name=is_array($row)?(string)($row['name']??''):'';
+  if(!preg_match('/^[a-f0-9]{40}\\.(jpg|png|webp)$/D',$name))continue;
+  if(!is_file(__DIR__.'/private/home-slides/'.$name))continue;
+  $slides[]='https://datawebs.my.id/mobile-api/index.php?action=home_slide_photo&name='.rawurlencode($name);
+  if(count($slides)>=5)break;
+ }
+ if($slides)$url=$slides[0];
+ mobile_json(['ok'=>true,'hero'=>[
+  'image_url'=>$url,
+  'fit'=>$slides?'cover':(($hero['fit']??'cover')==='contain'?'contain':'cover'),
+  'x'=>$slides?50:max(0,min(100,(int)($hero['x']??50))),
+  'y'=>$slides?50:max(0,min(100,(int)($hero['y']??50))),
+ ],'slides'=>$slides]);
+}
+// Native administration uses the same content and appearance JSON stores as website.
+if(in_array($action,[
+ 'cms_content_list','cms_content_save','cms_content_delete',
+ 'cms_media_upload','cms_appearance_list','cms_appearance_save',
+ 'cms_page_list','cms_page_save',
+],true)){
+ require_once __DIR__.'/app_cms.php';
+ cikoko_mobile_cms_route($action,$method);
+}
 if(in_array($action,['home_slides','home_slide_photo','home_slide_upload','home_slides_save'],true)){
  require_once __DIR__.'/home_slides.php';
  cikoko_home_slides_dispatch($action,$method);
@@ -53,6 +87,10 @@ if(in_array($action,['integrated_services','integrated_services_save','integrate
 
 if(in_array($action,['account_help','account_request','account_requests','account_request_resolve'],true)){
  require_once __DIR__.'/account_support.php';cikoko_account_dispatch($action,$method);
+}
+if(in_array($action,['password_otp_request','password_otp_reset'],true)){
+ require_once __DIR__.'/password_otp.php';
+ cikoko_password_otp_dispatch($action,$method);
 }
 if($action==='login'&&$method==='POST'){
  $limitDb=mobile_db();cikoko_rate_limit($limitDb,'login_ip',(string)($_SERVER['REMOTE_ADDR']??''),200,900);
@@ -91,6 +129,18 @@ if($action==='public_letter_status' && $method==='GET'){
 }
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
+}
+if(in_array($action,['dynamic_modules','dynamic_modules_save'],true)){
+ require_once __DIR__.'/dynamic_modules_2552.php';
+ cikoko_dynamic_dispatch($action,$method);
+}
+if(str_starts_with($action,'pppk_')){
+ require_once __DIR__.'/pppk_performance.php';
+ pppk_dispatch($action,$method);
+}
+if(str_starts_with($action,'pjlp_')){
+ require_once __DIR__.'/pjlp_leave.php';
+ pjlp_mobile_dispatch($action,$method);
 }
 $u=mobile_auth();$db=mobile_db();$uid=$u['user_id'];$admin=in_array($u['user_role'],['admin','admin_kelurahan'],true);
 if(in_array($action,['admin_push_diagnostics','admin_push_accounts','admin_push_send'],true)){
@@ -159,7 +209,7 @@ if($action==='me'){
 }
 // Manajemen akun: hak eksklusif Admin Utama. Penghapusan akun tidak
 // menghapus laporan/arsip historis yang diperlukan untuk audit.
-if(in_array($action,['accounts_list','accounts_create','accounts_delete'],true)){
+if(in_array($action,['accounts_list','accounts_create','accounts_delete','accounts_email_update','accounts_password_reset','accounts_status_update'],true)){
  if((string)$u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengelola akun petugas.',403);
  if($action==='accounts_list'&&$method==='GET'){
   $items=[];
@@ -168,19 +218,106 @@ if(in_array($action,['accounts_list','accounts_create','accounts_delete'],true))
    $items[]=['id'=>(string)($entry['id']??''),'name'=>(string)($entry['name']??''),
     'username'=>(string)($entry['username']??''),'role'=>(string)($entry['role']??''),
     'rt'=>(string)($entry['rt']??''),'rw'=>(string)($entry['rw']??''),
-    'active'=>(bool)($entry['active']??false)];
+    'active'=>(bool)($entry['active']??false),
+    'email'=>(string)($entry['email']??'')];
   }
   mobile_json(['ok'=>true,'roles'=>portal_roles(),'items'=>$items]);
  }
  if($method!=='POST')mobile_error('Metode tidak diizinkan.',405);
  $b=mobile_body();
+ if($action==='accounts_status_update'){
+  $id=mobile_text($b['id']??'',80);$active=$b['active']??null;
+  if($id===''||!is_bool($active))mobile_error('ID dan status aktif wajib diisi.',422);
+  $path=data_path('portal_users');$fp=@fopen($path,'c+');
+  if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
+  try{
+   $original=stream_get_contents($fp);$users=json_decode($original?:'[]',true,512,JSON_THROW_ON_ERROR);
+   if(!is_array($users))throw new RuntimeException('Invalid accounts');
+   $found=false;
+   foreach($users as &$entry){
+    if((string)($entry['id']??'')!==$id)continue;
+    if(in_array((string)($entry['role']??''),['admin','warga'],true))mobile_error('Hanya akun petugas.',403);
+    $entry['active']=$active;$entry['status_updated_at']=date('c');$found=true;break;
+   }unset($entry);
+   if(!$found)mobile_error('Akun tidak ditemukan.',404);
+   $json=json_encode($users,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+   rewind($fp);if(!ftruncate($fp,0)||fwrite($fp,$json)!==strlen($json)||!fflush($fp))throw new RuntimeException('Write failed');
+  }catch(Throwable $e){flock($fp,LOCK_UN);fclose($fp);error_log('[Cikoko status] '.$e->getMessage());mobile_error('Status akun gagal disimpan.',503);}
+  flock($fp,LOCK_UN);fclose($fp);
+  if(!$active){
+   $db->prepare('DELETE FROM mobile_tokens WHERE user_id=?')->execute([$id]);
+   $db->prepare('DELETE FROM mobile_devices WHERE user_id=?')->execute([$id]);
+  }
+  mobile_json(['ok'=>true,'message'=>$active?'Akun diaktifkan.':'Akun dinonaktifkan dan sesi dicabut.']);
+ }
+ if($action==='accounts_password_reset'){
+  $id=mobile_text($b['id']??'',80);$pass=(string)($b['new_password']??'');
+  if($id===''||strlen($pass)<5||strlen($pass)>128)mobile_error('Password minimal 5 karakter, maksimal 128 karakter.',422);
+  $path=data_path('portal_users');$fp=@fopen($path,'c+');
+  if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
+  try{
+   $raw=stream_get_contents($fp);$users=json_decode($raw?:'[]',true,512,JSON_THROW_ON_ERROR);
+   if(!is_array($users))throw new RuntimeException('Invalid account store');
+   $found=false;
+   foreach($users as &$entry){
+    if((string)($entry['id']??'')!==$id)continue;
+    if(in_array((string)($entry['role']??''),['admin','warga'],true))mobile_error('Hanya akun petugas.',403);
+    $entry['password_hash']=password_hash($pass,PASSWORD_DEFAULT);
+    $entry['password_change_required']=true;$entry['password_reset_at']=date('c');$found=true;break;
+   }unset($entry);
+   if(!$found)mobile_error('Akun tidak ditemukan.',404);
+   $json=json_encode($users,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+   rewind($fp);if(!ftruncate($fp,0)||fwrite($fp,$json)!==strlen($json)||!fflush($fp))throw new RuntimeException('Write failed');
+  }catch(Throwable $e){flock($fp,LOCK_UN);fclose($fp);error_log('[Cikoko reset] '.$e->getMessage());mobile_error('Gagal mereset password.',503);}
+  flock($fp,LOCK_UN);fclose($fp);
+  $db->prepare('DELETE FROM mobile_tokens WHERE user_id=?')->execute([$id]);
+  $db->prepare('DELETE FROM mobile_password_otps WHERE user_id=?')->execute([$id]);
+  mobile_json(['ok'=>true,'message'=>'Password diperbarui. Sesi lama dicabut.']);
+ }
+ if($action==='accounts_email_update'){
+  $id=mobile_text($b['id']??'',80);
+  $newEmail=strtolower(mobile_text($b['email']??'',160));
+  if($id===''||!filter_var($newEmail,FILTER_VALIDATE_EMAIL))mobile_error('Masukkan alamat email yang valid.',422);
+  $path=data_path('portal_users');
+  $fp=@fopen($path,'c+');
+  if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
+  $original='';$changed=false;
+  try{
+   $original=stream_get_contents($fp);
+   $users=json_decode($original?:'[]',true,512,JSON_THROW_ON_ERROR);
+   if(!is_array($users))throw new RuntimeException('Invalid account store');
+   foreach($users as &$entry){
+    if((string)($entry['id']??'')!==$id)continue;
+    if(!($entry['active']??false)||in_array((string)($entry['role']??''),['admin','warga'],true))
+     mobile_error('Hanya email akun petugas aktif yang dapat diatur.',403);
+    $entry['email']=$newEmail;
+    $changed=true;break;
+   }unset($entry);
+   if(!$changed){flock($fp,LOCK_UN);fclose($fp);mobile_error('Akun petugas tidak ditemukan.',404);}
+   $payload=json_encode($users,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+   rewind($fp);
+   if(!ftruncate($fp,0)||fwrite($fp,$payload)!==strlen($payload)||!fflush($fp))
+    throw new RuntimeException('Failed to save account email');
+  }catch(Throwable $e){
+   if($changed&&$original!==''){rewind($fp);ftruncate($fp,0);fwrite($fp,$original);fflush($fp);}
+   flock($fp,LOCK_UN);fclose($fp);
+   error_log('[Cikoko OTP] Admin account email update failed: '.$e->getMessage());
+   mobile_error('Email akun belum dapat disimpan.',503);
+  }
+  flock($fp,LOCK_UN);fclose($fp);
+  $db->prepare('DELETE FROM mobile_password_otps WHERE user_id=?')->execute([$id]);
+  mobile_json(['ok'=>true,'message'=>'Email akun petugas berhasil diperbarui.']);
+ }
  if($action==='accounts_create'){
   $name=mobile_text($b['name']??'',120);$username=mobile_text($b['username']??'',80);
   $password=(string)($b['password']??'');$role=mobile_text($b['role']??'',50);
   $allowed=portal_roles();unset($allowed['warga']);
   if(!isset($allowed[$role])||mobile_strlen($name)<3||
-    !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||strlen($password)<8)
+    !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||strlen($password)<5)
    mobile_error('Periksa nama, username, password dan peran.',422);
+  $email=mobile_text($b['email']??'',160);
+  if(($role==='ppsu'&& !filter_var($email,FILTER_VALIDATE_EMAIL))||($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL)))
+   mobile_error('Akun PPSU wajib memiliki email yang valid untuk pemulihan OTP.',422);
   $users=db_read('portal_users');
   if(strcasecmp((string)(db_read('admin')['username']??''),$username)===0)
    mobile_error('Username sudah digunakan.',409);

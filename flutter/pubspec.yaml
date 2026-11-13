@@ -1,5 +1,6 @@
 name: cikoko
-version: 2.5.48+2548
+version: 2.5.55+2555
+# PPPK monthly performance release candidate 2554.
 description: Aplikasi native Kelurahan Cikoko untuk warga dan petugas.
 publish_to: none
 environment:
@@ -17,6 +18,8 @@ dependencies:
   flutter_local_notifications: ^19.4.2
   url_launcher: ^6.3.2
   printing: ^5.14.3
+  file_saver: ^0.3.1
+  qr_flutter: ^4.1.0
   pdf: ^3.11.0
   image: 4.5.4
   archive: 4.0.9

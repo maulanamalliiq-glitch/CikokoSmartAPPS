@@ -1,3 +1,4 @@
+import 'cikoko_dynamic_modules_2552.dart';
 import 'profile_editor.dart';
 import 'cikoko_unified_theme.dart';
 import 'cikoko_v4_public_pages.dart';
@@ -17,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
+import 'cikoko_forgot_password.dart';
 
 
 import 'push.dart';
@@ -35,6 +37,8 @@ import 'v211_features.dart';
 import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
 import 'lpj_pages.dart';
+import 'cikoko_ppsu_leave.dart' show CikokoPpsuLeaveHub;
+import 'cikoko_pppk_performance.dart';
 
 const navy=V6.ink, blue=V6.blue, pale=V6.background;
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -105,7 +109,7 @@ class _EntryState extends State<Entry>{
 }
 class Logo extends StatelessWidget{final double size;const Logo({super.key,this.size=58});@override Widget build(BuildContext c)=>ClipOval(child:Image.asset('assets/logo.png',width:size,height:size,fit:BoxFit.cover));}
 class LoginPage extends StatefulWidget{final VoidCallback onLogin;const LoginPage({super.key,required this.onLogin});@override State<LoginPage> createState()=>_LoginState();}
-class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;final fields=<String,TextEditingController>{};
+class _LoginState extends State<LoginPage>{final user=TextEditingController(),pass=TextEditingController();bool busy=false,signup=false;bool hideLoginPassword=true,hideSignupPassword=true,hideConfirmPassword=true;final fields=<String,TextEditingController>{};
  @override void dispose(){user.dispose();pass.dispose();for(final c in fields.values){c.dispose();}super.dispose();}
  TextEditingController ctrl(String key)=>fields.putIfAbsent(key,()=>TextEditingController());
  Future<void> submit() async{setState(()=>busy=true);try{if(signup){if(ctrl('password').text!=ctrl('confirm').text)throw ApiError('Konfirmasi password tidak sama');await api.register({for(final k in ['name','username','password','confirm','address','rt','rw','phone','email']) k:ctrl(k).text.trim()});if(mounted){setState(()=>signup=false);notify(context,'Akun warga aktif. Silakan login.');}}else{await api.login(user.text.trim(),pass.text);widget.onLogin();}}catch(e){if(mounted)notify(context,'$e',error:true);}finally{if(mounted)setState(()=>busy=false);}}
@@ -145,22 +149,52 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
         'phone':'Nomor Telepon','email':'Email',
        }.entries)Padding(padding:const EdgeInsets.only(bottom:12),
         child:TextField(controller:ctrl(e.key),
-         obscureText:e.key=='password'||e.key=='confirm',
+         obscureText:e.key=='password'?hideSignupPassword:
+           e.key=='confirm'?hideConfirmPassword:false,
          keyboardType:e.key=='email'?TextInputType.emailAddress:
            (e.key=='phone'||e.key=='rt'||e.key=='rw')?TextInputType.number:TextInputType.text,
-         decoration:InputDecoration(labelText:e.value))),
+         decoration:InputDecoration(labelText:e.value,
+           suffixIcon:e.key=='password'||e.key=='confirm'
+            ?IconButton(
+              key:Key('toggle_${e.key}_visibility'),
+              tooltip:(e.key=='password'?hideSignupPassword:hideConfirmPassword)
+                ?'Lihat kata sandi':'Sembunyikan kata sandi',
+              icon:Icon((e.key=='password'?hideSignupPassword:hideConfirmPassword)
+                ?Icons.visibility_outlined:Icons.visibility_off_outlined),
+              onPressed:()=>setState((){
+                if(e.key=='password')hideSignupPassword=!hideSignupPassword;
+                else hideConfirmPassword=!hideConfirmPassword;
+              }),
+            ):null))),
       ] else ...[
        TextField(controller:user,textInputAction:TextInputAction.next,
         decoration:const InputDecoration(
          prefixIcon:Icon(Icons.person_outline,color:V6.secondary),
          labelText:'Username / NIK / Email')),
        const SizedBox(height:13),
-       TextField(controller:pass,obscureText:true,
+       TextField(controller:pass,obscureText:hideLoginPassword,
+        key:const Key('login_password_field'),
         onSubmitted:(_){if(!busy)submit();},
-        decoration:const InputDecoration(
-         prefixIcon:Icon(Icons.lock_outline,color:V6.secondary),
-         labelText:'Kata Sandi')),
+        decoration:InputDecoration(
+         prefixIcon:const Icon(Icons.lock_outline,color:V6.secondary),
+         labelText:'Kata Sandi',
+         suffixIcon:IconButton(
+           key:const Key('toggle_login_password_visibility'),
+           tooltip:hideLoginPassword?'Lihat kata sandi':'Sembunyikan kata sandi',
+           icon:Icon(hideLoginPassword
+             ?Icons.visibility_outlined:Icons.visibility_off_outlined),
+           onPressed:()=>setState(()=>hideLoginPassword=!hideLoginPassword),
+         ))),
       ],
+      if(!signup)Align(alignment:Alignment.centerRight,child:TextButton.icon(
+       icon:const Icon(Icons.mark_email_unread_outlined,size:18),
+       label:const Text('Lupa Kata Sandi? Kirim OTP Email'),
+       onPressed:busy?null:()async{
+        final changed=await Navigator.push<bool>(context,MaterialPageRoute<bool>(
+         builder:(_)=>CikokoForgotPasswordPage(api:api,initialUsername:user.text.trim())));
+        if(changed==true&&mounted)notify(context,'Kata sandi berhasil diperbarui. Silakan masuk kembali.');
+       },
+      )),
       const SizedBox(height:20),
       SizedBox(height:46,child:FilledButton(
        onPressed:busy?null:submit,
@@ -195,6 +229,9 @@ class _HomeState extends State<HomePage> {
   int nav=2;
   List<dynamic> items=[],events=[];
   List<Map<String,dynamic>> activeServices=cikokoDefaultIntegratedServices();
+  String? websiteHeroUrl;
+  BoxFit websiteHeroFit=BoxFit.cover;
+  Alignment websiteHeroAlignment=Alignment.center;
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
@@ -251,8 +288,58 @@ class _HomeState extends State<HomePage> {
     }catch(_){}
     finally{_refreshingEvents=false;}
   }
+  // Read the header photo managed in the website admin, without changing app identity.
+  Future<void> refreshWebsiteHeader()async{
+    // First use the original public slideshow API already used by the website.
+    // Works before additional appearance endpoints have been deployed.
+    try{
+      final data=await api.call('home_slides');
+      final list=data['slides'] as List<dynamic>? ?? [];
+      for(final entry in list){
+        if(entry is! Map)continue;
+        final filename=(entry['name']??'').toString();
+        if(!RegExp(r'^[a-f0-9]{40}\.(jpg|png|webp)$').hasMatch(filename))continue;
+        final url=Uri.https('datawebs.my.id','/mobile-api/index.php',
+          {'action':'home_slide_photo','name':filename}).toString();
+        if(mounted)setState((){
+          websiteHeroUrl=url;
+          websiteHeroFit=BoxFit.cover;
+          websiteHeroAlignment=Alignment.center;
+        });
+        return;
+      }
+    }catch(_){/* Older backend or temporary network outage. */}
+    // Fallback supports the website appearance slot when no slides exist.
+    try{
+      final result=await api.call('appearance_public');
+      final hero=Map<String,dynamic>.from(result['hero'] as Map? ?? {});
+      final source=(hero['image_url']??'').toString().trim();
+      final uri=Uri.tryParse(source);
+      final valid=uri!=null&&uri.scheme=='https'&&
+        uri.host=='datawebs.my.id'&&uri.port==443&&
+        !uri.path.contains('..')&&uri.fragment.isEmpty&&(
+          (RegExp(r'^/assets/images/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$',
+            caseSensitive:false).hasMatch(uri.path)&&uri.query.isEmpty)
+          || (uri.path=='/mobile-api/index.php'&&
+              uri.queryParameters.length==2&&
+              uri.queryParameters['action']=='home_slide_photo'&&
+              RegExp(r'^[a-f0-9]{40}\.(jpg|png|webp)$').hasMatch(
+                uri.queryParameters['name']??'')));
+      final horizontal=(int.tryParse('${hero['x']??50}')??50).clamp(0,100);
+      final vertical=(int.tryParse('${hero['y']??50}')??50).clamp(0,100);
+      if(mounted)setState((){
+        websiteHeroUrl=valid?source:null;
+        websiteHeroFit=hero['fit']=='contain'?BoxFit.contain:BoxFit.cover;
+        websiteHeroAlignment=Alignment(
+          (horizontal.toDouble()-50)/50,
+          (vertical.toDouble()-50)/50,
+        );
+      });
+    }catch(_){/* Keep built-in office image if backend is not yet deployed. */}
+  }
   // Update website-published data without requiring a new APK or a manual restart.
   Future<void> refreshPublishedContent()async{
+    await refreshWebsiteHeader();
     try{
       final v=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(v['items']??[]));
@@ -268,6 +355,7 @@ class _HomeState extends State<HomePage> {
     } catch(e){if(mounted){setState(()=>permissionsOk=false);notify(context,'Hak akses belum tersambung: $e',error:true);}}
     try {
       await refresh();
+      await refreshWebsiteHeader();
       final result=await api.call('content');
       if(mounted)setState(()=>items=List<dynamic>.from(result['items']??[]));
       // Katalog aktif dan logo yang sama untuk pengunjung, warga, dan pegawai.
@@ -431,9 +519,19 @@ class _HomeState extends State<HomePage> {
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
+     case 'Modul Dinamis':return CikokoDynamicModulesPage(api:api,role:role);
+    case 'Kinerja PPPK':
+      return role=='pppk' || role=='admin' || role=='admin_kelurahan'
+        ? CikokoPppkPerformancePage(api:api,role:role)
+        : const Center(child:Text('Modul khusus PPPK dan Admin.'));
+    case 'Cuti PPSU':
+    case 'Kelola Cuti PPSU':
+    case 'Persetujuan Cuti PPSU':
+      return CikokoPpsuLeaveHub(api:api,role:role);
     case 'Kelola Semua Halaman':
       return role=='admin'||role=='admin_kelurahan'
-        ?CikokoAdminContentHub(role:role,openInApp:switchTo)
+        ?CikokoAdminContentHub(api:api,role:role,openInApp:switchTo,
+         onPublished:(){refreshWebsiteHeader();refreshPublishedContent();})
         :const Center(child:Text('Hanya admin yang dapat mengelola konten.'));
     case 'Push Notifikasi':
       return role=='admin'||role=='admin_kelurahan'
@@ -510,7 +608,7 @@ class _HomeState extends State<HomePage> {
     Text('Menu $roleLabel',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),
     const Text('Pilih layanan sesuai kewenangan akun.',style:TextStyle(color:Colors.blueGrey)),
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
-    const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
+    const SizedBox(height:12),if(!guest)Card(child:ListTile(onTap:()=>switchTo('Modul Dinamis'),leading:const CircleAvatar(child:Icon(Icons.widgets_outlined)),title:const Text('Modul Dinamis'),subtitle:const Text('Layanan native yang ditambahkan melalui admin'),trailing:const Icon(Icons.chevron_right))),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
   Future<void> showOfficeProfile() async {
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,
@@ -541,6 +639,8 @@ class _HomeState extends State<HomePage> {
     return V6Home(role:role,guest:guest,modules:modules,
       api:api,items:items,letterCounts:letterCounts,
       integratedServices:activeServices,integratedTap:_openIntegratedService,
+      websiteHeroUrl:websiteHeroUrl,websiteHeroFit:websiteHeroFit,
+      websiteHeroAlignment:websiteHeroAlignment,
       navigate:_openV6Service,reload:load,
       letterStatus:(value)=>showPublicLetterStatus(context,api,category:value),
       articleTap:_openV5Article);

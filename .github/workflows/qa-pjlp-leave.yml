@@ -1,0 +1,144 @@
+name: Cikoko PPSU Leave Backend - MySQL and cPanel ZIP
+on:
+  push:
+    branches: [feat/sync-website-header-android-2549]
+    paths:
+      - 'cpanel/mobile-api/pjlp_*'
+      - 'cpanel/mobile-api/migrate_pjlp_leave.sql'
+      - 'cpanel/mobile-api/index.php'
+      - 'cpanel/mobile-api/password_otp.php'
+      - 'cpanel/mobile-api/password_otp_smtp.php'
+      - 'cpanel/mobile-api/password_otp_config.example.php'
+      - 'cpanel/mobile-api/migrate_password_otp.sql'
+      - 'qa/password_otp_smoke.php'
+      - 'cpanel/mobile-api/bootstrap.php'
+      - 'qa/pjlp_pdf_smoke.php'
+      - '.github/workflows/qa-pjlp-leave.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-pass-only
+          MYSQL_DATABASE: pjlp_leave_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-pass-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: gd,pdo_mysql,pdo_sqlite
+      - name: PDF A4 smoke check (real QR image embeds)
+        run: |
+          set -euo pipefail
+          php qa/pjlp_pdf_smoke.php > /tmp/pjlp-letter-smoke.pdf
+          test -s /tmp/pjlp-letter-smoke.pdf
+          if command -v pdfinfo >/dev/null 2>&1; then
+            pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Pages: *1'
+            pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Page size: *595 x 842 pts'
+          fi
+      - name: Upload PDF layout sample (synthetic data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-PPSU-PDF-A4-SAMPLE
+          path: /tmp/pjlp-letter-smoke.pdf
+          if-no-files-found: error
+          retention-days: 14
+      - name: PHP syntax hardcheck
+        run: |
+          set -euo pipefail
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/password_otp.php
+          php -l cpanel/mobile-api/password_otp_smtp.php
+          php -l cpanel/mobile-api/bootstrap.php
+          php -l qa/password_otp_smoke.php
+          php qa/password_otp_smoke.php
+          php -l cpanel/mobile-api/pjlp_leave.php
+          php -l cpanel/mobile-api/pjlp_leave_pdf.php
+          php -l cpanel/mobile-api/pdf_native.php
+      - name: MySQL schema migration and constraints
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_password_otp.sql
+          test "$(mysql -N -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci -e 'SHOW TABLES' | grep -c '^pjlp_')" -eq 7
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
+      - name: Build cPanel overlay
+        run: |
+          set -euo pipefail
+          mkdir -p dist/public_html/mobile-api dist/PANDUAN
+          cp cpanel/mobile-api/index.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/bootstrap.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/password_otp.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/password_otp_smtp.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/password_otp_config.example.php dist/PANDUAN/
+          cp cpanel/mobile-api/pjlp_leave.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/pjlp_leave_pdf.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/pdf_native.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/migrate_pjlp_leave.sql dist/PANDUAN/
+          cp cpanel/mobile-api/migrate_password_otp.sql dist/PANDUAN/
+          cat > dist/PANDUAN/INSTALL.md <<'EOF'
+          CIKOKO PPSU CUTI + OTP EMAIL V2551 - TAHAP INSTALASI
+          1. Backup public_html, private/ dan database sebelum pembaruan.
+          2. Impor migrate_pjlp_leave.sql dan migrate_password_otp.sql melalui phpMyAdmin.
+          3. Upload isi folder public_html dari ZIP ini ke public_html website yang sama.
+             Jangan menghapus mobile-api/private atau file konfigurasi.
+          4. Pastikan PHP 8+, PDO MySQL, GD, dan fileinfo tersedia.
+          5. Pastikan mobile-api/private/pjlp/ tidak dapat diakses via web.
+          6. Login ke aplikasi, daftarkan akun PPSU, atasan ASN, Lurah,
+             tetapkan jatah masing-masing dan unggah gambar QR tetap.
+          7. Uji alur satu pegawai, persetujuan, nomor surat, dan cetak PDF.
+          8. QR statis bukan tanda tangan elektronik tersertifikasi.
+          9. PENGIRIM OTP: cikokosmarthome@gmail.com via Gmail SMTP TLS port 465.
+             Tidak menggunakan PHP mail() untuk alamat Gmail.
+          10. Aktifkan Verifikasi 2 Langkah pada akun Google pengirim, lalu buat
+              App Password 16 karakter khusus CikokoSmartAPPS (jika opsi tersedia).
+              JANGAN gunakan password Gmail biasa. JANGAN kirim App Password
+              lewat chat, email, atau simpan di GitHub.
+          11. Salin password_otp_config.example.php ke /home/CPANEL_USER/cikoko_otp_mail.php
+              (DI LUAR public_html). Isi smtp_app_password dengan App Password
+              secara pribadi melalui cPanel File Manager.
+              Isi secret dengan 64 karakter heksadesimal acak:
+              php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+          12. Pastikan server cPanel dapat terhubung keluar ke smtp.gmail.com:465.
+              Jika koneksi SMTP diblokir hosting, hubungi penyedia hosting.
+          13. Admin mengatur email aktif setiap pegawai PPSU melalui menu Akun.
+              Uji pengiriman OTP ke akun yang memang terdaftar dan dapat diakses.
+              OTP berlaku 10 menit, maksimal 5 percobaan, dan sesi lama dicabut.
+          14. Admin utama tidak dapat direset lewat OTP publik; hubungi pengelola.
+          15. Perbarui file PHP dan SQL dari paket ini; APK v2551 tetap aplikasi lama.
+          CATATAN: Paket tidak otomatis terpasang ke cPanel.
+          EOF
+          (cd dist && zip -qr ../CIKOKO_PPSU_CPANEL_V2551_OTP.zip .)
+          unzip -t CIKOKO_PPSU_CPANEL_V2551_OTP.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-PPSU-CPANEL-v2551-OTP
+          path: CIKOKO_PPSU_CPANEL_V2551_OTP.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish direct cPanel ZIP download (optional)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CIKOKO_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag='v2.5.51-ppsu-otp-cpanel'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" CIKOKO_PPSU_CPANEL_V2551_OTP.zip --clobber || true
+          else
+            gh release create "$tag" CIKOKO_PPSU_CPANEL_V2551_OTP.zip --target "$GITHUB_SHA" \
+              --title 'Cikoko PPSU Cuti + Email OTP - cPanel v2551' --prerelease \
+              --notes 'Overlay PHP dan SQL. Tidak otomatis terpasang ke cPanel. Backup dan impor SQL dahulu.' || true
+          fi

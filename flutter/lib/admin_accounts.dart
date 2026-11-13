@@ -134,6 +134,114 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
     }
   }
 
+  Future<void> changeStatus(Map<String,dynamic> account) async {
+    final active=account['active']==true;
+    final confirm=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+      title:Text(active?'Nonaktifkan akun?':'Aktifkan akun?'),
+      content:Text('${account['name']} (${account['username']})\n${active?'Pegawai akan keluar dan tidak bisa login hingga diaktifkan kembali.':'Pegawai akan bisa login kembali.'}'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Batal')),
+        FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:Text(active?'Nonaktifkan':'Aktifkan'))]));
+    if(confirm!=true)return;
+    try{
+      await widget.api.call('accounts_status_update',body:{'id':account['id'],'active':!active});
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(active?'Akun dinonaktifkan.':'Akun diaktifkan.')));
+      await load();
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Gagal mengubah status: ${cikokoFormalMessage(e)}')));}
+  }
+
+  Future<void> deleteAccount(Map<String,dynamic> account) async {
+    final controller=TextEditingController();
+    final username=(account['username']??'').toString();
+    final confirm=await showDialog<bool>(context:context,builder:(dialog)=>AlertDialog(
+      title:const Text('Hapus akun permanen?'),
+      content:Column(mainAxisSize:MainAxisSize.min,children:[
+        Text('Akun ${account['name']} akan dihapus dan tidak bisa dipulihkan melalui aplikasi. Riwayat laporan tetap disimpan. Ketik username untuk konfirmasi:'),
+        const SizedBox(height:8),SelectableText(username),
+        TextField(controller:controller,decoration:const InputDecoration(labelText:'Ketik username')),
+      ]),
+      actions:[TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Batal')),
+        FilledButton(onPressed:()=>Navigator.pop(dialog,controller.text.trim()==username),child:const Text('Hapus Permanen'))]));
+    controller.dispose();
+    if(confirm!=true)return;
+    try{
+      await widget.api.call('accounts_delete',body:{'id':account['id'],'confirm_username':username});
+      if(!mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Akun berhasil dihapus permanen.')));
+      await load();
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Gagal menghapus: ${cikokoFormalMessage(e)}')));}
+  }
+
+  Future<void> resetPassword(Map<String,dynamic> account) async {
+    final controller=TextEditingController();
+    bool visible=false;
+    await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(
+      builder:(dialog,refresh)=>AlertDialog(
+        title:Text('Reset Password: ${account['name'] ?? 'Pegawai'}'),
+        content:Column(mainAxisSize:MainAxisSize.min,children:[
+          const Text('Masukkan password baru khusus akun ini. Minimal 5 karakter, bebas huruf, angka, atau simbol. Sesi lama akan dikeluarkan.',style:TextStyle(fontSize:13)),
+          const SizedBox(height:12),
+          TextField(controller:controller,obscureText:!visible,
+            decoration:InputDecoration(labelText:'Password baru',border:const OutlineInputBorder(),
+              suffixIcon:IconButton(icon:Icon(visible?Icons.visibility_off:Icons.visibility),
+                onPressed:()=>refresh(()=>visible=!visible)))),
+        ]),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Batal')),
+          FilledButton(onPressed:()async{
+            final pass=controller.text;
+            if(pass.length<5||pass.length>128){
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Minimal 5 karakter, maksimal 128 karakter.')));return;
+            }
+            try{
+              await widget.api.call('accounts_password_reset',body:{'id':account['id'],'new_password':pass});
+              if(!mounted)return;
+              if(dialog.mounted)Navigator.pop(dialog);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Password berhasil direset. Sampaikan secara pribadi.')));
+            }catch(e){
+              if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Gagal reset: ${cikokoFormalMessage(e)}')));
+            }
+          },child:const Text('Reset Password')),
+        ],
+      ),
+    ));
+    controller.dispose();
+  }
+
+  Future<void> updateEmail(Map<String,dynamic> account) async {
+    final controller=TextEditingController(text:(account['email']??'').toString());
+    await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
+      title:Text('Email OTP: '+(account['name']??'Petugas').toString()),
+      content:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextField(controller:controller,keyboardType:TextInputType.emailAddress,
+          decoration:const InputDecoration(
+            labelText:'Email aktif milik pegawai',border:OutlineInputBorder())),
+        const SizedBox(height:8),
+        const Text('Pastikan alamat email benar-benar dapat diakses oleh pemilik akun. OTP akan dikirim ke alamat ini.',
+          style:TextStyle(fontSize:12,color:Colors.blueGrey)),
+      ]),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Batal')),
+        FilledButton(onPressed:()async{
+          try{
+            await widget.api.call('accounts_email_update',body:{
+              'id':account['id'],'email':controller.text.trim(),
+            });
+            if(!mounted)return;
+            if(dialog.mounted)Navigator.pop(dialog);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content:Text('Email OTP pegawai berhasil diperbarui.')));
+            await load();
+          }catch(e){
+            if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content:Text('Gagal memperbarui email: '+cikokoFormalMessage(e))));
+          }
+        },child:const Text('Simpan')),
+      ],
+    ));
+    controller.dispose();
+  }
+
   InputDecoration decoration(String label, {String? hint}) =>
       InputDecoration(
         labelText: label,
@@ -217,7 +325,7 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
                   field(name, 'Nama lengkap'),
                   field(username, 'Username', hint: 'Minimal 4 karakter'),
                   field(password, 'Password awal',
-                      secret: true, hint: 'Minimal 8 karakter'),
+                      secret: true, hint: 'Minimal 5 karakter'),
                   DropdownButtonFormField<String>(
                     initialValue: selectedRole,
                     isExpanded: true,
@@ -236,7 +344,8 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
                       keyboard: TextInputType.number),
                   field(phone, 'Nomor telepon (opsional)', required: false,
                       keyboard: TextInputType.phone),
-                  field(email, 'Email (opsional)', required: false,
+                  field(email, selectedRole == 'ppsu' ? 'Email PPSU (wajib untuk OTP)' : 'Email (opsional)',
+                      required: selectedRole == 'ppsu',
                       keyboard: TextInputType.emailAddress),
                   const SizedBox(height: 4),
                   FilledButton.icon(
@@ -283,8 +392,26 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
               '${(account['rt'] ?? '').toString().isNotEmpty ? ' • RT ${account['rt']}' : ''}'
               '${(account['rw'] ?? '').toString().isNotEmpty ? ' / RW ${account['rw']}' : ''}',
             ),
-            trailing: Text(account['active'] == true ? 'Aktif' : 'Nonaktif',
+            trailing: Row(mainAxisSize:MainAxisSize.min,children:[
+              PopupMenuButton<String>(
+                tooltip:'Kelola status akun',
+                icon:const Icon(Icons.more_vert),
+                onSelected:(value){
+                  if(value=='status')changeStatus(account);
+                  if(value=='delete')deleteAccount(account);
+                },
+                itemBuilder:(_)=>[
+                  PopupMenuItem(value:'status',child:Text(account['active']==true?'Nonaktifkan Akun':'Aktifkan Akun')),
+                  const PopupMenuItem(value:'delete',child:Text('Hapus Permanen',style:TextStyle(color:Colors.red))),
+                ],
+              ),
+              IconButton(tooltip:'Reset password pegawai',icon:const Icon(Icons.lock_reset_outlined),
+                onPressed:()=>resetPassword(account)),
+              IconButton(tooltip:'Atur email untuk OTP',icon:const Icon(Icons.alternate_email),
+                onPressed:()=>updateEmail(account)),
+              Text(account['active'] == true ? 'Aktif' : 'Nonaktif',
                 style: const TextStyle(fontSize: 11)),
+            ]),
           )),
       ],
     );
