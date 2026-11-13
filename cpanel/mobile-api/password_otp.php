@@ -113,7 +113,7 @@ function cikoko_password_otp_dispatch(string $action,string $method):void {
   if(!is_array($users))throw new RuntimeException('Invalid portal_users data');
   $accountIndex=null;$accountId='';
   foreach($users as $i=>$u){
-   if(!($u['active']??false))continue;
+   if(!($u['active']??false)||($u['role']??'')==='admin')continue;
    if(strcasecmp((string)($u['username']??''),$username)!==0)continue;
    if(strcasecmp(trim((string)($u['email']??'')),$email)!==0)continue;
    $accountIndex=$i;$accountId=(string)($u['id']??'');break;
