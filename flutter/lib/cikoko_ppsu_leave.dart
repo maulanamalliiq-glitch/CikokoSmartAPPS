@@ -217,7 +217,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
    ])),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),
     FilledButton(onPressed:()async{
-     if(decision=='approve'&&number.text.trim().isNotEmpty&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}
+     if(decision=='approve'&&number.text.trim().isNotEmpty&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}$').hasMatch(number.text.trim())){
       toast('Isi nomor surat resmi, contoh: 12/KG 11.01');return;
      }
      await post(dialog,'pjlp_review',{
