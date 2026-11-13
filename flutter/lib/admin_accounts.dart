@@ -134,6 +134,40 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
     }
   }
 
+  Future<void> updateEmail(Map<String,dynamic> account) async {
+    final controller=TextEditingController(text:(account['email']??'').toString());
+    await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
+      title:Text('Email OTP: '+(account['name']??'Petugas').toString()),
+      content:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextField(controller:controller,keyboardType:TextInputType.emailAddress,
+          decoration:const InputDecoration(
+            labelText:'Email aktif milik pegawai',border:OutlineInputBorder())),
+        const SizedBox(height:8),
+        const Text('Pastikan alamat email benar-benar dapat diakses oleh pemilik akun. OTP akan dikirim ke alamat ini.',
+          style:TextStyle(fontSize:12,color:Colors.blueGrey)),
+      ]),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Batal')),
+        FilledButton(onPressed:()async{
+          try{
+            await widget.api.call('accounts_email_update',body:{
+              'id':account['id'],'email':controller.text.trim(),
+            });
+            if(!mounted)return;
+            if(dialog.mounted)Navigator.pop(dialog);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content:Text('Email OTP pegawai berhasil diperbarui.')));
+            await load();
+          }catch(e){
+            if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content:Text('Gagal memperbarui email: '+cikokoFormalMessage(e))));
+          }
+        },child:const Text('Simpan')),
+      ],
+    ));
+    controller.dispose();
+  }
+
   InputDecoration decoration(String label, {String? hint}) =>
       InputDecoration(
         labelText: label,
@@ -236,7 +270,8 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
                       keyboard: TextInputType.number),
                   field(phone, 'Nomor telepon (opsional)', required: false,
                       keyboard: TextInputType.phone),
-                  field(email, 'Email (opsional)', required: false,
+                  field(email, selectedRole == 'ppsu' ? 'Email PPSU (wajib untuk OTP)' : 'Email (opsional)',
+                      required: selectedRole == 'ppsu',
                       keyboard: TextInputType.emailAddress),
                   const SizedBox(height: 4),
                   FilledButton.icon(
@@ -283,8 +318,12 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
               '${(account['rt'] ?? '').toString().isNotEmpty ? ' • RT ${account['rt']}' : ''}'
               '${(account['rw'] ?? '').toString().isNotEmpty ? ' / RW ${account['rw']}' : ''}',
             ),
-            trailing: Text(account['active'] == true ? 'Aktif' : 'Nonaktif',
+            trailing: Row(mainAxisSize:MainAxisSize.min,children:[
+              IconButton(tooltip:'Atur email untuk OTP',icon:const Icon(Icons.alternate_email),
+                onPressed:()=>updateEmail(account)),
+              Text(account['active'] == true ? 'Aktif' : 'Nonaktif',
                 style: const TextStyle(fontSize: 11)),
+            ]),
           )),
       ],
     );
