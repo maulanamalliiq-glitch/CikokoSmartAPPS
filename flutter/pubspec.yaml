@@ -1,5 +1,5 @@
 name: cikoko
-version: 2.5.52+2552
+version: 2.5.53+2553
 description: Aplikasi native Kelurahan Cikoko untuk warga dan petugas.
 publish_to: none
 environment:
