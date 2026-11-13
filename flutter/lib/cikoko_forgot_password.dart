@@ -175,6 +175,6 @@ class _CikokoForgotPasswordState extends State<CikokoForgotPasswordPage> {
             textAlign:TextAlign.center,
             style:TextStyle(color:Colors.blueGrey,fontSize:12)),
         ]))),
-    ))),
+    )),
   );
 }
