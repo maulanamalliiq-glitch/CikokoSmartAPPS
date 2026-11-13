@@ -205,7 +205,7 @@ if($action==='me'){
 }
 // Manajemen akun: hak eksklusif Admin Utama. Penghapusan akun tidak
 // menghapus laporan/arsip historis yang diperlukan untuk audit.
-if(in_array($action,['accounts_list','accounts_create','accounts_delete','accounts_email_update'],true)){
+if(in_array($action,['accounts_list','accounts_create','accounts_delete','accounts_email_update','accounts_password_reset'],true)){
  if((string)$u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengelola akun petugas.',403);
  if($action==='accounts_list'&&$method==='GET'){
   $items=[];
@@ -221,6 +221,30 @@ if(in_array($action,['accounts_list','accounts_create','accounts_delete','accoun
  }
  if($method!=='POST')mobile_error('Metode tidak diizinkan.',405);
  $b=mobile_body();
+ if($action==='accounts_password_reset'){
+  $id=mobile_text($b['id']??'',80);$pass=(string)($b['new_password']??'');
+  if($id===''||strlen($pass)<10||strlen($pass)>128||!preg_match('/[A-Za-z]/',$pass)||!preg_match('/[0-9]/',$pass))mobile_error('Password minimal 10 karakter dengan huruf dan angka.',422);
+  $path=data_path('portal_users');$fp=@fopen($path,'c+');
+  if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
+  try{
+   $raw=stream_get_contents($fp);$users=json_decode($raw?:'[]',true,512,JSON_THROW_ON_ERROR);
+   if(!is_array($users))throw new RuntimeException('Invalid account store');
+   $found=false;
+   foreach($users as &$entry){
+    if((string)($entry['id']??'')!==$id)continue;
+    if(in_array((string)($entry['role']??''),['admin','warga'],true))mobile_error('Hanya akun petugas.',403);
+    $entry['password_hash']=password_hash($pass,PASSWORD_DEFAULT);
+    $entry['password_change_required']=true;$entry['password_reset_at']=date('c');$found=true;break;
+   }unset($entry);
+   if(!$found)mobile_error('Akun tidak ditemukan.',404);
+   $json=json_encode($users,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+   rewind($fp);if(!ftruncate($fp,0)||fwrite($fp,$json)!==strlen($json)||!fflush($fp))throw new RuntimeException('Write failed');
+  }catch(Throwable $e){flock($fp,LOCK_UN);fclose($fp);error_log('[Cikoko reset] '.$e->getMessage());mobile_error('Gagal mereset password.',503);}
+  flock($fp,LOCK_UN);fclose($fp);
+  $db->prepare('DELETE FROM mobile_tokens WHERE user_id=?')->execute([$id]);
+  $db->prepare('DELETE FROM mobile_password_otps WHERE user_id=?')->execute([$id]);
+  mobile_json(['ok'=>true,'message'=>'Password diperbarui. Sesi lama dicabut.']);
+ }
  if($action==='accounts_email_update'){
   $id=mobile_text($b['id']??'',80);
   $newEmail=strtolower(mobile_text($b['email']??'',160));
