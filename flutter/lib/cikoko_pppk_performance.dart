@@ -151,7 +151,7 @@ class _PppkState extends State<CikokoPppkPerformancePage> {
   decoration:BoxDecoration(color:Colors.white.withValues(alpha:.14),borderRadius:BorderRadius.circular(12)),
   child:Column(children:[Text(value,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.bold)),
    Text(label,style:const TextStyle(color:Colors.white,fontSize:11))]),
- )));
+  ));
 
 }
 class _PppkEditor extends StatefulWidget {
