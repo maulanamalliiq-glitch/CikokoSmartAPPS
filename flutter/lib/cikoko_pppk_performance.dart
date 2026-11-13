@@ -296,7 +296,7 @@ class _PppkEditorState extends State<_PppkEditor>{
      pw.Container(height:.8,color:PdfColors.black),
      pw.SizedBox(height:12),
      identity('NAMA',person),
-     identity('NI PPPK',employeeNip),
+     identity('NIP PPPK',employeeNip),
      identity('GOLONGAN','-'),
      identity('JABATAN',reportJabatan.isEmpty?'-':reportJabatan),
      identity('UNIT KERJA','Kelurahan Cikoko'),
@@ -335,7 +335,7 @@ class _PppkEditorState extends State<_PppkEditor>{
        tx('KELURAHAN CIKOKO',size:7.5,align:pw.TextAlign.center),
        pw.SizedBox(height:64),
        tx(person,size:8,strong:true,align:pw.TextAlign.center),
-       tx('NI PPPK $employeeNip',size:7,align:pw.TextAlign.center),
+       tx('NIP PPPK $employeeNip',size:7,align:pw.TextAlign.center),
       ])),
       pw.Expanded(child:pw.Column(children:[
        tx('Mengetahui,',size:8,align:pw.TextAlign.center),
