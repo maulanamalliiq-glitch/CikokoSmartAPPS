@@ -60,11 +60,16 @@ function pppk_dispatch(string $action,string $method):void {
   if(!preg_match('/^20[2-9][0-9]-(0[1-9]|1[0-2])$/D',$month))mobile_error('Bulan laporan tidak valid');
   $parts=$v['sections']??null;
   if(!is_array($parts)||count($parts)!==4)mobile_error('Harus ada empat kelompok kegiatan');
+  $jabatan=trim((string)($v['jabatan']??''));
+  $allowedJabatan=['Operator Layanan Administrasi','Operator Layanan Umum'];
+  if($jabatan!==''&&!in_array($jabatan,$allowedJabatan,true))mobile_error('Pilihan jabatan tidak valid');
   $clean=[];
   foreach($parts as $item){
    if(!is_array($item)||!isset($item['period1'],$item['period2']))mobile_error('Setiap kegiatan harus mempunyai dua periode');
    $clean[]=['period1'=>mb_substr(trim((string)$item['period1']),0,700),'period2'=>mb_substr(trim((string)$item['period2']),0,700)];
   }
+  // Store the job selection in the existing JSON payload, without a schema migration.
+  $clean[0]['jabatan']=$jabatan;
   $name=mb_substr(trim((string)($v['name']??'')),0,160);$nip=mb_substr(trim((string)($v['nip']??'')),0,50);
   if($name==='')mobile_error('Nama pegawai wajib diisi');
   $s=$db->prepare("INSERT INTO pppk_monthly_reports(user_id,report_month,employee_name,employee_nip,payload_json)
