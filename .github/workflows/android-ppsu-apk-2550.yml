@@ -1,8 +1,8 @@
-name: Cikoko Cikoko 2551 - Email OTP Signed APK
+name: Cikoko 2551 - Email OTP Signed APK
 on:
   push:
     branches: [feat/sync-website-header-android-2549]
-    paths: ['.github/workflows/android-ppsu-apk-2551.yml','flutter/**']
+    paths: ['.github/workflows/android-ppsu-apk-2550.yml','flutter/**']
   workflow_dispatch:
 permissions:
   contents: write
