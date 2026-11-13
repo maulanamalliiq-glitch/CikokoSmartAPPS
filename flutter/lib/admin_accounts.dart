@@ -141,7 +141,7 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
       builder:(dialog,refresh)=>AlertDialog(
         title:Text('Reset Password: ${account['name'] ?? 'Pegawai'}'),
         content:Column(mainAxisSize:MainAxisSize.min,children:[
-          const Text('Masukkan password baru khusus akun ini. Minimal 10 karakter, harus ada huruf dan angka. Sesi lama akan dikeluarkan.',style:TextStyle(fontSize:13)),
+          const Text('Masukkan password baru khusus akun ini. Minimal 5 karakter, bebas huruf, angka, atau simbol. Sesi lama akan dikeluarkan.',style:TextStyle(fontSize:13)),
           const SizedBox(height:12),
           TextField(controller:controller,obscureText:!visible,
             decoration:InputDecoration(labelText:'Password baru',border:const OutlineInputBorder(),
@@ -152,8 +152,8 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
           TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Batal')),
           FilledButton(onPressed:()async{
             final pass=controller.text;
-            if(pass.length<10||!RegExp(r'[A-Za-z]').hasMatch(pass)||!RegExp(r'[0-9]').hasMatch(pass)){
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Minimal 10 karakter dengan huruf dan angka.')));return;
+            if(pass.length<5||pass.length>128){
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Minimal 5 karakter, maksimal 128 karakter.')));return;
             }
             try{
               await widget.api.call('accounts_password_reset',body:{'id':account['id'],'new_password':pass});
@@ -287,7 +287,7 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
                   field(name, 'Nama lengkap'),
                   field(username, 'Username', hint: 'Minimal 4 karakter'),
                   field(password, 'Password awal',
-                      secret: true, hint: 'Minimal 8 karakter'),
+                      secret: true, hint: 'Minimal 5 karakter'),
                   DropdownButtonFormField<String>(
                     initialValue: selectedRole,
                     isExpanded: true,
