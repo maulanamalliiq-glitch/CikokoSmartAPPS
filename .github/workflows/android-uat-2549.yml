@@ -1,10 +1,10 @@
 name: Signed Cikoko v2550 UAT — direct APK and AAB
 on:
   push:
-    branches: [feat/sync-website-header-android-2550]
+    branches: [feat/sync-website-header-android-2549]
     paths:
       - 'flutter/**'
-      - '.github/workflows/android-uat-2550.yml'
+      - '.github/workflows/android-uat-2549.yml'
   workflow_dispatch:
 
 permissions:
