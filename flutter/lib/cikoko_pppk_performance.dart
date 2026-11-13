@@ -220,54 +220,113 @@ class _PppkEditorState extends State<_PppkEditor>{
    }
    final approved=data['status']=='approved';
    final token='${data['approved_token']??''}';
+   // Match the official reference: centered title, identity block, four-row
+   // indicator/progress table, period notes and two signature columns.
+   // Rendering only; no database write or report status mutation.
    final pdf=pw.Document();
    final regular=pw.Font.helvetica();
    final bold=pw.Font.helveticaBold();
-   pw.Text tx(String text,{double size=8,bool strong=false})=>pw.Text(text,style:pw.TextStyle(font:strong?bold:regular,fontSize:size));
-   pdf.addPage(pw.Page(pageFormat:PdfPageFormat.a4,margin:const pw.EdgeInsets.all(14),
-    build:(ctx)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
-     tx('KELURAHAN CIKOKO - JAYA RAYA',size:13,strong:true),
-     tx('Laporan Kinerja PPPK ${data['month']} - ${data['employee_name']}',size:9),
-     tx('Tanggal cetak: ${DateTime.now().toIso8601String().substring(0,10)} | NIP/No. pegawai: ${data['employee_nip']}',size:8),
-     pw.Divider(color:PdfColors.teal700),
-     for(var i=0;i<4;i++)pw.Container(
-      decoration:pw.BoxDecoration(border:pw.Border.all(color:PdfColors.grey400)),
-      padding:const pw.EdgeInsets.all(6),
-      child:pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
-       tx(_PppkState.titles[i],size:8,strong:true),
-       pw.SizedBox(height:4),
-       pw.Row(children:[for(var j=0;j<2;j++)pw.Expanded(child:pw.Padding(
-        padding:pw.EdgeInsets.only(right:j==0?6:0),
-        child:pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
-         pw.Container(height:104,width:double.infinity,
-          decoration:pw.BoxDecoration(border:pw.Border.all(color:PdfColors.grey400)),
-          child:pw.Column(children:[
-           pw.Align(alignment:pw.Alignment.centerLeft,child:tx('Periode ${j+1}',size:7,strong:true)),
-           pw.Expanded(child:images.containsKey('${i+1}-${j+1}')
-            ?pw.Image(images['${i+1}-${j+1}']!,fit:pw.BoxFit.contain)
-            :pw.Center(child:tx('Belum ada foto',size:7))),
-          ])),
-         pw.SizedBox(height:4),
-         tx(i<entries.length?'${(entries[i] as Map)['period${j+1}']??''}':'Keterangan belum diisi',size:7),
-        ]),
-       ))]),
+   final ink=PdfColors.black;
+   final green=PdfColor.fromInt(0xff27733c);
+   final monthValue='\u0024{data['month']??month}';
+   const monthNames=['','JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
+   final parts=monthValue.split('-');
+   final monthNumber=parts.length>1?int.tryParse(parts[1])??0:0;
+   final monthTitle=monthNumber>=1&&monthNumber<=12?monthNames[monthNumber]:'';
+   final yearTitle=parts.isNotEmpty?parts[0]:'';
+   final person='\u0024{data['employee_name']??''}';
+   final employeeNip='\u0024{data['employee_nip']??''}';
+   pw.Text tx(String value,{double size=8,bool strong=false,pw.TextAlign align=pw.TextAlign.left})=>
+    pw.Text(value,style:pw.TextStyle(font:strong?bold:regular,fontSize:size,color:ink),textAlign:align);
+   pw.Widget identity(String label,String value)=>pw.Row(children:[
+    pw.SizedBox(width:77,child:tx(label,size:8,strong:true)),
+    pw.SizedBox(width:12,child:tx(':',size:8)),
+    pw.Expanded(child:tx(value,size:8)),
+   ]);
+   pw.Widget progress(int i,int j){
+    final key='\u0024{i+1}-\u0024{j+1}';
+    final entry=i<entries.length&&entries[i] is Map?entries[i] as Map:{};
+    final desc='\u0024{entry['period\u0024{j+1}']??''}'.trim();
+    return pw.Padding(padding:const pw.EdgeInsets.all(6),child:pw.Column(
+     crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+      pw.Row(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+       pw.Container(width:5,height:5,margin:const pw.EdgeInsets.only(top:3,right:7),color:green),
+       pw.Expanded(child:tx(desc.isEmpty?'Belum ada keterangan':desc,size:7)),
       ]),
-     ),
-     pw.Spacer(),
-     pw.Row(mainAxisAlignment:pw.MainAxisAlignment.spaceBetween,children:[
-      tx('Sumber: Laporan kinerja website Cikoko (data tersimpan).',size:7),
-      tx('A4 | Halaman 1/1',size:7),
-     ]),
-     pw.SizedBox(height:8),
-     pw.Align(alignment:pw.Alignment.centerRight,child:pw.Column(children:[
-      tx('Kasi Ekonomi dan Pembangunan',size:8),
-      pw.SizedBox(height:3),
-      if(approved&&token.length==48)
-       pw.BarcodeWidget(barcode:pw.Barcode.qrCode(),data:'https://datawebs.my.id/mobile-api/pppk_verify.php?token=$token',width:60,height:60)
-      else pw.SizedBox(height:60,child:pw.Center(child:tx('Menunggu persetujuan Admin',size:7))),
-      tx('Desi Andriyani',size:8,strong:true),
-      tx('NIP 198712292010012024',size:7),
+      pw.SizedBox(height:5),
+      pw.Center(child:pw.SizedBox(height:65,width:155,
+       child:images.containsKey(key)
+        ?pw.Image(images[key]!,fit:pw.BoxFit.contain)
+        :pw.Center(child:tx('Belum ada foto',size:7)),
+      )),
+     ]));
+   }
+   final tableBorder=pw.TableBorder.all(color:PdfColors.grey700,width:.6);
+   pdf.addPage(pw.Page(pageFormat:PdfPageFormat.a4,
+    margin:const pw.EdgeInsets.fromLTRB(34,26,34,26),
+    build:(ctx)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.stretch,children:[
+     pw.Center(child:pw.Column(children:[
+      tx('LAPORAN KINERJA BULANAN',size:12,strong:true,align:pw.TextAlign.center),
+      tx('PEGAWAI PEMERINTAH DENGAN PERJANJIAN KERJA PARUH WAKTU',size:9,strong:true,align:pw.TextAlign.center),
+      tx('BULAN \u0024monthTitle \u0024yearTitle',size:9,strong:true,align:pw.TextAlign.center),
      ])),
+     pw.SizedBox(height:9),
+     pw.Container(height:.8,color:PdfColors.black),
+     pw.SizedBox(height:12),
+     identity('NAMA',person),
+     identity('NI PPPK',employeeNip),
+     identity('GOLONGAN','-'),
+     identity('JABATAN','-'),
+     identity('UNIT KERJA','Kelurahan Cikoko'),
+     pw.SizedBox(height:17),
+     pw.Table(border:tableBorder,columnWidths:{
+      0:const pw.FixedColumnWidth(25),
+      1:const pw.FlexColumnWidth(2.15),
+      2:const pw.FlexColumnWidth(2.9),
+      3:const pw.FlexColumnWidth(2.9),
+     },children:[
+      pw.TableRow(children:[
+       for(final h in ['No','Indikator Kinerja','Progres Periode ke-1','Progres Periode ke-2'])
+        pw.Container(height:29,alignment:pw.Alignment.center,padding:const pw.EdgeInsets.all(3),
+         child:tx(h,size:7.5,strong:true,align:pw.TextAlign.center)),
+      ]),
+      for(var i=0;i<4;i++)pw.TableRow(children:[
+       pw.Container(height:113,alignment:pw.Alignment.center,child:tx('\u0024{i+1}',size:8)),
+       pw.Container(height:113,padding:const pw.EdgeInsets.all(6),
+        child:tx(_PppkState.titles[i],size:7)),
+       pw.Container(height:113,child:progress(i,0)),
+       pw.Container(height:113,child:progress(i,1)),
+      ]),
+     ]),
+     pw.SizedBox(height:10),
+     tx('Keterangan :',size:8,strong:true),
+     tx('- Progres Periode 1 laporan Pegawai dari tanggal 1 - 15 \u0024monthTitle \u0024yearTitle',size:7.3),
+     tx('- Progres Periode 2 laporan Pegawai dari tanggal 16 - akhir \u0024monthTitle \u0024yearTitle',size:7.3),
+     pw.Spacer(),
+     pw.Align(alignment:pw.Alignment.centerRight,child:tx('Jakarta, \u0024{DateTime.now().day} \u0024monthTitle \u0024yearTitle',size:7.5)),
+     pw.SizedBox(height:8),
+     pw.Row(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+      pw.Expanded(child:pw.Column(children:[
+       tx('PPPK Paruh Waktu',size:8,align:pw.TextAlign.center),
+       pw.SizedBox(height:4),
+       tx('KELURAHAN CIKOKO',size:7.5,align:pw.TextAlign.center),
+       pw.SizedBox(height:64),
+       tx(person,size:8,strong:true,align:pw.TextAlign.center),
+       tx('NI PPPK \u0024employeeNip',size:7,align:pw.TextAlign.center),
+      ])),
+      pw.Expanded(child:pw.Column(children:[
+       tx('Mengetahui,',size:8,align:pw.TextAlign.center),
+       tx('Kasi Ekonomi dan Pembangunan',size:8,align:pw.TextAlign.center),
+       tx('KELURAHAN CIKOKO',size:7.5,align:pw.TextAlign.center),
+       pw.SizedBox(height:5),
+       if(approved&&token.length==48)
+        pw.BarcodeWidget(barcode:pw.Barcode.qrCode(),
+         data:'https://datawebs.my.id/mobile-api/pppk_verify.php?token=\u0024token',width:54,height:54)
+       else pw.SizedBox(height:54,child:pw.Center(child:tx('Menunggu persetujuan Admin',size:6.5))),
+       tx('Desi Andriyani',size:8,strong:true,align:pw.TextAlign.center),
+       tx('NIP 198712292010012024',size:7,align:pw.TextAlign.center),
+      ])),
+     ]),
     ])));
    await Printing.layoutPdf(onLayout:(_)=>pdf.save(),name:'Kinerja-PPPK-${data['month']}.pdf');
   }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
