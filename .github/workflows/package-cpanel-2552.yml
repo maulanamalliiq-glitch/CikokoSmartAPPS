@@ -1,4 +1,4 @@
-name: Package cPanel 2552 Update ZIP
+name: Package cPanel 2554 Update ZIP
 on:
   workflow_dispatch:
   push:
@@ -20,23 +20,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/cpanel-2552
-          cp -a cpanel/. dist/cpanel-2552/
-          cat > dist/cpanel-2552/BACA_DULU_UPDATE_2552.txt <<'EOF'
-          CIKOKO SMARTAPPS 2552 - UPDATE CPANEL
+          mkdir -p dist/cpanel-2554
+          cp -a cpanel/. dist/cpanel-2554/
+          cat > dist/cpanel-2554/BACA_DULU_UPDATE_2554.txt <<'EOF'
+          CIKOKO SMARTAPPS 2554 - UPDATE CPANEL
           1. BACKUP public_html dan database MySQL terlebih dahulu.
           2. ZIP berisi struktur cpanel lengkap; ekstrak ISINYA ke public_html website sesuai struktur saat ini.
           3. Jangan hapus folder data, unggahan, gambar, konfigurasi, atau file pribadi di server.
           4. Pastikan mobile-api/dynamic_modules_2552.php dan mobile-api/index.php ikut diperbarui.
-          5. Modul dinamis baru tersedia setelah backend terpasang; uji login admin dan akun PPSU.
+          5. Modul Kinerja PPPK: uji akun PPPK, unggah foto, pengajuan, persetujuan Admin, dan PDF A4.
           6. Jangan gunakan ZIP ini untuk mengganti database atau file konfigurasi rahasia.
-          7. Modul dinamis saat ini menyimpan definisi modul saja; penyimpanan pengajuan belum tersedia.
+          7. Backend PPPK membuat tabel laporan otomatis jika akun database memiliki izin CREATE TABLE; backup database sebelum pengujian.
+          8. File pppk_performance.php dan pppk_verify.php wajib ikut terunggah bersama mobile-api/index.php.
           EOF
-          (cd dist/cpanel-2552 && zip -qr ../CIKOKO_CPANEL_UPDATE_2552.zip .)
-          test -s dist/CIKOKO_CPANEL_UPDATE_2552.zip
+          (cd dist/cpanel-2554 && zip -qr ../CIKOKO_CPANEL_UPDATE_2554.zip .)
+          test -s dist/CIKOKO_CPANEL_UPDATE_2554.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: CIKOKO_CPANEL_UPDATE_2552
-          path: dist/CIKOKO_CPANEL_UPDATE_2552.zip
+          name: CIKOKO_CPANEL_UPDATE_2554
+          path: dist/CIKOKO_CPANEL_UPDATE_2554.zip
           if-no-files-found: error
           retention-days: 14
