@@ -112,6 +112,21 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   }
   mobile_json(['ok'=>true,'employee'=>$self,'balance'=>$balance]);
  }
+ if($action==='pjlp_calendar'&&$method==='GET'){
+  // Only availability, never expose another employee's private leave details.
+  $from=pjlp_date((string)($_GET['from']??''));
+  $to=pjlp_date((string)($_GET['to']??''));
+  if(!$from||!$to||$to<$from||$to->diff($from)->days>370)pjlp_fail('Rentang kalender tidak valid');
+  $q=$db->prepare("SELECT start_date,end_date FROM pjlp_leave_requests WHERE start_date<=? AND end_date>=? AND status IN ('approved','pending_admin','pending_supervisor','pending_lurah')");
+  $q->execute([$to->format('Y-m-d'),$from->format('Y-m-d')]);
+  $blocked=[];
+  foreach($q->fetchAll(PDO::FETCH_ASSOC) as $entry){
+   $a=pjlp_date((string)$entry['start_date']);$z=pjlp_date((string)$entry['end_date']);
+   if(!$a||!$z)continue;
+   for($d=$a<$from?$from:$a;$d<=($z>$to?$to:$z);$d=$d->modify('+1 day'))$blocked[$d->format('Y-m-d')]=true;
+  }
+  mobile_json(['ok'=>true,'blocked_dates'=>array_keys($blocked)]);
+ }
  if($action==='pjlp_list'&&$method==='GET'){
   if(in_array($role,['ppsu','pjlp'],true)){
    if(!$self)mobile_json(['ok'=>true,'items'=>[]]);
