@@ -238,7 +238,7 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    }
    $st=$db->prepare('INSERT INTO pjlp_leave_approvals(request_id,stage,actor_user_id,decision,reason) VALUES(?,?,?,?,?)');
    $st->execute([$id,$stage,$uid,$decision,$reason]);
-   $s=$db->prepare('UPDATE pjlp_leave_requests SET status=?,verified_at=IF(?="approved",NOW(),verified_at) WHERE id=?');
+   $s=$db->prepare("UPDATE pjlp_leave_requests SET status=?,verified_at=CASE WHEN ?='approved' THEN NOW() ELSE verified_at END WHERE id=?");
    $s->execute([$next,$next,$id]);
    pjlp_audit($db,$id,$uid,'decision',['stage'=>$stage,'decision'=>$decision,'status'=>$next]);
    if($next==='approved'){
