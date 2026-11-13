@@ -227,7 +227,13 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   $days=pjlp_days($db,$a,$z);
   if($days<1)pjlp_fail('Rentang tanggal tidak memiliki hari kerja');
   $year=(int)$a->format('Y');
+  // Named lock serializes all leave submissions across different employees.
+  // Do not use a per-employee lock: that would permit simultaneous double booking.
+  $calendarLock=false;
   try{
+   $lockSt=$db->query("SELECT GET_LOCK('cikoko_pjlp_calendar_exclusive',15)");
+   if((int)$lockSt->fetchColumn()!==1)pjlp_fail('Kalender cuti sedang diproses, silakan coba lagi',503);
+   $calendarLock=true;
    $db->beginTransaction();
    $balance=$db->prepare('SELECT allowance_days,adjustment_days FROM pjlp_leave_balances WHERE employee_id=? AND leave_year=? FOR UPDATE');$balance->execute([(int)$self['id'],$year]);
    $brow=$balance->fetch(PDO::FETCH_ASSOC);
@@ -235,18 +241,22 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    $used=$db->prepare("SELECT COALESCE(SUM(requested_days),0) FROM pjlp_leave_requests WHERE employee_id=? AND leave_year=? AND status IN ('approved','pending_admin','pending_supervisor','pending_lurah')");
    $used->execute([(int)$self['id'],$year]);
    if($days+(int)$used->fetchColumn()>(int)$brow['allowance_days']+(int)$brow['adjustment_days'])pjlp_fail('Sisa cuti tidak mencukupi');
-   $overlap=$db->prepare("SELECT COUNT(*) FROM pjlp_leave_requests WHERE employee_id=? AND start_date<=? AND end_date>=? AND status IN ('approved','pending_admin','pending_supervisor','pending_lurah')");
-   $overlap->execute([(int)$self['id'],$z->format('Y-m-d'),$a->format('Y-m-d')]);
-   if((int)$overlap->fetchColumn()>0)pjlp_fail('Tanggal cuti bertabrakan dengan pengajuan lain');
+   // Exclusive calendar: pending and approved requests reserve their full date range,
+   // including weekends and holidays inside that range. Rejected/deferred/revision
+   // requests release their dates for another employee.
+   $overlap=$db->prepare("SELECT r.id,e.full_name FROM pjlp_leave_requests r JOIN pjlp_employees e ON e.id=r.employee_id WHERE r.start_date<=? AND r.end_date>=? AND r.status IN ('approved','pending_admin','pending_supervisor','pending_lurah') ORDER BY r.start_date,r.id LIMIT 1");
+   $overlap->execute([$z->format('Y-m-d'),$a->format('Y-m-d')]);
+   if($overlap->fetch(PDO::FETCH_ASSOC))pjlp_fail('Tanggal cuti sudah dipesan pegawai lain atau masih menunggu persetujuan. Pilih tanggal lain.',409);
    $save=$db->prepare('INSERT INTO pjlp_leave_requests(employee_id,leave_year,start_date,end_date,requested_days,reason,leave_address,phone) VALUES(?,?,?,?,?,?,?,?)');
    $save->execute([(int)$self['id'],$year,$a->format('Y-m-d'),$z->format('Y-m-d'),$days,$reason,$addr,$phone]);
    $id=(int)$db->lastInsertId();
    pjlp_audit($db,$id,$uid,'submitted',['days'=>$days]);
    $db->commit();
-   if($numberLock){$db->query("SELECT RELEASE_LOCK('cikoko_pjlp_letter_number')");$numberLock=false;}
-   pjlp_notify($db,'admin','Cuti PPSU baru','Pengajuan cuti nomor '.$id.' menunggu verifikasi');
+   $db->query("SELECT RELEASE_LOCK('cikoko_pjlp_calendar_exclusive')");$calendarLock=false;
+   pjlp_notify($db,'admin','Cuti PJLP baru','Pengajuan cuti nomor '.$id.' menunggu verifikasi');
    mobile_json(['ok'=>true,'id'=>$id,'requested_days'=>$days]);
   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+  finally{if($calendarLock)$db->query("SELECT RELEASE_LOCK('cikoko_pjlp_calendar_exclusive')");}
  }
  if($action==='pjlp_number_set'&&$method==='POST'){
   if(!$admin)pjlp_fail('Hanya admin yang dapat mengisi nomor surat',403);
