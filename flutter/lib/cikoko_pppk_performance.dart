@@ -197,8 +197,7 @@ class _PppkEditorState extends State<_PppkEditor>{
       tx('Desi Andriyani',size:8,strong:true),
       tx('NIP 198712292010012024',size:7),
      ])),
-    ]),
-   ])));
+    ])));
    await Printing.layoutPdf(onLayout:(_)=>pdf.save(),name:'Kinerja-PPPK-${data['month']}.pdf');
   }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
  }
