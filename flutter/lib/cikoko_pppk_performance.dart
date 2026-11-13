@@ -150,8 +150,8 @@ class _PppkEditorState extends State<_PppkEditor>{
    final approved=data['status']=='approved';
    final token='${data['approved_token']??''}';
    final pdf=pw.Document();
-   final regular=await PdfGoogleFonts.openSansRegular();
-   final bold=await PdfGoogleFonts.openSansBold();
+   final regular=pw.Font.helvetica();
+   final bold=pw.Font.helveticaBold();
    pw.Text tx(String text,{double size=8,bool strong=false})=>pw.Text(text,style:pw.TextStyle(font:strong?bold:regular,fontSize:size));
    pdf.addPage(pw.Page(pageFormat:PdfPageFormat.a4,margin:const pw.EdgeInsets.all(14),
     build:(ctx)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
@@ -211,6 +211,11 @@ class _PppkEditorState extends State<_PppkEditor>{
   appBar:AppBar(title:Text('Laporan PPPK $month')),
   body:ListView(padding:const EdgeInsets.all(12),children:[
    Text('Status: $status',style:Theme.of(context).textTheme.titleMedium),
+   if(editable)ListTile(leading:const Icon(Icons.calendar_month),title:Text('Bulan laporan: $month'),subtitle:const Text('Ketuk untuk memilih bulan'),onTap:()async{
+    final initial=DateTime(int.parse(month.substring(0,4)),int.parse(month.substring(5,7)));
+    final chosen=await showDatePicker(context:context,initialDate:initial,firstDate:DateTime(2025),lastDate:DateTime(DateTime.now().year+1,12),initialDatePickerMode:DatePickerMode.year);
+    if(chosen!=null&&mounted)setState(()=>month='${chosen.year}-${chosen.month.toString().padLeft(2,'0')}');
+   }),
    if(status=='approved')const Text('Disetujui Admin. QR Kasi akan ditampilkan pada PDF resmi.'),
    TextField(controller:name,readOnly:!editable,decoration:const InputDecoration(labelText:'Nama pegawai')),
    TextField(controller:nip,readOnly:!editable,decoration:const InputDecoration(labelText:'NIP / No. Pegawai')),
