@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 
 class CikokoPpsuLeaveHub extends StatefulWidget {
@@ -15,7 +17,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
  bool loading=true;
  String? error;
  Map<String,dynamic> profile={},adminData={};
- List<dynamic> requests=[];
+ List<dynamic> requests=[],officials=[];
  bool get admin=>widget.role=='admin'||widget.role=='admin_kelurahan';
  bool get ppsu=>widget.role=='ppsu';
  String get userId=>(widget.api.profile?['id']??'').toString();
@@ -25,7 +27,10 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   setState((){loading=true;error=null;});
   try{
    if(ppsu)profile=await widget.api.call('pjlp_me');
-   if(admin)adminData=await widget.api.call('pjlp_admin_accounts');
+   if(admin){
+    adminData=await widget.api.call('pjlp_admin_accounts');
+    officials=(await widget.api.call('pjlp_officials'))['items'] as List<dynamic>? ?? [];
+   }
    requests=(await widget.api.call('pjlp_list'))['items'] as List<dynamic>? ?? [];
   }catch(e){error=cikokoFormalMessage(e);}
   if(mounted)setState(()=>loading=false);
@@ -124,10 +129,10 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
  }
  Future<void> officialEditor()async{
   final people=[...(adminData['supervisors'] as List<dynamic>? ?? []),...(adminData['lurah'] as List<dynamic>? ?? [])];
-  String? person;XFile? qr;
-  final name=TextEditingController(),title=TextEditingController(),nip=TextEditingController();
+  String? person;XFile? photo;
+  final name=TextEditingController(),title=TextEditingController(),nip=TextEditingController(),unit=TextEditingController(text:'Kelurahan Cikoko');
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const Text('Pejabat dan QR Tetap'),
+   title:const Text('Profil Pimpinan & QR Unik'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     DropdownButtonFormField<String>(isExpanded:true,decoration:const InputDecoration(labelText:'Akun pejabat'),
      items:people.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),
@@ -136,29 +141,32 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
     TextField(controller:name,decoration:const InputDecoration(labelText:'Nama pejabat')),
     TextField(controller:title,decoration:const InputDecoration(labelText:'Jabatan pada surat')),
     TextField(controller:nip,decoration:const InputDecoration(labelText:'NIP')),
-    OutlinedButton.icon(icon:const Icon(Icons.qr_code),
-     label:Text(qr==null?'Unggah QR PNG/JPG':qr!.name),
+    TextField(controller:unit,decoration:const InputDecoration(labelText:'Unit kerja')),
+    OutlinedButton.icon(icon:const Icon(Icons.photo_camera),
+     label:Text(photo==null?'Pilih Foto Pimpinan':photo!.name),
      onPressed:()async{
       final f=await ImagePicker().pickImage(source:ImageSource.gallery,maxWidth:1500,maxHeight:1500);
-      if(f!=null)update(()=>qr=f);
+      if(f!=null)update(()=>photo=f);
      }),
+    const Text('QR unik dibuat otomatis oleh server saat profil disimpan.',style:TextStyle(fontSize:12)),
+
    ])),
    actions:[
     TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),
     FilledButton(onPressed:()async{
      if(person==null||name.text.isEmpty||title.text.isEmpty||nip.text.isEmpty){toast('Lengkapi data pejabat');return;}
      String encoded='';
-     if(qr!=null){
-      final bytes=await qr!.readAsBytes();
-      if(bytes.length>2097152){toast('QR maksimal 2 MB');return;}
+     if(photo!=null){
+      final bytes=await photo!.readAsBytes();
+      if(bytes.length>2097152){toast('Foto maksimal 2 MB');return;}
       encoded=base64Encode(bytes);
      }
      await post(dialog,'pjlp_official_save',{
-      'user_id':person,'full_name':name.text,'title':title.text,'nip':nip.text,'qr_base64':encoded
+      'user_id':person,'full_name':name.text,'title':title.text,'nip':nip.text,'work_unit':unit.text,'photo_base64':encoded,'is_public':true
      });
     },child:const Text('Simpan'))],
   )));
-  name.dispose();title.dispose();nip.dispose();
+  name.dispose();title.dispose();nip.dispose();unit.dispose();
  }
  Future<void> holidayEditor()async{
   final day=TextEditingController(),desc=TextEditingController();
@@ -259,6 +267,24 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      ),
     )),
    const SizedBox(height:12),
+   const Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
+   for(final raw in officials)
+    Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
+     crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      Text(raw['title'].toString()+' · '+raw['nip'].toString()),
+      if(raw['public_token']!=null&&raw['public_token'].toString().isNotEmpty)...[
+       Center(child:QrImageView(
+        data:'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString(),
+        version:QrVersions.auto,size:148)),
+       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const Text('Lihat Halaman Hasil Scan'),
+        onPressed:()async{
+         final url=Uri.parse('https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString());
+         if(!await launchUrl(url,mode:LaunchMode.externalApplication))toast('Tidak dapat membuka profil');
+        }),
+      ],
+     ]))),
+
   ]);
  }
  String statusText(String s)=>switch(s){
