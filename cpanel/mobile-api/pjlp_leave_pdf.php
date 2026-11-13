@@ -26,7 +26,7 @@ function pjlp_pdf_build(PDO $db,array $r):string {
  $super=pjlp_valid_official($db,$supUid);
  // The document names the responsible Lurah from the admin-maintained roster;
  // its administrative approval is separately recorded under the admin actor.
- $lurahSt=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY id LIMIT 1");
+ $lurahSt=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY user_id LIMIT 1");
  $lurahUid=(string)($lurahSt->fetchColumn()?:'');
  $lurah=$lurahUid?pjlp_valid_official($db,$lurahUid):null;
  if(!$super||!$lurah||empty($super['qr_file'])||empty($lurah['qr_file']))pjlp_fail('Data QR pejabat belum lengkap',503);
