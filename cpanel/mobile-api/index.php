@@ -130,6 +130,10 @@ if($action==='public_letter_status' && $method==='GET'){
 if($action==='content'&&$method==='GET'){
  $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
+if(in_array($action,['dynamic_modules','dynamic_modules_save'],true)){
+ require_once __DIR__.'/dynamic_modules_2552.php';
+ cikoko_dynamic_dispatch($action,$method);
+}
 if(str_starts_with($action,'pjlp_')){
  require_once __DIR__.'/pjlp_leave.php';
  pjlp_mobile_dispatch($action,$method);
