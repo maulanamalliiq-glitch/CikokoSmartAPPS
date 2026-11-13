@@ -243,6 +243,7 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    $id=(int)$db->lastInsertId();
    pjlp_audit($db,$id,$uid,'submitted',['days'=>$days]);
    $db->commit();
+   if($numberLock){$db->query("SELECT RELEASE_LOCK('cikoko_pjlp_letter_number')");$numberLock=false;}
    pjlp_notify($db,'admin','Cuti PPSU baru','Pengajuan cuti nomor '.$id.' menunggu verifikasi');
    mobile_json(['ok'=>true,'id'=>$id,'requested_days'=>$days]);
   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
@@ -260,8 +261,13 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   $reason=mobile_text($b['reason']??'',1000);
   if($id<1||!in_array($decision,['approve','revision','defer','reject'],true))pjlp_fail('Keputusan tidak valid');
   if($decision!=='approve'&&$reason==='')pjlp_fail('Alasan perubahan/penangguhan/penolakan wajib diisi');
-  $pdfPath='';
+  $pdfPath='';$numberLock=false;
   try {
+   if($decision==='approve'){
+    $lockSt=$db->query("SELECT GET_LOCK('cikoko_pjlp_letter_number',15)");
+    if((int)$lockSt->fetchColumn()!==1)pjlp_fail('Penomoran surat sedang diproses, coba kembali',503);
+    $numberLock=true;
+   }
    $db->beginTransaction();$r=pjlp_request($db,$id,true);
    if(!$r)pjlp_fail('Pengajuan tidak ditemukan',404);
    // Satu tahap: admin Kelurahan memberi keputusan langsung, tanpa antrean akun atasan/Lurah.
@@ -273,6 +279,14 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    if($next==='approved'){
     // Admin may set/edit the official number in the same approval transaction.
     $number=mobile_text($b['official_number']??$r['official_number']??'',100);
+    if($number===''){
+     $max=34;
+     $existing=$db->query("SELECT official_number FROM pjlp_leave_requests WHERE official_number IS NOT NULL");
+     foreach($existing->fetchAll(PDO::FETCH_COLUMN) as $oldNumber){
+      if(preg_match('~^([0-9]+)/KG 11\\.01$~D',(string)$oldNumber,$m))$max=max($max,(int)$m[1]);
+     }
+     $number=($max+1).'/KG 11.01';
+    }
     if(!preg_match('/^[a-zA-Z0-9.\/ -]{4,100}$/D',$number))pjlp_fail('Nomor surat tidak valid');
     if($number!==(string)$r['official_number']){
      $numSt=$db->prepare('UPDATE pjlp_leave_requests SET official_number=? WHERE id=?');
@@ -311,6 +325,7 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    mobile_json(['ok'=>true,'status'=>$next]);
   }catch(Throwable $e){
    if($db->inTransaction())$db->rollBack();
+   if($numberLock)$db->query("SELECT RELEASE_LOCK('cikoko_pjlp_letter_number')");
    if($pdfPath!==''&&is_file($pdfPath))@unlink($pdfPath);
    throw $e;
   }
