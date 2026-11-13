@@ -271,7 +271,16 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
    $stage='admin';
    $next=$decision==='approve'?'approved':(['revision'=>'revision','defer'=>'deferred','reject'=>'rejected'][$decision]);
    if($next==='approved'){
-    if(trim((string)$r['official_number'])==='')pjlp_fail('Isi nomor surat sebelum menyetujui cuti');
+    // Admin may set/edit the official number in the same approval transaction.
+    $number=mobile_text($b['official_number']??$r['official_number']??'',100);
+    if(!preg_match('/^[a-zA-Z0-9.\/ -]{4,100}$/D',$number))pjlp_fail('Nomor surat tidak valid');
+    if($number!==(string)$r['official_number']){
+     $numSt=$db->prepare('UPDATE pjlp_leave_requests SET official_number=? WHERE id=?');
+     $numSt->execute([$number,$id]);
+     pjlp_audit($db,$id,$uid,'letter_number_set',['number'=>$number]);
+     $r['official_number']=$number;
+    }
+    if(trim((string)$r['official_number'])==='pjlp_fail('Isi nomor surat sebelum menyetujui cuti');
     $sup=pjlp_valid_official($db,(string)$r['supervisor_user_id']);
     $lurahRow=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     $lurah=$lurahRow?pjlp_valid_official($db,(string)$lurahRow['user_id']):null;
