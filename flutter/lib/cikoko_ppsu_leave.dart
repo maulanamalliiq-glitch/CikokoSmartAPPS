@@ -20,7 +20,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
  Map<String,dynamic> profile={},adminData={};
  List<dynamic> requests=[],officials=[];
  bool get admin=>widget.role=='admin'||widget.role=='admin_kelurahan';
- bool get ppsu=>widget.role=='ppsu';
+ bool get ppsu=>widget.role=='ppsu'||widget.role=='pjlp';
  String get userId=>(widget.api.profile?['id']??'').toString();
  @override void initState(){super.initState();reload();}
  Future<void> reload()async{
@@ -51,7 +51,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final reason=TextEditingController(),addr=TextEditingController(),phone=TextEditingController();
   DateTimeRange? picked;
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const materialText.Text('Ajukan Cuti PPSU'),
+   title:const materialText.Text('Ajukan Cuti PJLP'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     TextField(controller:reason,maxLength:145,maxLines:2,decoration:const InputDecoration(labelText:'II. Alasan cuti')),
     ListTile(leading:const Icon(Icons.date_range),
@@ -85,11 +85,11 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final position=TextEditingController(text:(old?['position_name']??'PJLP PPSU').toString());
   final unit=TextEditingController(text:(old?['work_unit']??'Kantor Kelurahan Cikoko').toString());
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const materialText.Text('Data Pegawai PPSU'),
+   title:const materialText.Text('Data Pegawai PJLP'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     DropdownButtonFormField<String>(isExpanded:true,
      value:people.any((e)=>e['user_id'].toString()==selected)?selected:null,
-     decoration:const InputDecoration(labelText:'Pilih akun PPSU'),
+     decoration:const InputDecoration(labelText:'Pilih akun PJLP'),
      items:people.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),child:materialText.Text(e['name'].toString()))).toList(),
      onChanged:old==null?(v)=>update(()=>selected=v):null),
     TextField(controller:phl,decoration:const InputDecoration(labelText:'ID PHL')),
@@ -243,7 +243,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final e=profile['employee'] as Map<String,dynamic>?;
   final b=profile['balance'] as Map<String,dynamic>?;
   if(e==null)return const Card(child:ListTile(
-   title:materialText.Text('Akun PPSU belum didaftarkan admin'),subtitle:materialText.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
+   title:materialText.Text('Akun PJLP belum didaftarkan admin'),subtitle:materialText.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
   int num(dynamic v)=>int.tryParse(v?.toString()??'')??0;
   final remaining=num(b?['allowance_days'])+num(b?['adjustment_days'])-num(b?['used_days'])-num(b?['held_days']);
   return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(
@@ -261,7 +261,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final employees=adminData['employees'] as List<dynamic>? ?? [];
   return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
    Wrap(spacing:8,runSpacing:8,children:[
-    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const materialText.Text('Daftar PPSU')),
+    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const materialText.Text('Daftar PJLP')),
     OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const materialText.Text('QR Pejabat')),
     OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const materialText.Text('Hari Libur')),
    ]),
