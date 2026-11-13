@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'api.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class CikokoPppkPerformancePage extends StatefulWidget {
  final CikokoApi api;
@@ -130,8 +133,77 @@ class _PppkEditorState extends State<_PppkEditor>{
   if(bytes.length>3500000){notify('Foto maksimal 3,5 MB');return;}
   setState(()=>photos['${i+1}-${j+1}']=bytes);
  }
+ Future<void> printReport()async{
+  if(id==null)return;
+  setState(()=>busy=true);
+  try{
+   final data=(await widget.api.callWithQuery('pppk_detail',{'id':'$id'}))['report'] as Map<String,dynamic>;
+   final entries=data['payload'] as List<dynamic>? ?? [];
+   final uploaded=data['photos'] as List<dynamic>? ?? [];
+   final images=<String,pw.MemoryImage>{};
+   for(final item in uploaded){
+    final key='${item['section_no']}-${item['period_no']}';
+    final url=Uri.parse('${CikokoApi.root}?action=pppk_photo&id=$id&section=${item['section_no']}&period=${item['period_no']}');
+    final response=await http.get(url,headers:{'Authorization':'Bearer ${widget.api.token}'});
+    if(response.statusCode==200)images[key]=pw.MemoryImage(response.bodyBytes);
+   }
+   final approved=data['status']=='approved';
+   final token='${data['approved_token']??''}';
+   final pdf=pw.Document();
+   final regular=await PdfGoogleFonts.openSansRegular();
+   final bold=await PdfGoogleFonts.openSansBold();
+   pw.Text tx(String text,{double size=8,bool strong=false})=>pw.Text(text,style:pw.TextStyle(font:strong?bold:regular,fontSize:size));
+   pdf.addPage(pw.Page(pageFormat:PdfPageFormat.a4,margin:const pw.EdgeInsets.all(14),
+    build:(ctx)=>pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+     tx('KELURAHAN CIKOKO - JAYA RAYA',size:13,strong:true),
+     tx('Laporan Kinerja PPPK ${data['month']} - ${data['employee_name']}',size:9),
+     tx('Tanggal cetak: ${DateTime.now().toIso8601String().substring(0,10)} | NIP/No. pegawai: ${data['employee_nip']}',size:8),
+     pw.Divider(color:PdfColors.teal700),
+     for(var i=0;i<4;i++)pw.Container(
+      decoration:pw.BoxDecoration(border:pw.Border.all(color:PdfColors.grey400)),
+      padding:const pw.EdgeInsets.all(6),
+      child:pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+       tx(_PppkState.titles[i],size:8,strong:true),
+       pw.SizedBox(height:4),
+       pw.Row(children:[for(var j=0;j<2;j++)pw.Expanded(child:pw.Padding(
+        padding:pw.EdgeInsets.only(right:j==0?6:0),
+        child:pw.Column(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
+         pw.Container(height:104,width:double.infinity,
+          decoration:pw.BoxDecoration(border:pw.Border.all(color:PdfColors.grey400)),
+          child:pw.Column(children:[
+           pw.Align(alignment:pw.Alignment.centerLeft,child:tx('Periode ${j+1}',size:7,strong:true)),
+           pw.Expanded(child:images.containsKey('${i+1}-${j+1}')
+            ?pw.Image(images['${i+1}-${j+1}']!,fit:pw.BoxFit.contain)
+            :pw.Center(child:tx('Belum ada foto',size:7))),
+          ])),
+         pw.SizedBox(height:4),
+         tx(i<entries.length?'${(entries[i] as Map)['period${j+1}']??''}':'Keterangan belum diisi',size:7),
+        ]),
+       ))]),
+      ]),
+     ),
+     pw.Spacer(),
+     pw.Row(mainAxisAlignment:pw.MainAxisAlignment.spaceBetween,children:[
+      tx('Sumber: Laporan kinerja website Cikoko (data tersimpan).',size:7),
+      tx('A4 | Halaman 1/1',size:7),
+     ]),
+     pw.SizedBox(height:8),
+     pw.Align(alignment:pw.Alignment.centerRight,child:pw.Column(children:[
+      tx('Kasi Ekonomi dan Pembangunan',size:8),
+      pw.SizedBox(height:3),
+      if(approved&&token.length==48)
+       pw.BarcodeWidget(barcode:pw.Barcode.qrCode(),data:'https://datawebs.my.id/mobile-api/pppk_verify.php?token=$token',width:60,height:60)
+      else pw.SizedBox(height:60,child:pw.Center(child:tx('Menunggu persetujuan Admin',size:7))),
+      tx('Desi Andriyani',size:8,strong:true),
+      tx('NIP 198712292010012024',size:7),
+     ])),
+    ]),
+   ])));
+   await Printing.layoutPdf(onLayout:(_)=>pdf.save(),name:'Kinerja-PPPK-${data['month']}.pdf');
+  }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
+ }
  Future<void> submit()async{
-  await save();if(id==null)return;
+  await save();if(id==null||photos.isNotEmpty)return;
   try{await widget.api.call('pppk_submit',body:{'id':id});notify('Laporan dikirim untuk persetujuan Admin');if(mounted)Navigator.pop(context);}
   catch(e){notify(e);}
  }
@@ -154,6 +226,7 @@ class _PppkEditorState extends State<_PppkEditor>{
      TextField(controller:descriptions[i][j],readOnly:!editable,maxLines:2,decoration:const InputDecoration(labelText:'Keterangan kegiatan')),
     ]),
    ]))),
+   if(id!=null)OutlinedButton.icon(onPressed:busy?null:printReport,icon:const Icon(Icons.picture_as_pdf),label:const Text('Cetak PDF A4')),
    if(editable)...[
     FilledButton(onPressed:busy?null:save,child:const Text('Simpan Draf')),
     const SizedBox(height:8),
