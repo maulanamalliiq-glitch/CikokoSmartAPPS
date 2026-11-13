@@ -7,6 +7,7 @@ import 'api.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:file_saver/file_saver.dart';
 
 class CikokoPppkPerformancePage extends StatefulWidget {
  final CikokoApi api;
@@ -224,10 +225,8 @@ class _PppkEditorState extends State<_PppkEditor>{
   if(bytes.length>3500000){notify('Foto maksimal 3,5 MB');return;}
   setState(()=>photos['${i+1}-${j+1}']=bytes);
  }
- Future<void> printReport()async{
-  if(id==null)return;
-  setState(()=>busy=true);
-  try{
+ Future<Uint8List> generateReportPdf()async{
+  if(id==null)throw StateError('Simpan laporan terlebih dahulu');
    final data=(await widget.api.callWithQuery('pppk_detail',{'id':'$id'}))['report'] as Map<String,dynamic>;
    final entries=data['payload'] as List<dynamic>? ?? [];
    final uploaded=data['photos'] as List<dynamic>? ?? [];
@@ -468,8 +467,13 @@ class _PppkEditorState extends State<_PppkEditor>{
        ])),
      ])),
     const SizedBox(height:4),
-    if(id!=null)OutlinedButton.icon(onPressed:busy?null:printReport,
-     icon:const Icon(Icons.picture_as_pdf_outlined),label:const Text('Pratinjau & Cetak PDF A4')),
+    if(id!=null)Row(children:[
+     Expanded(child:OutlinedButton.icon(onPressed:busy?null:previewReport,
+      icon:const Icon(Icons.visibility_outlined),label:const Text('Preview PDF'))),
+     const SizedBox(width:10),
+     Expanded(child:OutlinedButton.icon(onPressed:busy?null:downloadReport,
+      icon:const Icon(Icons.download_outlined),label:const Text('Unduh PDF'))),
+    ]),
     if(editable)...[
      const SizedBox(height:8),
      FilledButton.icon(onPressed:busy?null:save,icon:const Icon(Icons.save_outlined),
