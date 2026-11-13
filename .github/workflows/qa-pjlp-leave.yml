@@ -7,6 +7,8 @@ on:
       - 'cpanel/mobile-api/migrate_pjlp_leave.sql'
       - 'cpanel/mobile-api/index.php'
       - 'cpanel/mobile-api/password_otp.php'
+      - 'cpanel/mobile-api/migrate_password_otp.sql'
+      - 'qa/password_otp_smoke.php'
       - 'cpanel/mobile-api/bootstrap.php'
       - 'qa/pjlp_pdf_smoke.php'
       - '.github/workflows/qa-pjlp-leave.yml'
@@ -55,6 +57,8 @@ jobs:
           php -l cpanel/mobile-api/index.php
           php -l cpanel/mobile-api/password_otp.php
           php -l cpanel/mobile-api/bootstrap.php
+          php -l qa/password_otp_smoke.php
+          php qa/password_otp_smoke.php
           php -l cpanel/mobile-api/pjlp_leave.php
           php -l cpanel/mobile-api/pjlp_leave_pdf.php
           php -l cpanel/mobile-api/pdf_native.php
@@ -62,6 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
+          mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_password_otp.sql
           test "$(mysql -N -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci -e 'SHOW TABLES' | grep -c '^pjlp_')" -eq 7
           mysql -h 127.0.0.1 -uroot -ptest-pass-only pjlp_leave_ci < cpanel/mobile-api/migrate_pjlp_leave.sql
       - name: Build cPanel overlay
@@ -76,10 +81,11 @@ jobs:
           cp cpanel/mobile-api/pjlp_leave_pdf.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/pdf_native.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/migrate_pjlp_leave.sql dist/PANDUAN/
+          cp cpanel/mobile-api/migrate_password_otp.sql dist/PANDUAN/
           cat > dist/PANDUAN/INSTALL.md <<'EOF'
           CIKOKO PPSU CUTI + OTP EMAIL V2551 - TAHAP INSTALASI
           1. Backup public_html, private/ dan database sebelum pembaruan.
-          2. Impor migrate_pjlp_leave.sql melalui phpMyAdmin.
+          2. Impor migrate_pjlp_leave.sql dan migrate_password_otp.sql melalui phpMyAdmin.
           3. Upload isi folder public_html dari ZIP ini ke public_html website yang sama.
              Jangan menghapus mobile-api/private atau file konfigurasi.
           4. Pastikan PHP 8+, PDO MySQL, GD, dan fileinfo tersedia.
