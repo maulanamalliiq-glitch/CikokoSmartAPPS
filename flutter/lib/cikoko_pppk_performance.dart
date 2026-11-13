@@ -164,6 +164,7 @@ class _PppkEditorState extends State<_PppkEditor>{
  late final List<List<TextEditingController>> descriptions;
  late String month;int? id;late String status;bool busy=false;
  final Map<String,Uint8List> photos={};
+ final Map<String,Uint8List> storedPreviews={};
  final Set<String> stored={};
  bool get editable=>!widget.admin&&(status=='draft'||status=='rejected');
  @override void initState(){
@@ -174,6 +175,22 @@ class _PppkEditorState extends State<_PppkEditor>{
   descriptions=List.generate(4,(i)=>List.generate(2,(j)=>TextEditingController(text:i<data.length?'${(data[i] as Map)['period${j+1}']??''}':'')));
   for(final p in r?['photos'] as List<dynamic>? ?? []){
    stored.add('${p['section_no']}-${p['period_no']}');
+  }
+  if(id!=null&&stored.isNotEmpty)loadStoredPreviews();
+ }
+ Future<void> loadStoredPreviews()async{
+  final reportId=id;
+  if(reportId==null)return;
+  for(final key in stored.toList()){
+   if(!mounted||id!=reportId)return;
+   final parts=key.split('-');
+   try{
+    final url=Uri.parse('${CikokoApi.root}?action=pppk_photo&id=$reportId&section=${parts[0]}&period=${parts[1]}');
+    final response=await http.get(url,headers:{'Authorization':'Bearer ${widget.api.token}'});
+    if(response.statusCode==200&&response.bodyBytes.isNotEmpty&&mounted&&id==reportId){
+     setState(()=>storedPreviews[key]=response.bodyBytes);
+    }
+   }catch(_){/* Keep saved-photo indicator when the network is unavailable. */}
   }
  }
  @override void dispose(){name.dispose();nip.dispose();for(final a in descriptions){for(final c in a){c.dispose();}}super.dispose();}
@@ -193,6 +210,7 @@ class _PppkEditorState extends State<_PppkEditor>{
     });
     stored.add(entry.key);
    }
+   storedPreviews.addAll(photos);
    photos.clear();notify('Draf berhasil disimpan');
   }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
  }
@@ -413,9 +431,10 @@ class _PppkEditorState extends State<_PppkEditor>{
         Container(height:150,width:double.infinity,
          decoration:BoxDecoration(color:const Color(0xfff6f8fc),
           borderRadius:BorderRadius.circular(12),border:Border.all(color:const Color(0xffdce6f3))),
-         child:photos.containsKey('${i+1}-${j+1}')
+         child:(photos.containsKey('${i+1}-${j+1}')||storedPreviews.containsKey('${i+1}-${j+1}'))
           ?ClipRRect(borderRadius:BorderRadius.circular(12),
-            child:Image.memory(photos['${i+1}-${j+1}']!,fit:BoxFit.contain))
+            child:Image.memory(photos['${i+1}-${j+1}']??storedPreviews['${i+1}-${j+1}']!,fit:BoxFit.contain,
+             errorBuilder:(_,__,___)=>const Center(child:Text('Foto tidak dapat ditampilkan'))))
           :Column(mainAxisAlignment:MainAxisAlignment.center,children:[
            Icon(stored.contains('${i+1}-${j+1}')?Icons.check_circle_outline:Icons.add_photo_alternate_outlined,
             color:const Color(0xff7291b3),size:34),
