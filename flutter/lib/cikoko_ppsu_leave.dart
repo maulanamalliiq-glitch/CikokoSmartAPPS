@@ -50,6 +50,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
  Future<void> apply()async{
   final reason=TextEditingController(),addr=TextEditingController(),phone=TextEditingController();
   DateTimeRange? picked;
+  String? calendarWarning;
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
    title:const materialText.Text('Ajukan Cuti PJLP'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
@@ -59,8 +60,17 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      onTap:()async{
       final year=DateTime.now().year;
       final r=await showDateRangePicker(context:ctx,firstDate:DateTime(year-1),lastDate:DateTime(year+3));
-      if(r!=null)update(()=>picked=r);
+      if(r!=null){
+       update(()=>calendarWarning='Memeriksa ketersediaan tanggal...');
+       try{
+        final data=await widget.api.callWithQuery('pjlp_calendar',{'from':date(r.start),'to':date(r.end)});
+        final blocked=(data['blocked_dates'] as List<dynamic>? ?? []).isNotEmpty;
+        update((){picked=blocked?null:r;calendarWarning=blocked?'Tanggal tersebut sudah digunakan pegawai lain. Pilih tanggal berbeda.':null;});
+       }catch(e){update((){picked=null;calendarWarning='Gagal memeriksa kalender cuti. Silakan coba lagi.';});}
+      }
      }),
+    if(calendarWarning!=null)Padding(padding:const EdgeInsets.symmetric(vertical:6),child:materialText.Text(calendarWarning!,style:const TextStyle(color:Colors.deepOrange,fontSize:12))),
+    const materialText.Text('Satu tanggal hanya untuk satu pegawai. Pengajuan menunggu Admin juga memblokir tanggal.',style:TextStyle(fontSize:11)),
     TextField(controller:addr,maxLength:155,maxLines:2,decoration:const InputDecoration(labelText:'V. Alamat selama cuti')),
     TextField(controller:phone,keyboardType:TextInputType.phone,decoration:const InputDecoration(labelText:'Nomor telepon')),
     const materialText.Text('Jumlah hari kerja dihitung server; hari libur diatur admin.',style:TextStyle(fontSize:11)),
