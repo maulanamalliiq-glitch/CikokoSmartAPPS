@@ -20,10 +20,23 @@ function cikoko_otp_settings():?array {
  $sender=trim((string)($settings['from']??getenv('CIKOKO_OTP_FROM_EMAIL')?:''));
  $secret=trim((string)($settings['secret']??getenv('CIKOKO_OTP_SECRET')?:''));
  if(!filter_var($sender,FILTER_VALIDATE_EMAIL)||!preg_match('/^[a-f0-9]{64}$/iD',$secret))return null;
- return ['from'=>$sender,'secret'=>$secret];
+ $smtpUser=trim((string)($settings['smtp_username']??getenv('CIKOKO_OTP_SMTP_USERNAME')?:''));
+ $smtpPassword=preg_replace('/\s+/', '',(string)($settings['smtp_app_password']??getenv('CIKOKO_OTP_SMTP_APP_PASSWORD')?:''));
+ if(str_ends_with(strtolower($sender),'@gmail.com')){
+  // Gmail sender must be authenticated; never spoof a Gmail From via cPanel mail().
+  if(strcasecmp($smtpUser,$sender)!==0||strlen($smtpPassword)<16)return null;
+ }
+ return ['from'=>$sender,'secret'=>$secret,
+  'smtp_username'=>$smtpUser,'smtp_app_password'=>$smtpPassword];
 }
 function cikoko_otp_send(string $email,string $subject,string $body,string $sender):bool {
- // Uses cPanel's local mail transport (Exim); configure SPF/DKIM for sender.
+ if(str_ends_with(strtolower($sender),'@gmail.com')){
+  $config=cikoko_otp_settings();
+  if($config===null)return false;
+  require_once __DIR__.'/password_otp_smtp.php';
+  return cikoko_otp_smtp_send($config,$email,$subject,$body);
+ }
+ // Domain mailbox senders may use cPanel's local mail transport (Exim).
  $headers=[
   'From: Kelurahan Cikoko <'.$sender.'>',
   'Reply-To: '.$sender,
@@ -88,7 +101,7 @@ function cikoko_password_otp_dispatch(string $action,string $method):void {
     ."Kelurahan Cikoko - Kecamatan Pancoran";
   if(!cikoko_otp_send($email,'Kode OTP Cikoko Smart',$message,$settings['from'])){
    $db->prepare('DELETE FROM mobile_password_otps WHERE user_id=? AND code_hash=?')->execute([$id,$hash]);
-   error_log('[Cikoko OTP] Local mail transport rejected password reset message.');
+   error_log('[Cikoko OTP] OTP email transport rejected password reset message.');
   }
   cikoko_otp_reply();
  }
