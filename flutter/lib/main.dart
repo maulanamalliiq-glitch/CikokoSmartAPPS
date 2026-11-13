@@ -522,7 +522,7 @@ class _HomeState extends State<HomePage> {
      case 'Modul Dinamis':return CikokoDynamicModulesPage(api:api,role:role);
     case 'Kinerja PPPK':
       return role=='pppk' || role=='admin' || role=='admin_kelurahan'
-        ? const CikokoPppkPerformancePage()
+        ? CikokoPppkPerformancePage(api:api,role:role)
         : const Center(child:Text('Modul khusus PPPK dan Admin.'));
     case 'Cuti PPSU':
     case 'Kelola Cuti PPSU':
