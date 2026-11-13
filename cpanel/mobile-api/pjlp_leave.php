@@ -280,7 +280,7 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
      pjlp_audit($db,$id,$uid,'letter_number_set',['number'=>$number]);
      $r['official_number']=$number;
     }
-    if(trim((string)$r['official_number'])==='pjlp_fail('Isi nomor surat sebelum menyetujui cuti');
+    if(trim((string)$r['official_number'])==='')pjlp_fail('Isi nomor surat sebelum menyetujui cuti');
     $sup=pjlp_valid_official($db,(string)$r['supervisor_user_id']);
     $lurahRow=$db->query("SELECT user_id FROM pjlp_officials WHERE LOWER(title) LIKE '%lurah%' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     $lurah=$lurahRow?pjlp_valid_official($db,(string)$lurahRow['user_id']):null;
