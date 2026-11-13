@@ -367,14 +367,43 @@ class _PppkEditorState extends State<_PppkEditor>{
   }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
  }
  Future<void> downloadReport()async{
-  if(id==null)return;
+  if(id==null){notify('Simpan draf laporan terlebih dahulu');return;}
   setState(()=>busy=true);
   try{
+   if(!mounted)return;
+   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    duration:Duration(seconds:2),content:Text('Menyiapkan dokumen PDF...')));
    final bytes=await generateReportPdf();
-   await FileSaver.instance.saveFile(name:'Kinerja-PPPK-$month',bytes:bytes,
-    fileExtension:'pdf',mimeType:MimeType.pdf);
-   notify('PDF berhasil disimpan ke perangkat');
-  }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
+   if(bytes.isEmpty)throw StateError('Dokumen PDF kosong');
+   if(!mounted)return;
+   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    duration:Duration(seconds:3),content:Text('PDF siap. Pilih lokasi penyimpanan di HP Anda.')));
+   // Android Storage Access Framework: the user selects Downloads or another
+   // folder explicitly, avoiding ambiguous app-private save locations.
+   final savedPath=await FileSaver.instance.saveAs(
+    name:'Kinerja-PPPK-$month',bytes:bytes,fileExtension:'pdf',mimeType:MimeType.pdf);
+   if(!mounted)return;
+   if(savedPath==null||savedPath.isEmpty){
+    notify('Penyimpanan dibatalkan. PDF belum disimpan.');
+    return;
+   }
+   await showDialog<void>(context:context,builder:(dialogContext)=>AlertDialog(
+    title:const Text('PDF berhasil disimpan'),
+    content:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+     const Text('Dokumen tersimpan di lokasi yang Anda pilih.'),
+     const SizedBox(height:12),
+     SelectableText(savedPath),
+    ]),
+    actions:[
+     TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Tutup')),
+     FilledButton.icon(onPressed:(){
+      Navigator.pop(dialogContext);
+      previewReport();
+     },icon:const Icon(Icons.picture_as_pdf_outlined),label:const Text('Lihat PDF')),
+    ],
+   ));
+  }catch(e){notify('Gagal menyimpan PDF: $e');}
+  finally{if(mounted)setState(()=>busy=false);}
  }
  Future<void> submit()async{
   await save();if(id==null||photos.isNotEmpty)return;
