@@ -205,7 +205,7 @@ if($action==='me'){
 }
 // Manajemen akun: hak eksklusif Admin Utama. Penghapusan akun tidak
 // menghapus laporan/arsip historis yang diperlukan untuk audit.
-if(in_array($action,['accounts_list','accounts_create','accounts_delete','accounts_email_update','accounts_password_reset'],true)){
+if(in_array($action,['accounts_list','accounts_create','accounts_delete','accounts_email_update','accounts_password_reset','accounts_status_update'],true)){
  if((string)$u['user_role']!=='admin')mobile_error('Hanya Admin Utama yang dapat mengelola akun petugas.',403);
  if($action==='accounts_list'&&$method==='GET'){
   $items=[];
@@ -221,6 +221,31 @@ if(in_array($action,['accounts_list','accounts_create','accounts_delete','accoun
  }
  if($method!=='POST')mobile_error('Metode tidak diizinkan.',405);
  $b=mobile_body();
+ if($action==='accounts_status_update'){
+  $id=mobile_text($b['id']??'',80);$active=$b['active']??null;
+  if($id===''||!is_bool($active))mobile_error('ID dan status aktif wajib diisi.',422);
+  $path=data_path('portal_users');$fp=@fopen($path,'c+');
+  if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
+  try{
+   $original=stream_get_contents($fp);$users=json_decode($original?:'[]',true,512,JSON_THROW_ON_ERROR);
+   if(!is_array($users))throw new RuntimeException('Invalid accounts');
+   $found=false;
+   foreach($users as &$entry){
+    if((string)($entry['id']??'')!==$id)continue;
+    if(in_array((string)($entry['role']??''),['admin','warga'],true))mobile_error('Hanya akun petugas.',403);
+    $entry['active']=$active;$entry['status_updated_at']=date('c');$found=true;break;
+   }unset($entry);
+   if(!$found)mobile_error('Akun tidak ditemukan.',404);
+   $json=json_encode($users,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+   rewind($fp);if(!ftruncate($fp,0)||fwrite($fp,$json)!==strlen($json)||!fflush($fp))throw new RuntimeException('Write failed');
+  }catch(Throwable $e){flock($fp,LOCK_UN);fclose($fp);error_log('[Cikoko status] '.$e->getMessage());mobile_error('Status akun gagal disimpan.',503);}
+  flock($fp,LOCK_UN);fclose($fp);
+  if(!$active){
+   $db->prepare('DELETE FROM mobile_tokens WHERE user_id=?')->execute([$id]);
+   $db->prepare('DELETE FROM mobile_devices WHERE user_id=?')->execute([$id]);
+  }
+  mobile_json(['ok'=>true,'message'=>$active?'Akun diaktifkan.':'Akun dinonaktifkan dan sesi dicabut.']);
+ }
  if($action==='accounts_password_reset'){
   $id=mobile_text($b['id']??'',80);$pass=(string)($b['new_password']??'');
   if($id===''||strlen($pass)<5||strlen($pass)>128)mobile_error('Password minimal 5 karakter, maksimal 128 karakter.',422);
