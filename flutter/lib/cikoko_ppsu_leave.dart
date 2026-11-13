@@ -140,7 +140,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
  }
  Future<void> officialEditor()async{
   final people=[...(adminData['supervisors'] as List<dynamic>? ?? []),...(adminData['lurah'] as List<dynamic>? ?? [])];
-  String? person;XFile? photo;
+  String? person;XFile? photo;XFile? signature;
   final name=TextEditingController(),title=TextEditingController(),nip=TextEditingController(),unit=TextEditingController(text:'Kelurahan Cikoko');
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
    title:const materialText.Text('Profil Pimpinan & QR Unik'),
@@ -159,6 +159,14 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
       final f=await ImagePicker().pickImage(source:ImageSource.gallery,maxWidth:1500,maxHeight:1500);
       if(f!=null)update(()=>photo=f);
      }),
+    const SizedBox(height:8),
+    OutlinedButton.icon(icon:const Icon(Icons.draw),
+     label:materialText.Text(signature==null?'Pilih Foto Tanda Tangan':signature!.name),
+     onPressed:()async{
+      final f=await ImagePicker().pickImage(source:ImageSource.gallery,maxWidth:1500,maxHeight:1500);
+      if(f!=null)update(()=>signature=f);
+     }),
+    const materialText.Text('Gunakan gambar tanda tangan yang telah disetujui pimpinan.',style:TextStyle(fontSize:12)),
     const materialText.Text('QR unik dibuat otomatis oleh server saat profil disimpan.',style:TextStyle(fontSize:12)),
 
    ])),
@@ -172,8 +180,14 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
       if(bytes.length>2097152){toast('Foto maksimal 2 MB');return;}
       encoded=base64Encode(bytes);
      }
+     String signatureEncoded='';
+     if(signature!=null){
+      final bytes=await signature!.readAsBytes();
+      if(bytes.length>2097152){toast('Tanda tangan maksimal 2 MB');return;}
+      signatureEncoded=base64Encode(bytes);
+     }
      await post(dialog,'pjlp_official_save',{
-      'user_id':person,'full_name':name.text,'title':title.text,'nip':nip.text,'work_unit':unit.text,'photo_base64':encoded,'is_public':true
+      'user_id':person,'full_name':name.text,'title':title.text,'nip':nip.text,'work_unit':unit.text,'photo_base64':encoded,'signature_base64':signatureEncoded,'is_public':true
      });
     },child:const materialText.Text('Simpan'))],
   )));
