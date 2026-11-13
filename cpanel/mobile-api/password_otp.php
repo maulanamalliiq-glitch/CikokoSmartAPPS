@@ -24,7 +24,7 @@ function cikoko_otp_settings():?array {
  $smtpPassword=preg_replace('/\s+/', '',(string)($settings['smtp_app_password']??getenv('CIKOKO_OTP_SMTP_APP_PASSWORD')?:''));
  if(str_ends_with(strtolower($sender),'@gmail.com')){
   // Gmail sender must be authenticated; never spoof a Gmail From via cPanel mail().
-  if(strcasecmp($smtpUser,$sender)!==0||strlen($smtpPassword)<16)return null;
+  if(strcasecmp($smtpUser,$sender)!==0||!preg_match('/^[A-Za-z0-9]{16}$/D',$smtpPassword))return null;
  }
  return ['from'=>$sender,'secret'=>$secret,
   'smtp_username'=>$smtpUser,'smtp_app_password'=>$smtpPassword];
