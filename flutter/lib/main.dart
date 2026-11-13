@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
+import 'cikoko_forgot_password.dart';
 
 
 import 'push.dart';
@@ -183,6 +184,15 @@ class _LoginState extends State<LoginPage>{final user=TextEditingController(),pa
            onPressed:()=>setState(()=>hideLoginPassword=!hideLoginPassword),
          ))),
       ],
+      if(!signup)Align(alignment:Alignment.centerRight,child:TextButton.icon(
+       icon:const Icon(Icons.mark_email_unread_outlined,size:18),
+       label:const Text('Lupa Kata Sandi? Kirim OTP Email'),
+       onPressed:busy?null:()async{
+        final changed=await Navigator.push<bool>(context,MaterialPageRoute<bool>(
+         builder:(_)=>CikokoForgotPasswordPage(api:api,initialUsername:user.text.trim())));
+        if(changed==true&&mounted)notify(context,'Kata sandi berhasil diperbarui. Silakan masuk kembali.');
+       },
+      )),
       const SizedBox(height:20),
       SizedBox(height:46,child:FilledButton(
        onPressed:busy?null:submit,
