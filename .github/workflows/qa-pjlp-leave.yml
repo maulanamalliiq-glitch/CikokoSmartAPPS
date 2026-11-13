@@ -7,6 +7,8 @@ on:
       - 'cpanel/mobile-api/migrate_pjlp_leave.sql'
       - 'cpanel/mobile-api/index.php'
       - 'cpanel/mobile-api/password_otp.php'
+      - 'cpanel/mobile-api/password_otp_smtp.php'
+      - 'cpanel/mobile-api/password_otp_config.example.php'
       - 'cpanel/mobile-api/migrate_password_otp.sql'
       - 'qa/password_otp_smoke.php'
       - 'cpanel/mobile-api/bootstrap.php'
@@ -56,6 +58,7 @@ jobs:
           set -euo pipefail
           php -l cpanel/mobile-api/index.php
           php -l cpanel/mobile-api/password_otp.php
+          php -l cpanel/mobile-api/password_otp_smtp.php
           php -l cpanel/mobile-api/bootstrap.php
           php -l qa/password_otp_smoke.php
           php qa/password_otp_smoke.php
@@ -76,6 +79,7 @@ jobs:
           cp cpanel/mobile-api/index.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/bootstrap.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/password_otp.php dist/public_html/mobile-api/
+          cp cpanel/mobile-api/password_otp_smtp.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/password_otp_config.example.php dist/PANDUAN/
           cp cpanel/mobile-api/pjlp_leave.php dist/public_html/mobile-api/
           cp cpanel/mobile-api/pjlp_leave_pdf.php dist/public_html/mobile-api/
@@ -94,14 +98,24 @@ jobs:
              tetapkan jatah masing-masing dan unggah gambar QR tetap.
           7. Uji alur satu pegawai, persetujuan, nomor surat, dan cetak PDF.
           8. QR statis bukan tanda tangan elektronik tersertifikasi.
-          9. Untuk fitur lupa kata sandi, buat email pengirim di cPanel dan aktifkan SPF/DKIM.
-          10. Salin password_otp_config.example.php ke /home/CPANEL_USER/cikoko_otp_mail.php
-              (DI LUAR public_html), lalu ganti 'from' dengan email asli dan 'secret'
-              dengan 64 digit heksadesimal acak: php -r 'echo bin2hex(random_bytes(32));'
-          11. Pastikan PHP mail() dapat mengirim email dari mailbox domain.
-          12. Uji akun PPSU dengan email yang sudah terdaftar dan dapat diakses.
+          9. PENGIRIM OTP: cikokosmarthome@gmail.com via Gmail SMTP TLS port 465.
+             Tidak menggunakan PHP mail() untuk alamat Gmail.
+          10. Aktifkan Verifikasi 2 Langkah pada akun Google pengirim, lalu buat
+              App Password 16 karakter khusus CikokoSmartAPPS (jika opsi tersedia).
+              JANGAN gunakan password Gmail biasa. JANGAN kirim App Password
+              lewat chat, email, atau simpan di GitHub.
+          11. Salin password_otp_config.example.php ke /home/CPANEL_USER/cikoko_otp_mail.php
+              (DI LUAR public_html). Isi smtp_app_password dengan App Password
+              secara pribadi melalui cPanel File Manager.
+              Isi secret dengan 64 karakter heksadesimal acak:
+              php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+          12. Pastikan server cPanel dapat terhubung keluar ke smtp.gmail.com:465.
+              Jika koneksi SMTP diblokir hosting, hubungi penyedia hosting.
+          13. Admin mengatur email aktif setiap pegawai PPSU melalui menu Akun.
+              Uji pengiriman OTP ke akun yang memang terdaftar dan dapat diakses.
               OTP berlaku 10 menit, maksimal 5 percobaan, dan sesi lama dicabut.
-          13. Admin utama tidak dapat direset lewat OTP publik; hubungi pengelola.
+          14. Admin utama tidak dapat direset lewat OTP publik; hubungi pengelola.
+          15. Perbarui file PHP dan SQL dari paket ini; APK v2551 tetap aplikasi lama.
           CATATAN: Paket tidak otomatis terpasang ke cPanel.
           EOF
           (cd dist && zip -qr ../CIKOKO_PPSU_CPANEL_V2551_OTP.zip .)
