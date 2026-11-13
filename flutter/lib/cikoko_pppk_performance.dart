@@ -370,39 +370,40 @@ class _PppkEditorState extends State<_PppkEditor>{
   if(id==null){notify('Simpan draf laporan terlebih dahulu');return;}
   setState(()=>busy=true);
   try{
-   if(!mounted)return;
    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
     duration:Duration(seconds:2),content:Text('Menyiapkan dokumen PDF...')));
    final bytes=await generateReportPdf();
    if(bytes.isEmpty)throw StateError('Dokumen PDF kosong');
    if(!mounted)return;
    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-    duration:Duration(seconds:3),content:Text('PDF siap. Pilih lokasi penyimpanan di HP Anda.')));
-   // Android Storage Access Framework: the user selects Downloads or another
-   // folder explicitly, avoiding ambiguous app-private save locations.
-   final savedPath=await FileSaver.instance.saveAs(
+    duration:Duration(seconds:2),content:Text('Mengunduh PDF ke perangkat...')));
+   final filename='Kinerja-PPPK-$month.pdf';
+   // file_saver.saveFile on Android uses the platform download destination
+   // without opening the Storage Access Framework folder picker.
+   final savedPath=await FileSaver.instance.saveFile(
     name:'Kinerja-PPPK-$month',bytes:bytes,fileExtension:'pdf',mimeType:MimeType.pdf);
+   if(savedPath.isEmpty)throw StateError('Lokasi penyimpanan tidak dikembalikan Android');
    if(!mounted)return;
-   if(savedPath==null||savedPath.isEmpty){
-    notify('Penyimpanan dibatalkan. PDF belum disimpan.');
-    return;
-   }
    await showDialog<void>(context:context,builder:(dialogContext)=>AlertDialog(
-    title:const Text('PDF berhasil disimpan'),
+    title:const Text('Unduh PDF berhasil'),
     content:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-     const Text('Dokumen tersimpan di lokasi yang Anda pilih.'),
-     const SizedBox(height:12),
-     SelectableText(savedPath),
+     const Text('Dokumen berhasil disimpan otomatis.'),
+     const SizedBox(height:10),
+     Text(filename,style:const TextStyle(fontWeight:FontWeight.bold)),
+     const SizedBox(height:8),
+     const Text('Buka aplikasi File / File Manager untuk menemukan dokumen.'),
+     const SizedBox(height:8),
+     SelectableText(savedPath,style:const TextStyle(fontSize:12)),
     ]),
     actions:[
      TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Tutup')),
      FilledButton.icon(onPressed:(){
       Navigator.pop(dialogContext);
       previewReport();
-     },icon:const Icon(Icons.picture_as_pdf_outlined),label:const Text('Lihat PDF')),
+     },icon:const Icon(Icons.visibility_outlined),label:const Text('Lihat PDF')),
     ],
    ));
-  }catch(e){notify('Gagal menyimpan PDF: $e');}
+  }catch(e){notify('Gagal mengunduh PDF: $e');}
   finally{if(mounted)setState(()=>busy=false);}
  }
  Future<void> submit()async{
