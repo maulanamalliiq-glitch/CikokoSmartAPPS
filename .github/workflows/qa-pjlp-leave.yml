@@ -6,6 +6,7 @@ on:
       - 'cpanel/mobile-api/pjlp_*'
       - 'cpanel/mobile-api/migrate_pjlp_leave.sql'
       - 'cpanel/mobile-api/index.php'
+      - 'qa/pjlp_pdf_smoke.php'
       - '.github/workflows/qa-pjlp-leave.yml'
   workflow_dispatch:
 permissions:
@@ -26,6 +27,19 @@ jobs:
           --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: gd,pdo_mysql,pdo_sqlite
+      - name: PDF A4 smoke check (real QR image embeds)
+        run: |
+          set -euo pipefail
+          php qa/pjlp_pdf_smoke.php > /tmp/pjlp-letter-smoke.pdf
+          test -s /tmp/pjlp-letter-smoke.pdf
+          if command -v pdfinfo >/dev/null 2>&1; then
+            pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Pages: *1'
+            pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Page size: *595 x 842 pts'
+          fi
       - name: PHP syntax hardcheck
         run: |
           set -euo pipefail
