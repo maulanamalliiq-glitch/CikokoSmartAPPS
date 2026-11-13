@@ -1,3 +1,4 @@
+import 'cikoko_dynamic_modules_2552.dart';
 import 'profile_editor.dart';
 import 'cikoko_unified_theme.dart';
 import 'cikoko_v4_public_pages.dart';
@@ -517,6 +518,7 @@ class _HomeState extends State<HomePage> {
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
+     case 'Modul Dinamis':return CikokoDynamicModulesPage(api:api,role:role);
     case 'Cuti PPSU':
     case 'Kelola Cuti PPSU':
     case 'Persetujuan Cuti PPSU':
@@ -601,7 +603,7 @@ class _HomeState extends State<HomePage> {
     Text('Menu $roleLabel',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),
     const Text('Pilih layanan sesuai kewenangan akun.',style:TextStyle(color:Colors.blueGrey)),
     if(!permissionsOk)const Card(child:ListTile(leading:Icon(Icons.warning_amber_rounded,color:Colors.orange),title:Text('Izin server belum berhasil dimuat'),subtitle:Text('Menu khusus disembunyikan sampai koneksi pulih.'))),
-    const SizedBox(height:12),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
+    const SizedBox(height:12),if(!guest)Card(child:ListTile(onTap:()=>switchTo('Modul Dinamis'),leading:const CircleAvatar(child:Icon(Icons.widgets_outlined)),title:const Text('Modul Dinamis'),subtitle:const Text('Layanan native yang ditambahkan melalui admin'),trailing:const Icon(Icons.chevron_right))),for(final f in modules)Card(child:ListTile(onTap:()=>switchTo(f.route),leading:CircleAvatar(backgroundColor:sky,child:Icon(iconFor(f.route),color:blue)),title:Text(f.title,style:const TextStyle(fontWeight:FontWeight.w600,fontSize:13.5)),subtitle:Text(f.connected?f.description:'${f.description} • Modul belum terintegrasi',style:const TextStyle(fontSize:11.5)),trailing:const Icon(Icons.chevron_right))),
   ]);
   Future<void> showOfficeProfile() async {
     await showModalBottomSheet<void>(context:context,isScrollControlled:true,
