@@ -228,9 +228,29 @@ function pjlp_mobile_dispatch(string $action,string $method):void {
   $photo=(string)($previous['photo_file']??'');
   $encoded=(string)($body['photo_base64']??'');
   if($encoded!=='')$photo=pjlp_store_photo($encoded);
+  // Store the signature as a private PNG/JPG sidecar keyed by the stable public token.
+  // No new SQL columns are required; only admin may upload or replace it.
+  $signatureEncoded=(string)($body['signature_base64']??'');
+  if($signatureEncoded!==''){
+   if(strlen($signatureEncoded)>1450000)pjlp_fail('Gambar tanda tangan maksimal 1 MB');
+   $signatureBytes=base64_decode($signatureEncoded,true);
+   $signatureInfo=$signatureBytes===false?false:@getimagesizefromstring($signatureBytes);
+   if(!$signatureInfo||strlen($signatureBytes)>1048576||strlen($signatureBytes)<80
+      ||$signatureInfo[0]<80||$signatureInfo[1]<30||$signatureInfo[0]>2000||$signatureInfo[1]>1200
+      ||!in_array($signatureInfo[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG],true))
+    pjlp_fail('Tanda tangan harus JPG/PNG yang valid (maksimal 1 MB)');
+   $ext=$signatureInfo[2]===IMAGETYPE_PNG?'png':'jpg';
+   $signatureDir=pjlp_private_dir('signatures');
+   foreach(['png','jpg'] as $oldExt){
+    $oldPath=$signatureDir.'/'.$token.'.'.$oldExt;
+    if(is_file($oldPath))@unlink($oldPath);
+   }
+   if(file_put_contents($signatureDir.'/'.$token.'.'.$ext,$signatureBytes,LOCK_EX)===false)
+    pjlp_fail('Gagal menyimpan gambar tanda tangan',503);
+  }
   $st=$db->prepare('INSERT INTO pjlp_officials(user_id,full_name,title,nip,qr_file,public_token,photo_file,work_unit,is_public) VALUES(?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE full_name=VALUES(full_name),title=VALUES(title),nip=VALUES(nip),qr_file=VALUES(qr_file),public_token=VALUES(public_token),photo_file=VALUES(photo_file),work_unit=VALUES(work_unit),is_public=VALUES(is_public)');
   $st->execute([$person,$name,$title,$nip,$qr,$token,$photo,$unit,$public?1:0]);
-  pjlp_audit($db,null,$uid,'official_profile_saved',['user_id'=>$person,'photo_updated'=>$encoded!=='','public'=>$public]);
+  pjlp_audit($db,null,$uid,'official_profile_saved',['user_id'=>$person,'photo_updated'=>$encoded!=='','signature_updated'=>$signatureEncoded!=='','public'=>$public]);
   mobile_json(['ok'=>true,'profile_url'=>'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='.$token]);
  }
  if($action==='pjlp_apply'&&$method==='POST'){
