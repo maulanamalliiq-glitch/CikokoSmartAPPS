@@ -134,6 +134,42 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
     }
   }
 
+  Future<void> resetPassword(Map<String,dynamic> account) async {
+    final controller=TextEditingController();
+    bool visible=false;
+    await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(
+      builder:(dialog,refresh)=>AlertDialog(
+        title:Text('Reset Password: ${account['name'] ?? 'Pegawai'}'),
+        content:Column(mainAxisSize:MainAxisSize.min,children:[
+          const Text('Masukkan password baru khusus akun ini. Minimal 10 karakter, harus ada huruf dan angka. Sesi lama akan dikeluarkan.',style:TextStyle(fontSize:13)),
+          const SizedBox(height:12),
+          TextField(controller:controller,obscureText:!visible,
+            decoration:InputDecoration(labelText:'Password baru',border:const OutlineInputBorder(),
+              suffixIcon:IconButton(icon:Icon(visible?Icons.visibility_off:Icons.visibility),
+                onPressed:()=>refresh(()=>visible=!visible)))),
+        ]),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialog),child:const Text('Batal')),
+          FilledButton(onPressed:()async{
+            final pass=controller.text;
+            if(pass.length<10||!RegExp(r'[A-Za-z]').hasMatch(pass)||!RegExp(r'[0-9]').hasMatch(pass)){
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Minimal 10 karakter dengan huruf dan angka.')));return;
+            }
+            try{
+              await widget.api.call('accounts_password_reset',body:{'id':account['id'],'new_password':pass});
+              if(!mounted)return;
+              if(dialog.mounted)Navigator.pop(dialog);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Password berhasil direset. Sampaikan secara pribadi.')));
+            }catch(e){
+              if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Gagal reset: ${cikokoFormalMessage(e)}')));
+            }
+          },child:const Text('Reset Password')),
+        ],
+      ),
+    ));
+    controller.dispose();
+  }
+
   Future<void> updateEmail(Map<String,dynamic> account) async {
     final controller=TextEditingController(text:(account['email']??'').toString());
     await showDialog<void>(context:context,builder:(dialog)=>AlertDialog(
@@ -319,6 +355,8 @@ class _AdminAccountsPageState extends State<AdminAccountsPage> {
               '${(account['rw'] ?? '').toString().isNotEmpty ? ' / RW ${account['rw']}' : ''}',
             ),
             trailing: Row(mainAxisSize:MainAxisSize.min,children:[
+              IconButton(tooltip:'Reset password pegawai',icon:const Icon(Icons.lock_reset_outlined),
+                onPressed:()=>resetPassword(account)),
               IconButton(tooltip:'Atur email untuk OTP',icon:const Icon(Icons.alternate_email),
                 onPressed:()=>updateEmail(account)),
               Text(account['active'] == true ? 'Aktif' : 'Nonaktif',
