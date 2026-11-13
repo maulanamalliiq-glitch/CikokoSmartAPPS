@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart' hide Text;
-import 'package:flutter/material.dart' as flutter show Text;
+import 'package:flutter/material.dart' as materialText show Text;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart' show Printing;
@@ -37,7 +37,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   if(mounted)setState(()=>loading=false);
  }
  void toast(Object message){
-  if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:flutter.Text(cikokoFormalMessage(message))));
+  if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:materialText.Text(cikokoFormalMessage(message))));
  }
  Future<void> post(BuildContext ctx,String action,Map<String,dynamic> values)async{
   try{
@@ -51,11 +51,11 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final reason=TextEditingController(),addr=TextEditingController(),phone=TextEditingController();
   DateTimeRange? picked;
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const flutter.Text('Ajukan Cuti PPSU'),
+   title:const materialText.Text('Ajukan Cuti PPSU'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     TextField(controller:reason,maxLength:145,maxLines:2,decoration:const InputDecoration(labelText:'II. Alasan cuti')),
     ListTile(leading:const Icon(Icons.date_range),
-     title:flutter.Text(picked==null?'Pilih tanggal':'Dari '+date(picked!.start)+' sampai '+date(picked!.end)),
+     title:materialText.Text(picked==null?'Pilih tanggal':'Dari '+date(picked!.start)+' sampai '+date(picked!.end)),
      onTap:()async{
       final year=DateTime.now().year;
       final r=await showDateRangePicker(context:ctx,firstDate:DateTime(year-1),lastDate:DateTime(year+3));
@@ -63,15 +63,15 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      }),
     TextField(controller:addr,maxLength:155,maxLines:2,decoration:const InputDecoration(labelText:'V. Alamat selama cuti')),
     TextField(controller:phone,keyboardType:TextInputType.phone,decoration:const InputDecoration(labelText:'Nomor telepon')),
-    const flutter.Text('Jumlah hari kerja dihitung server; hari libur diatur admin.',style:TextStyle(fontSize:11)),
+    const materialText.Text('Jumlah hari kerja dihitung server; hari libur diatur admin.',style:TextStyle(fontSize:11)),
    ])),
    actions:[
-    TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+    TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:(){
      if(picked==null||reason.text.trim().isEmpty||addr.text.trim().isEmpty||phone.text.trim().isEmpty){toast('Lengkapi semua kolom');return;}
      post(dialog,'pjlp_apply',{'reason':reason.text,'leave_address':addr.text,
       'phone':phone.text,'start_date':date(picked!.start),'end_date':date(picked!.end)});
-    },child:const flutter.Text('Kirim Pengajuan'))
+    },child:const materialText.Text('Kirim Pengajuan'))
    ],
   )));
   reason.dispose();addr.dispose();phone.dispose();
@@ -85,12 +85,12 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final position=TextEditingController(text:(old?['position_name']??'PJLP PPSU').toString());
   final unit=TextEditingController(text:(old?['work_unit']??'Kantor Kelurahan Cikoko').toString());
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const flutter.Text('Data Pegawai PPSU'),
+   title:const materialText.Text('Data Pegawai PPSU'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     DropdownButtonFormField<String>(isExpanded:true,
      value:people.any((e)=>e['user_id'].toString()==selected)?selected:null,
      decoration:const InputDecoration(labelText:'Pilih akun PPSU'),
-     items:people.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),child:flutter.Text(e['name'].toString()))).toList(),
+     items:people.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),child:materialText.Text(e['name'].toString()))).toList(),
      onChanged:old==null?(v)=>update(()=>selected=v):null),
     TextField(controller:phl,decoration:const InputDecoration(labelText:'ID PHL')),
     TextField(controller:hired,decoration:const InputDecoration(labelText:'Tanggal mulai kerja YYYY-MM-DD')),
@@ -99,15 +99,15 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
     DropdownButtonFormField<String>(isExpanded:true,
      value:leaders.any((e)=>e['user_id'].toString()==supervisor)?supervisor:null,
      decoration:const InputDecoration(labelText:'Atasan langsung'),
-     items:leaders.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),child:flutter.Text(e['name'].toString()))).toList(),
+     items:leaders.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),child:materialText.Text(e['name'].toString()))).toList(),
      onChanged:(v)=>update(()=>supervisor=v))
    ])),
    actions:[
-    TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+    TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:()=>post(dialog,'pjlp_employee_save',{
      'user_id':selected,'id_phl':phl.text,'hired_on':hired.text,
      'position_name':position.text,'work_unit':unit.text,'supervisor_user_id':supervisor
-    }),child:const flutter.Text('Simpan'))
+    }),child:const materialText.Text('Simpan'))
    ],
   )));
   phl.dispose();hired.dispose();position.dispose();unit.dispose();
@@ -116,15 +116,15 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final year=TextEditingController(text:DateTime.now().year.toString());
   final allowance=TextEditingController(text:(e['allowance_days']??0).toString());
   await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
-   title:flutter.Text('Jatah Cuti '+e['full_name'].toString()),
+   title:materialText.Text('Jatah Cuti '+e['full_name'].toString()),
    content:Column(mainAxisSize:MainAxisSize.min,children:[
     TextField(controller:year,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Tahun')),
     TextField(controller:allowance,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'Jatah hari')),
    ]),
-   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:()=>post(ctx,'pjlp_balance_set',{
      'employee_id':e['id'],'year':int.tryParse(year.text),'allowance_days':int.tryParse(allowance.text)
-    }),child:const flutter.Text('Simpan'))],
+    }),child:const materialText.Text('Simpan'))],
   ));
   year.dispose();allowance.dispose();
  }
@@ -133,27 +133,27 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   String? person;XFile? photo;
   final name=TextEditingController(),title=TextEditingController(),nip=TextEditingController(),unit=TextEditingController(text:'Kelurahan Cikoko');
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:const flutter.Text('Profil Pimpinan & QR Unik'),
+   title:const materialText.Text('Profil Pimpinan & QR Unik'),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     DropdownButtonFormField<String>(isExpanded:true,decoration:const InputDecoration(labelText:'Akun pejabat'),
      items:people.map((e)=>DropdownMenuItem<String>(value:e['user_id'].toString(),
-      child:flutter.Text(e['name'].toString()+' ('+e['role'].toString()+')'))).toList(),
+      child:materialText.Text(e['name'].toString()+' ('+e['role'].toString()+')'))).toList(),
      onChanged:(v)=>update(()=>person=v)),
     TextField(controller:name,decoration:const InputDecoration(labelText:'Nama pejabat')),
     TextField(controller:title,decoration:const InputDecoration(labelText:'Jabatan pada surat')),
     TextField(controller:nip,decoration:const InputDecoration(labelText:'NIP')),
     TextField(controller:unit,decoration:const InputDecoration(labelText:'Unit kerja')),
     OutlinedButton.icon(icon:const Icon(Icons.photo_camera),
-     label:flutter.Text(photo==null?'Pilih Foto Pimpinan':photo!.name),
+     label:materialText.Text(photo==null?'Pilih Foto Pimpinan':photo!.name),
      onPressed:()async{
       final f=await ImagePicker().pickImage(source:ImageSource.gallery,maxWidth:1500,maxHeight:1500);
       if(f!=null)update(()=>photo=f);
      }),
-    const flutter.Text('QR unik dibuat otomatis oleh server saat profil disimpan.',style:TextStyle(fontSize:12)),
+    const materialText.Text('QR unik dibuat otomatis oleh server saat profil disimpan.',style:TextStyle(fontSize:12)),
 
    ])),
    actions:[
-    TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+    TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:()async{
      if(person==null||name.text.isEmpty||title.text.isEmpty||nip.text.isEmpty){toast('Lengkapi data pejabat');return;}
      String encoded='';
@@ -165,31 +165,31 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      await post(dialog,'pjlp_official_save',{
       'user_id':person,'full_name':name.text,'title':title.text,'nip':nip.text,'work_unit':unit.text,'photo_base64':encoded,'is_public':true
      });
-    },child:const flutter.Text('Simpan'))],
+    },child:const materialText.Text('Simpan'))],
   )));
   name.dispose();title.dispose();nip.dispose();unit.dispose();
  }
  Future<void> holidayEditor()async{
   final day=TextEditingController(),desc=TextEditingController();
   await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
-   title:const flutter.Text('Hari Libur'),
+   title:const materialText.Text('Hari Libur'),
    content:Column(mainAxisSize:MainAxisSize.min,children:[
     TextField(controller:day,decoration:const InputDecoration(labelText:'Tanggal YYYY-MM-DD')),
     TextField(controller:desc,decoration:const InputDecoration(labelText:'Keterangan')),
    ]),
-   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
-    FilledButton(onPressed:()=>post(ctx,'pjlp_holiday_set',{'date':day.text,'description':desc.text}),child:const flutter.Text('Simpan'))],
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
+    FilledButton(onPressed:()=>post(ctx,'pjlp_holiday_set',{'date':day.text,'description':desc.text}),child:const materialText.Text('Simpan'))],
   ));
   day.dispose();desc.dispose();
  }
  Future<void> numberEditor(Map<String,dynamic> r)async{
   final field=TextEditingController(text:(r['official_number']??'').toString());
   await showDialog<void>(context:context,builder:(ctx)=>AlertDialog(
-   title:const flutter.Text('Nomor Surat Resmi'),
+   title:const materialText.Text('Nomor Surat Resmi'),
    content:TextField(controller:field,decoration:const InputDecoration(labelText:'Nomor sesuai tata naskah dinas')),
-   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:()=>post(ctx,'pjlp_number_set',{
-     'request_id':r['id'],'official_number':field.text}),child:const flutter.Text('Simpan'))],
+     'request_id':r['id'],'official_number':field.text}),child:const materialText.Text('Simpan'))],
   ));
   field.dispose();
  }
@@ -198,14 +198,14 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final reason=TextEditingController();
   final number=TextEditingController(text:(r['official_number']??'').toString());
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:flutter.Text('Persetujuan Cuti #'+r['id'].toString()),
+   title:materialText.Text('Persetujuan Cuti #'+r['id'].toString()),
    content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
     DropdownButtonFormField<String>(value:decision,decoration:const InputDecoration(labelText:'Keputusan Admin'),
      items:const [
-      DropdownMenuItem(value:'approve',child:flutter.Text('Disetujui')),
-      DropdownMenuItem(value:'revision',child:flutter.Text('Perubahan')),
-      DropdownMenuItem(value:'defer',child:flutter.Text('Ditangguhkan')),
-      DropdownMenuItem(value:'reject',child:flutter.Text('Ditolak')),
+      DropdownMenuItem(value:'approve',child:materialText.Text('Disetujui')),
+      DropdownMenuItem(value:'revision',child:materialText.Text('Perubahan')),
+      DropdownMenuItem(value:'defer',child:materialText.Text('Ditangguhkan')),
+      DropdownMenuItem(value:'reject',child:materialText.Text('Ditolak')),
      ],onChanged:(v)=>update(()=>decision=v??'approve')),
     if(decision=='approve')...[
      const SizedBox(height:12),
@@ -216,7 +216,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
     if(decision!='approve')TextField(controller:reason,maxLines:2,
      decoration:const InputDecoration(labelText:'Alasan keputusan')),
    ])),
-   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const flutter.Text('Batal')),
+   actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const materialText.Text('Batal')),
     FilledButton(onPressed:()async{
      if(decision=='approve'&&number.text.trim().isNotEmpty&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}$').hasMatch(number.text.trim())){
       toast('Isi nomor surat resmi, contoh: 12/KG 11.01');return;
@@ -225,7 +225,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
       'request_id':r['id'],'decision':decision,'reason':reason.text,
       'official_number':number.text.trim()
      });
-    },child:flutter.Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
+    },child:materialText.Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
   )));
   reason.dispose();number.dispose();
  }
@@ -243,38 +243,38 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final e=profile['employee'] as Map<String,dynamic>?;
   final b=profile['balance'] as Map<String,dynamic>?;
   if(e==null)return const Card(child:ListTile(
-   title:flutter.Text('Akun PPSU belum didaftarkan admin'),subtitle:flutter.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
+   title:materialText.Text('Akun PPSU belum didaftarkan admin'),subtitle:materialText.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
   int num(dynamic v)=>int.tryParse(v?.toString()??'')??0;
   final remaining=num(b?['allowance_days'])+num(b?['adjustment_days'])-num(b?['used_days'])-num(b?['held_days']);
   return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(
    crossAxisAlignment:CrossAxisAlignment.start,children:[
-    flutter.Text(e['full_name'].toString(),style:const TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
-    flutter.Text('ID PHL: '+e['id_phl'].toString()),
-    flutter.Text('Jatah: '+(b?['allowance_days']?.toString()??'Belum diatur')+' hari'),
-    flutter.Text('Terpakai: '+num(b?['used_days']).toString()+' hari; proses: '+num(b?['held_days']).toString()+' hari'),
-    flutter.Text('Sisa tersedia: '+(b==null?'-':remaining.toString())+' hari'),
+    materialText.Text(e['full_name'].toString(),style:const TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
+    materialText.Text('ID PHL: '+e['id_phl'].toString()),
+    materialText.Text('Jatah: '+(b?['allowance_days']?.toString()??'Belum diatur')+' hari'),
+    materialText.Text('Terpakai: '+num(b?['used_days']).toString()+' hari; proses: '+num(b?['held_days']).toString()+' hari'),
+    materialText.Text('Sisa tersedia: '+(b==null?'-':remaining.toString())+' hari'),
     const SizedBox(height:10),
-    FilledButton.icon(onPressed:b==null?null:apply,icon:const Icon(Icons.add),label:const flutter.Text('Ajukan Cuti')),
+    FilledButton.icon(onPressed:b==null?null:apply,icon:const Icon(Icons.add),label:const materialText.Text('Ajukan Cuti')),
    ])));
  }
  Widget adminPanel(){
   final employees=adminData['employees'] as List<dynamic>? ?? [];
   return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
    Wrap(spacing:8,runSpacing:8,children:[
-    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const flutter.Text('Daftar PPSU')),
-    OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const flutter.Text('QR Pejabat')),
-    OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const flutter.Text('Hari Libur')),
+    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const materialText.Text('Daftar PPSU')),
+    OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const materialText.Text('QR Pejabat')),
+    OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const materialText.Text('Hari Libur')),
    ]),
    const SizedBox(height:8),
-   flutter.Text('Pegawai terdaftar: '+employees.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+   materialText.Text('Pegawai terdaftar: '+employees.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
    for(final raw in employees)
     Card(child:ListTile(
-     title:flutter.Text(raw['full_name'].toString()),
-     subtitle:flutter.Text('ID PHL: '+raw['id_phl'].toString()+' · Jatah: '+(raw['allowance_days']??'-').toString()),
+     title:materialText.Text(raw['full_name'].toString()),
+     subtitle:materialText.Text('ID PHL: '+raw['id_phl'].toString()+' · Jatah: '+(raw['allowance_days']??'-').toString()),
      trailing:PopupMenuButton<String>(
       itemBuilder:(_)=>const [
-       PopupMenuItem(value:'edit',child:flutter.Text('Edit Pegawai')),
-       PopupMenuItem(value:'balance',child:flutter.Text('Atur Jatah Cuti')),
+       PopupMenuItem(value:'edit',child:materialText.Text('Edit Pegawai')),
+       PopupMenuItem(value:'balance',child:materialText.Text('Atur Jatah Cuti')),
       ],
       onSelected:(choice){
        final r=Map<String,dynamic>.from(raw as Map);
@@ -284,17 +284,17 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      ),
     )),
    const SizedBox(height:12),
-   const flutter.Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
+   const materialText.Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
    for(final raw in officials)
     Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
      crossAxisAlignment:CrossAxisAlignment.start,children:[
-      flutter.Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-      flutter.Text(raw['title'].toString()+' · '+raw['nip'].toString()),
+      materialText.Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      materialText.Text(raw['title'].toString()+' · '+raw['nip'].toString()),
       if(raw['public_token']!=null&&raw['public_token'].toString().isNotEmpty)...[
        Center(child:QrImageView(
         data:'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString(),
         version:QrVersions.auto,size:148)),
-       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const flutter.Text('Lihat Halaman Hasil Scan'),
+       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const materialText.Text('Lihat Halaman Hasil Scan'),
         onPressed:()async{
          final url=Uri.parse('https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString());
          if(!await launchUrl(url,mode:LaunchMode.externalApplication))toast('Tidak dapat membuka profil');
@@ -314,36 +314,36 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final permitted=admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah');
   return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
    crossAxisAlignment:CrossAxisAlignment.start,children:[
-    flutter.Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
+    materialText.Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
      style:const TextStyle(fontWeight:FontWeight.bold)),
-    flutter.Text(r['start_date'].toString()+' - '+r['end_date'].toString()+' · '+r['requested_days'].toString()+' hari'),
-    flutter.Text(r['reason'].toString(),maxLines:2,overflow:TextOverflow.ellipsis),
-    flutter.Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
+    materialText.Text(r['start_date'].toString()+' - '+r['end_date'].toString()+' · '+r['requested_days'].toString()+' hari'),
+    materialText.Text(r['reason'].toString(),maxLines:2,overflow:TextOverflow.ellipsis),
+    materialText.Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
     Wrap(spacing:8,children:[
-     if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const flutter.Text('Keputusan')),
-     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const flutter.Text('Nomor Surat')),
-     if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const flutter.Text('Cetak PDF')),
+     if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const materialText.Text('Keputusan')),
+     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const materialText.Text('Nomor Surat')),
+     if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const materialText.Text('Cetak PDF')),
     ])
    ])));
  }
  @override Widget build(BuildContext context)=>RefreshIndicator(onRefresh:reload,child:ListView(
   padding:const EdgeInsets.all(14),children:[
-   const flutter.Text('CUTI PJLP / PPSU',style:TextStyle(fontWeight:FontWeight.bold,fontSize:21,color:Color(0xFF155997))),
-   const flutter.Text('Kelurahan Cikoko · Kecamatan Pancoran'),
+   const materialText.Text('CUTI PJLP / PPSU',style:TextStyle(fontWeight:FontWeight.bold,fontSize:21,color:Color(0xFF155997))),
+   const materialText.Text('Kelurahan Cikoko · Kecamatan Pancoran'),
    const SizedBox(height:12),
    if(loading)const Center(child:CircularProgressIndicator()),
-   if(error!=null)Card(child:ListTile(title:flutter.Text(error!),subtitle:const flutter.Text('Pastikan backend PHP dan database telah dipasang'),
+   if(error!=null)Card(child:ListTile(title:materialText.Text(error!),subtitle:const materialText.Text('Pastikan backend PHP dan database telah dipasang'),
     trailing:IconButton(onPressed:reload,icon:const Icon(Icons.refresh)))),
    if(!loading&&error==null)...[
     if(ppsu)employeePanel(),
     if(admin)adminPanel(),
-    flutter.Text('Riwayat / Pengajuan ('+requests.length.toString()+')',
+    materialText.Text('Riwayat / Pengajuan ('+requests.length.toString()+')',
      style:const TextStyle(fontWeight:FontWeight.bold,fontSize:16)),
-    if(requests.isEmpty)const Card(child:ListTile(title:flutter.Text('Belum ada pengajuan'))),
+    if(requests.isEmpty)const Card(child:ListTile(title:materialText.Text('Belum ada pengajuan'))),
     for(final r in requests)requestItem(Map<String,dynamic>.from(r as Map)),
    ],
    const SizedBox(height:25),
-   const flutter.Text('QR tetap dari admin bukan TTE tersertifikasi.',
+   const materialText.Text('QR tetap dari admin bukan TTE tersertifikasi.',
     style:TextStyle(color:Colors.blueGrey,fontSize:11)),
   ],
  ));
@@ -355,7 +355,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
       'request_id':r['id'],'decision':decision,'reason':reason.text,
       'official_number':number.text.trim()
      });
-    },child:flutter.Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
+    },child:materialText.Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
   )));
   reason.dispose();number.dispose();
  }
@@ -373,38 +373,38 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final e=profile['employee'] as Map<String,dynamic>?;
   final b=profile['balance'] as Map<String,dynamic>?;
   if(e==null)return const Card(child:ListTile(
-   title:flutter.Text('Akun PPSU belum didaftarkan admin'),subtitle:flutter.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
+   title:materialText.Text('Akun PPSU belum didaftarkan admin'),subtitle:materialText.Text('Minta admin mengisi ID PHL, masa kerja dan atasan langsung.')));
   int num(dynamic v)=>int.tryParse(v?.toString()??'')??0;
   final remaining=num(b?['allowance_days'])+num(b?['adjustment_days'])-num(b?['used_days'])-num(b?['held_days']);
   return Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(
    crossAxisAlignment:CrossAxisAlignment.start,children:[
-    flutter.Text(e['full_name'].toString(),style:const TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
-    flutter.Text('ID PHL: '+e['id_phl'].toString()),
-    flutter.Text('Jatah: '+(b?['allowance_days']?.toString()??'Belum diatur')+' hari'),
-    flutter.Text('Terpakai: '+num(b?['used_days']).toString()+' hari; proses: '+num(b?['held_days']).toString()+' hari'),
-    flutter.Text('Sisa tersedia: '+(b==null?'-':remaining.toString())+' hari'),
+    materialText.Text(e['full_name'].toString(),style:const TextStyle(fontSize:17,fontWeight:FontWeight.bold)),
+    materialText.Text('ID PHL: '+e['id_phl'].toString()),
+    materialText.Text('Jatah: '+(b?['allowance_days']?.toString()??'Belum diatur')+' hari'),
+    materialText.Text('Terpakai: '+num(b?['used_days']).toString()+' hari; proses: '+num(b?['held_days']).toString()+' hari'),
+    materialText.Text('Sisa tersedia: '+(b==null?'-':remaining.toString())+' hari'),
     const SizedBox(height:10),
-    FilledButton.icon(onPressed:b==null?null:apply,icon:const Icon(Icons.add),label:const flutter.Text('Ajukan Cuti')),
+    FilledButton.icon(onPressed:b==null?null:apply,icon:const Icon(Icons.add),label:const materialText.Text('Ajukan Cuti')),
    ])));
  }
  Widget adminPanel(){
   final employees=adminData['employees'] as List<dynamic>? ?? [];
   return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
    Wrap(spacing:8,runSpacing:8,children:[
-    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const flutter.Text('Daftar PPSU')),
-    OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const flutter.Text('QR Pejabat')),
-    OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const flutter.Text('Hari Libur')),
+    FilledButton.icon(onPressed:()=>employeeEditor(),icon:const Icon(Icons.person_add),label:const materialText.Text('Daftar PPSU')),
+    OutlinedButton.icon(onPressed:officialEditor,icon:const Icon(Icons.qr_code),label:const materialText.Text('QR Pejabat')),
+    OutlinedButton.icon(onPressed:holidayEditor,icon:const Icon(Icons.event),label:const materialText.Text('Hari Libur')),
    ]),
    const SizedBox(height:8),
-   flutter.Text('Pegawai terdaftar: '+employees.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+   materialText.Text('Pegawai terdaftar: '+employees.length.toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
    for(final raw in employees)
     Card(child:ListTile(
-     title:flutter.Text(raw['full_name'].toString()),
-     subtitle:flutter.Text('ID PHL: '+raw['id_phl'].toString()+' · Jatah: '+(raw['allowance_days']??'-').toString()),
+     title:materialText.Text(raw['full_name'].toString()),
+     subtitle:materialText.Text('ID PHL: '+raw['id_phl'].toString()+' · Jatah: '+(raw['allowance_days']??'-').toString()),
      trailing:PopupMenuButton<String>(
       itemBuilder:(_)=>const [
-       PopupMenuItem(value:'edit',child:flutter.Text('Edit Pegawai')),
-       PopupMenuItem(value:'balance',child:flutter.Text('Atur Jatah Cuti')),
+       PopupMenuItem(value:'edit',child:materialText.Text('Edit Pegawai')),
+       PopupMenuItem(value:'balance',child:materialText.Text('Atur Jatah Cuti')),
       ],
       onSelected:(choice){
        final r=Map<String,dynamic>.from(raw as Map);
@@ -414,17 +414,17 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
      ),
     )),
    const SizedBox(height:12),
-   const flutter.Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
+   const materialText.Text('Direktori Profil Pimpinan & QR Unik',style:TextStyle(fontWeight:FontWeight.bold)),
    for(final raw in officials)
     Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
      crossAxisAlignment:CrossAxisAlignment.start,children:[
-      flutter.Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
-      flutter.Text(raw['title'].toString()+' · '+raw['nip'].toString()),
+      materialText.Text(raw['full_name'].toString(),style:const TextStyle(fontWeight:FontWeight.bold)),
+      materialText.Text(raw['title'].toString()+' · '+raw['nip'].toString()),
       if(raw['public_token']!=null&&raw['public_token'].toString().isNotEmpty)...[
        Center(child:QrImageView(
         data:'https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString(),
         version:QrVersions.auto,size:148)),
-       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const flutter.Text('Lihat Halaman Hasil Scan'),
+       TextButton.icon(icon:const Icon(Icons.open_in_browser),label:const materialText.Text('Lihat Halaman Hasil Scan'),
         onPressed:()async{
          final url=Uri.parse('https://datawebs.my.id/mobile-api/pjlp_profile.php?id='+raw['public_token'].toString());
          if(!await launchUrl(url,mode:LaunchMode.externalApplication))toast('Tidak dapat membuka profil');
@@ -444,36 +444,36 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   final permitted=admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah');
   return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
    crossAxisAlignment:CrossAxisAlignment.start,children:[
-    flutter.Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
+    materialText.Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
      style:const TextStyle(fontWeight:FontWeight.bold)),
-    flutter.Text(r['start_date'].toString()+' - '+r['end_date'].toString()+' · '+r['requested_days'].toString()+' hari'),
-    flutter.Text(r['reason'].toString(),maxLines:2,overflow:TextOverflow.ellipsis),
-    flutter.Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
+    materialText.Text(r['start_date'].toString()+' - '+r['end_date'].toString()+' · '+r['requested_days'].toString()+' hari'),
+    materialText.Text(r['reason'].toString(),maxLines:2,overflow:TextOverflow.ellipsis),
+    materialText.Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
     Wrap(spacing:8,children:[
-     if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const flutter.Text('Keputusan')),
-     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const flutter.Text('Nomor Surat')),
-     if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const flutter.Text('Cetak PDF')),
+     if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const materialText.Text('Keputusan')),
+     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const materialText.Text('Nomor Surat')),
+     if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const materialText.Text('Cetak PDF')),
     ])
    ])));
  }
  @override Widget build(BuildContext context)=>RefreshIndicator(onRefresh:reload,child:ListView(
   padding:const EdgeInsets.all(14),children:[
-   const flutter.Text('CUTI PJLP / PPSU',style:TextStyle(fontWeight:FontWeight.bold,fontSize:21,color:Color(0xFF155997))),
-   const flutter.Text('Kelurahan Cikoko · Kecamatan Pancoran'),
+   const materialText.Text('CUTI PJLP / PPSU',style:TextStyle(fontWeight:FontWeight.bold,fontSize:21,color:Color(0xFF155997))),
+   const materialText.Text('Kelurahan Cikoko · Kecamatan Pancoran'),
    const SizedBox(height:12),
    if(loading)const Center(child:CircularProgressIndicator()),
-   if(error!=null)Card(child:ListTile(title:flutter.Text(error!),subtitle:const flutter.Text('Pastikan backend PHP dan database telah dipasang'),
+   if(error!=null)Card(child:ListTile(title:materialText.Text(error!),subtitle:const materialText.Text('Pastikan backend PHP dan database telah dipasang'),
     trailing:IconButton(onPressed:reload,icon:const Icon(Icons.refresh)))),
    if(!loading&&error==null)...[
     if(ppsu)employeePanel(),
     if(admin)adminPanel(),
-    flutter.Text('Riwayat / Pengajuan ('+requests.length.toString()+')',
+    materialText.Text('Riwayat / Pengajuan ('+requests.length.toString()+')',
      style:const TextStyle(fontWeight:FontWeight.bold,fontSize:16)),
-    if(requests.isEmpty)const Card(child:ListTile(title:flutter.Text('Belum ada pengajuan'))),
+    if(requests.isEmpty)const Card(child:ListTile(title:materialText.Text('Belum ada pengajuan'))),
     for(final r in requests)requestItem(Map<String,dynamic>.from(r as Map)),
    ],
    const SizedBox(height:25),
-   const flutter.Text('QR tetap dari admin bukan TTE tersertifikasi.',
+   const materialText.Text('QR tetap dari admin bukan TTE tersertifikasi.',
     style:TextStyle(color:Colors.blueGrey,fontSize:11)),
   ],
  ));
