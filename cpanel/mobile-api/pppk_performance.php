@@ -42,7 +42,7 @@ function pppk_dispatch(string $action,string $method):void {
  if($action==='pppk_detail'&&$method==='GET'){
   $r=pppk_row($db,(int)($_GET['id']??0));pppk_access($r,$actor,$admin);
   $s=$db->prepare('SELECT section_no,period_no FROM pppk_monthly_photos WHERE report_id=?');$s->execute([$r['id']]);
-  mobile_json(['ok'=>true,'report'=>['id'=>(int)$r['id'],'user_id'=>$r['user_id'],'employee_name'=>$r['employee_name'],'employee_nip'=>$r['employee_nip'],'month'=>$r['report_month'],'status'=>$r['status'],'note'=>$r['review_note'],'payload'=>json_decode($r['payload_json'],true)?:[],'photos'=>$s->fetchAll(PDO::FETCH_ASSOC)]]);
+  mobile_json(['ok'=>true,'report'=>['id'=>(int)$r['id'],'user_id'=>$r['user_id'],'employee_name'=>$r['employee_name'],'employee_nip'=>$r['employee_nip'],'month'=>$r['report_month'],'status'=>$r['status'],'note'=>$r['review_note'],'approved_token'=>$r['status']==='approved'?$r['approved_token']:null,'payload'=>json_decode($r['payload_json'],true)?:[],'photos'=>$s->fetchAll(PDO::FETCH_ASSOC)]]);
  }
  if($action==='pppk_photo'&&$method==='GET'){
   $r=pppk_row($db,(int)($_GET['id']??0));pppk_access($r,$actor,$admin);
