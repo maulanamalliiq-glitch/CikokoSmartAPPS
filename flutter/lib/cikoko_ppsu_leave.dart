@@ -262,16 +262,13 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   ]);
  }
  String statusText(String s)=>switch(s){
-  'pending_admin'=>'Menunggu Admin','pending_supervisor'=>'Menunggu Atasan',
-  'pending_lurah'=>'Menunggu Lurah','approved'=>'Disetujui',
+  'pending_admin'=>'Menunggu Admin','pending_supervisor'=>'Menunggu Admin',
+  'pending_lurah'=>'Menunggu Admin','approved'=>'Disetujui',
   'revision'=>'Perubahan','deferred'=>'Ditangguhkan','rejected'=>'Ditolak',_=>s
  };
  Widget requestItem(Map<String,dynamic> r){
   final status=r['status'].toString();
-  final permitted=(admin&&status=='pending_admin')||
-   (widget.role=='lurah'&&status=='pending_lurah')||
-   ((widget.role=='asn'||widget.role=='admin_kelurahan')&&
-    status=='pending_supervisor'&&userId==r['supervisor_user_id'].toString());
+  final permitted=admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah');
   return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(
    crossAxisAlignment:CrossAxisAlignment.start,children:[
     Text('#'+r['id'].toString()+' · '+(r['full_name']??profile['employee']?['full_name']??'PPSU').toString(),
@@ -281,7 +278,7 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
     Text(statusText(status),style:const TextStyle(color:Colors.blue,fontWeight:FontWeight.bold)),
     Wrap(spacing:8,children:[
      if(permitted)TextButton.icon(onPressed:()=>decide(r),icon:const Icon(Icons.fact_check),label:const Text('Keputusan')),
-     if(admin&&status=='pending_lurah')TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const Text('Nomor Surat')),
+     if(admin&&(status=='pending_admin'||status=='pending_supervisor'||status=='pending_lurah'))TextButton.icon(onPressed:()=>numberEditor(r),icon:const Icon(Icons.tag),label:const Text('Nomor Surat')),
      if(status=='approved')TextButton.icon(onPressed:()=>printLetter(r),icon:const Icon(Icons.print),label:const Text('Cetak PDF')),
     ])
    ])));
