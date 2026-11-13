@@ -35,6 +35,7 @@ import 'v211_features.dart';
 import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
 import 'lpj_pages.dart';
+import 'cikoko_ppsu_leave.dart';
 
 const navy=V6.ink, blue=V6.blue, pale=V6.background;
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -506,6 +507,10 @@ class _HomeState extends State<HomePage> {
   ));
   Widget _page(){switch(section){
     case 'Dashboard':return home();
+    case 'Cuti PPSU':
+    case 'Kelola Cuti PPSU':
+    case 'Persetujuan Cuti PPSU':
+      return CikokoPpsuLeaveHub(api:api,role:role);
     case 'Kelola Semua Halaman':
       return role=='admin'||role=='admin_kelurahan'
         ?CikokoAdminContentHub(api:api,role:role,openInApp:switchTo,
