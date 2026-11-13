@@ -7,7 +7,7 @@ import 'api.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:file_saver/file_saver.dart';
+import 'package:flutter/services.dart';
 
 class CikokoPppkPerformancePage extends StatefulWidget {
  final CikokoApi api;
@@ -378,20 +378,19 @@ class _PppkEditorState extends State<_PppkEditor>{
    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
     duration:Duration(seconds:2),content:Text('Mengunduh PDF ke perangkat...')));
    final filename='Kinerja-PPPK-$month.pdf';
-   // file_saver.saveFile on Android uses the platform download destination
-   // without opening the Storage Access Framework folder picker.
-   final savedPath=await FileSaver.instance.saveFile(
-    name:'Kinerja-PPPK-$month',bytes:bytes,fileExtension:'pdf',mimeType:MimeType.pdf);
-   if(savedPath.isEmpty)throw StateError('Lokasi penyimpanan tidak dikembalikan Android');
+   // Android MediaStore writes to the public Download folder, visible in Files.
+   final savedPath=await const MethodChannel('cikoko/pdf_downloads').invokeMethod<String>(
+    'savePdfToDownloads',{'name':filename,'bytes':bytes});
+   if(savedPath==null||savedPath.isEmpty)throw StateError('Android tidak mengonfirmasi penyimpanan PDF');
    if(!mounted)return;
    await showDialog<void>(context:context,builder:(dialogContext)=>AlertDialog(
     title:const Text('Unduh PDF berhasil'),
     content:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-     const Text('Dokumen berhasil disimpan otomatis.'),
+     const Text('Dokumen berhasil disimpan otomatis di folder Download.'),
      const SizedBox(height:10),
      Text(filename,style:const TextStyle(fontWeight:FontWeight.bold)),
      const SizedBox(height:8),
-     const Text('Buka aplikasi File / File Manager untuk menemukan dokumen.'),
+     const Text('Buka File Manager → Download untuk menemukan dokumen.'),
      const SizedBox(height:8),
      SelectableText(savedPath,style:const TextStyle(fontSize:12)),
     ]),
