@@ -90,9 +90,9 @@ function pjlp_pdf_build(PDO $db,array $r):string {
  // II. Leave reason, always visible within two lines.
  $header(616,574,'II. ALASAN CUTI');
  $reason=trim((string)$r['reason']);
- $field(48,589,$reason,105);
- if((function_exists('mb_strlen')?mb_strlen($reason):strlen($reason))>105){
-  $field(48,579,function_exists('mb_substr')?mb_substr($reason,105):substr($reason,105),105);
+ $field(48,589,function_exists('mb_substr')?mb_substr($reason,0,95):substr($reason,0,95),95);
+ if((function_exists('mb_strlen')?mb_strlen($reason):strlen($reason))>95){
+  $field(48,579,function_exists('mb_substr')?mb_substr($reason,95,95):substr($reason,95,95),95);
  }
 
  // III. Dates.
@@ -115,7 +115,11 @@ function pjlp_pdf_build(PDO $db,array $r):string {
  // V. Address and applicant's name.
  $header(442,329,'V. ALAMAT SELAMA MENJALANKAN CUTI');
  $ln(331,329,331,428);$ln(331,412,552,412);$ln(419,412,419,428);
- $field(48,416,(string)$r['leave_address'],61);
+ $address=(string)$r['leave_address'];
+ foreach([0,57,114] as $i=>$offset){
+  $part=function_exists('mb_substr')?mb_substr($address,$offset,57):substr($address,$offset,57);
+  if($part!=='')$field(48,416-$i*11,$part,57);
+ }
  $field(337,417,'TELP');$field(426,417,(string)$r['phone'],24);
  $center(442,397,'Hormat saya,',8);
  $center(442,357,pjlp_pdf_safe((string)$r['full_name'],37),8);
