@@ -40,6 +40,13 @@ jobs:
             pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Pages: *1'
             pdfinfo /tmp/pjlp-letter-smoke.pdf | grep -q 'Page size: *595 x 842 pts'
           fi
+      - name: Upload PDF layout sample (synthetic data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-PPSU-PDF-A4-SAMPLE
+          path: /tmp/pjlp-letter-smoke.pdf
+          if-no-files-found: error
+          retention-days: 14
       - name: PHP syntax hardcheck
         run: |
           set -euo pipefail
