@@ -1,0 +1,42 @@
+name: Package cPanel 2552 Update ZIP
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/sync-website-header-android-2549]
+    paths:
+      - 'cpanel/**'
+      - '.github/workflows/package-cpanel-2552.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax validation
+        run: |
+          find cpanel -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Package full cPanel overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/cpanel-2552
+          cp -a cpanel/. dist/cpanel-2552/
+          cat > dist/cpanel-2552/BACA_DULU_UPDATE_2552.txt <<'EOF'
+          CIKOKO SMARTAPPS 2552 - UPDATE CPANEL
+          1. BACKUP public_html dan database MySQL terlebih dahulu.
+          2. ZIP berisi struktur cpanel lengkap; ekstrak ISINYA ke public_html website sesuai struktur saat ini.
+          3. Jangan hapus folder data, unggahan, gambar, konfigurasi, atau file pribadi di server.
+          4. Pastikan mobile-api/dynamic_modules_2552.php dan mobile-api/index.php ikut diperbarui.
+          5. Modul dinamis baru tersedia setelah backend terpasang; uji login admin dan akun PPSU.
+          6. Jangan gunakan ZIP ini untuk mengganti database atau file konfigurasi rahasia.
+          7. Modul dinamis saat ini menyimpan definisi modul saja; penyimpanan pengajuan belum tersedia.
+          EOF
+          (cd dist/cpanel-2552 && zip -qr ../CIKOKO_CPANEL_UPDATE_2552.zip .)
+          test -s dist/CIKOKO_CPANEL_UPDATE_2552.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CIKOKO_CPANEL_UPDATE_2552
+          path: dist/CIKOKO_CPANEL_UPDATE_2552.zip
+          if-no-files-found: error
+          retention-days: 14
