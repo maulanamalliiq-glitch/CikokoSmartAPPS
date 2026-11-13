@@ -1,4 +1,4 @@
-name: Signed Cikoko v2552 UAT — direct APK and AAB
+name: Signed Cikoko v2553 UAT — direct APK and AAB
 on:
   push:
     branches: [feat/sync-website-header-android-2549]
@@ -38,7 +38,7 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test
           grep -F 'applicationId = "com.KelurahanCikoko.malik"' android/app/build.gradle.kts
-          grep -F 'versionCode = 2552' android/app/build.gradle.kts
+          grep -F 'versionCode = 2553' android/app/build.gradle.kts
       - name: Load existing Play upload keystore and verify fingerprint
         shell: bash
         env:
@@ -69,10 +69,10 @@ jobs:
           flutter build appbundle --release
           test -s build/app/outputs/bundle/release/app-release.aab
           mkdir -p ../cikoko-direct
-          cp build/app/outputs/bundle/release/app-release.aab ../cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab
-          jarsigner -verify ../cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab > /tmp/cikoko-verify-aab.log
+          cp build/app/outputs/bundle/release/app-release.aab ../cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab
+          jarsigner -verify ../cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab > /tmp/cikoko-verify-aab.log
           grep -q 'jar verified' /tmp/cikoko-verify-aab.log
-          fingerprint=$(keytool -printcert -jarfile ../cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab |
+          fingerprint=$(keytool -printcert -jarfile ../cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab |
             sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
           test "$fingerprint" = "394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
       - name: Build and sign ARM64 release APK
@@ -92,8 +92,8 @@ jobs:
           signer="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$signer" sign --ks "$CIKOKO_KEYSTORE_PATH" --ks-key-alias androidkey \
             --ks-pass env:CIKOKO_STORE_PASSWORD --key-pass env:CIKOKO_KEY_PASSWORD \
-            --out ../cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk "$apk"
-          "$signer" verify --verbose --print-certs ../cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk > /tmp/cikoko-verify-apk.log
+            --out ../cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk "$apk"
+          "$signer" verify --verbose --print-certs ../cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk > /tmp/cikoko-verify-apk.log
           actual=$(grep -iE 'certificate.*SHA.?256' /tmp/cikoko-verify-apk.log |
             grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' |
             head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
@@ -107,27 +107,27 @@ jobs:
           sudo systemctl stop clamav-freshclam || true
           sudo freshclam --stdout
           clamscan --scan-archive=yes --infected --max-filesize=300M --max-scansize=2000M \
-            cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab \
-            cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk
-          (cd cikoko-direct && sha256sum Cikoko-v2552-PLAY-SIGNED.aab Cikoko-v2552-RELEASE-arm64.apk > SHA256SUMS.txt)
+            cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab \
+            cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk
+          (cd cikoko-direct && sha256sum Cikoko-v2553-PLAY-SIGNED.aab Cikoko-v2553-RELEASE-arm64.apk > SHA256SUMS.txt)
       - name: Upload verified APK artifact even if Releases are restricted
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2552-SIGNED-APK
-          path: cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk
+          name: Cikoko-v2553-SIGNED-APK
+          path: cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk
           if-no-files-found: error
           retention-days: 30
       - name: Upload verified AAB artifact even if Releases are restricted
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2552-SIGNED-AAB
-          path: cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab
+          name: Cikoko-v2553-SIGNED-AAB
+          path: cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab
           if-no-files-found: error
           retention-days: 30
       - name: Upload signed artifact SHA256 hashes
         uses: actions/upload-artifact@v4
         with:
-          name: Cikoko-v2552-SHA256SUMS
+          name: Cikoko-v2553-SHA256SUMS
           path: cikoko-direct/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -138,15 +138,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag="v2.5.52-uat2552"
-          notes="UAT ONLY: CikokoSmartAPPS asli, applicationId com.KelurahanCikoko.malik, versionCode 2552. Menggunakan upload signing key lama. APK dan AAB adalah berkas terpisah. Perbaikan admin/CMS perlu patch cPanel terkait. ClamAV pass bukan jaminan bebas malware. Uji di perangkat dan pastikan sertifikat cocok dengan versi terpasang sebelum menginstal."
+          tag="v2.5.53-uat2553"
+          notes="UAT ONLY: CikokoSmartAPPS asli, applicationId com.KelurahanCikoko.malik, versionCode 2553. Menggunakan upload signing key lama. APK dan AAB adalah berkas terpisah. Perbaikan admin/CMS perlu patch cPanel terkait. ClamAV pass bukan jaminan bebas malware. Uji di perangkat dan pastikan sertifikat cocok dengan versi terpasang sebelum menginstal."
           if gh release view "$tag" >/dev/null 2>&1; then
-            if ! gh release upload "$tag" cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab cikoko-direct/SHA256SUMS.txt --clobber; then
+            if ! gh release upload "$tag" cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab cikoko-direct/SHA256SUMS.txt --clobber; then
               echo "::warning::GitHub Releases refused publication; verified APK/AAB are still available as separate Actions artifacts (ZIP wrapper)."
             fi
           else
-            if ! gh release create "$tag" cikoko-direct/Cikoko-v2552-RELEASE-arm64.apk cikoko-direct/Cikoko-v2552-PLAY-SIGNED.aab cikoko-direct/SHA256SUMS.txt \
-              --target "$GITHUB_SHA" --title "Cikoko SmartApp 2.5.52 — APK dan AAB UAT" --prerelease --notes "$notes"; then
+            if ! gh release create "$tag" cikoko-direct/Cikoko-v2553-RELEASE-arm64.apk cikoko-direct/Cikoko-v2553-PLAY-SIGNED.aab cikoko-direct/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --title "Cikoko SmartApp 2.5.53 — APK dan AAB UAT" --prerelease --notes "$notes"; then
               echo "::warning::GitHub Releases returned an authorization error. Download verified APK/AAB from the Actions Artifacts section, or add protected CIKOKO_RELEASE_TOKEN with appropriate repository contents permission."
             fi
           fi
