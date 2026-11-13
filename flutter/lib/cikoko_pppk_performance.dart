@@ -351,7 +351,29 @@ class _PppkEditorState extends State<_PppkEditor>{
       ])),
      ]),
     ])));
-   await Printing.layoutPdf(onLayout:(_)=>pdf.save(),name:'Kinerja-PPPK-${data['month']}.pdf');
+   return pdf.save();
+ }
+ Future<void> previewReport()async{
+  if(id==null)return;
+  setState(()=>busy=true);
+  try{
+   final bytes=await generateReportPdf();
+   if(!mounted)return;
+   await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>Scaffold(
+    appBar:AppBar(title:const Text('Preview Laporan PPPK'),backgroundColor:Colors.white),
+    body:PdfPreview(build:(_)=>bytes,useActions:false,allowPrinting:false,
+     allowSharing:false,canChangePageFormat:false,canChangeOrientation:false),
+   )));
+  }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
+ }
+ Future<void> downloadReport()async{
+  if(id==null)return;
+  setState(()=>busy=true);
+  try{
+   final bytes=await generateReportPdf();
+   await FileSaver.instance.saveFile(name:'Kinerja-PPPK-$month',bytes:bytes,
+    fileExtension:'pdf',mimeType:MimeType.pdf);
+   notify('PDF berhasil disimpan ke perangkat');
   }catch(e){notify(e);}finally{if(mounted)setState(()=>busy=false);}
  }
  Future<void> submit()async{
