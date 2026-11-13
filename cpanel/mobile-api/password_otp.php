@@ -44,7 +44,7 @@ function cikoko_otp_identity(string $username,string $email):string {
 }
 function cikoko_otp_account(string $username,string $email):?array {
  foreach(db_read('portal_users') as $user){
-  if(!($user['active']??false))continue;
+  if(!($user['active']??false)||($user['role']??'')==='admin')continue;
   if(!hash_equals(strtolower((string)($user['username']??'')),strtolower($username)))continue;
   $registered=trim((string)($user['email']??''));
   if($registered!==''&&filter_var($registered,FILTER_VALIDATE_EMAIL)
