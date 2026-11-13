@@ -162,7 +162,7 @@ class _PppkEditor extends StatefulWidget {
 class _PppkEditorState extends State<_PppkEditor>{
  late final TextEditingController name,nip;
  late final List<List<TextEditingController>> descriptions;
- late String month;int? id;late String status;bool busy=false;
+ late String month;int? id;late String status;String? jabatan;bool busy=false;
  final Map<String,Uint8List> photos={};
  final Map<String,Uint8List> storedPreviews={};
  final Set<String> stored={};
@@ -172,6 +172,8 @@ class _PppkEditorState extends State<_PppkEditor>{
   name=TextEditingController(text:'${r?['employee_name']??widget.api.profile?['name']??widget.api.profile?['full_name']??''}');
   nip=TextEditingController(text:'${r?['employee_nip']??widget.api.profile?['nip']??''}');
   final data=r?['payload'] as List<dynamic>? ?? [];
+  final savedJabatan=data.isNotEmpty&&data[0] is Map?'${(data[0] as Map)['jabatan']??''}':'';
+  jabatan=['Operator Layanan Administrasi','Operator Layanan Umum'].contains(savedJabatan)?savedJabatan:null;
   descriptions=List.generate(4,(i)=>List.generate(2,(j)=>TextEditingController(text:i<data.length?'${(data[i] as Map)['period${j+1}']??''}':'')));
   for(final p in r?['photos'] as List<dynamic>? ?? []){
    stored.add('${p['section_no']}-${p['period_no']}');
@@ -199,7 +201,7 @@ class _PppkEditorState extends State<_PppkEditor>{
   setState(()=>busy=true);
   try{
    final r=await widget.api.call('pppk_save',body:{
-    'month':month,'name':name.text,'nip':nip.text,
+    'month':month,'name':name.text,'nip':nip.text,'jabatan':jabatan??'',
     'sections':[for(final row in descriptions){'period1':row[0].text,'period2':row[1].text}],
    });
    id=r['id'] as int;
@@ -254,6 +256,9 @@ class _PppkEditorState extends State<_PppkEditor>{
    final yearTitle=parts.isNotEmpty?parts[0]:'';
    final person="${data['employee_name']??''}";
    final employeeNip="${data['employee_nip']??''}";
+   final savedEntries=data['payload'] as List<dynamic>? ?? [];
+   final reportJabatan=savedEntries.isNotEmpty&&savedEntries[0] is Map
+    ?'${(savedEntries[0] as Map)['jabatan']??''}':'';
    pw.Text tx(String value,{double size=8,bool strong=false,pw.TextAlign align=pw.TextAlign.left})=>
     pw.Text(value,style:pw.TextStyle(font:strong?bold:regular,fontSize:size,color:ink),textAlign:align);
    pw.Widget identity(String label,String value)=>pw.Row(children:[
@@ -294,7 +299,7 @@ class _PppkEditorState extends State<_PppkEditor>{
      identity('NAMA',person),
      identity('NI PPPK',employeeNip),
      identity('GOLONGAN','-'),
-     identity('JABATAN','-'),
+     identity('JABATAN',reportJabatan.isEmpty?'-':reportJabatan),
      identity('UNIT KERJA','Kelurahan Cikoko'),
      pw.SizedBox(height:17),
      pw.Table(border:tableBorder,columnWidths:{
@@ -321,7 +326,8 @@ class _PppkEditorState extends State<_PppkEditor>{
      tx('- Progres Periode 1 laporan Pegawai dari tanggal 1 - 15 $monthTitle $yearTitle',size:7.3),
      tx('- Progres Periode 2 laporan Pegawai dari tanggal 16 - akhir $monthTitle $yearTitle',size:7.3),
      pw.Spacer(),
-     pw.Align(alignment:pw.Alignment.centerRight,child:tx('Jakarta, ${DateTime.now().day} $monthTitle $yearTitle',size:7.5)),
+     pw.Row(children:[pw.Expanded(child:pw.SizedBox()),
+      pw.Expanded(child:pw.Center(child:tx('Jakarta, ${DateTime.now().day} $monthTitle $yearTitle',size:7.5,align:pw.TextAlign.center)))]),
      pw.SizedBox(height:8),
      pw.Row(crossAxisAlignment:pw.CrossAxisAlignment.start,children:[
       pw.Expanded(child:pw.Column(children:[
@@ -403,6 +409,15 @@ class _PppkEditorState extends State<_PppkEditor>{
       const SizedBox(height:12),
       TextField(controller:nip,readOnly:!editable,decoration:const InputDecoration(
        labelText:'NIP / No. Pegawai',prefixIcon:Icon(Icons.numbers),border:OutlineInputBorder())),
+      const SizedBox(height:12),
+      DropdownButtonFormField<String>(value:jabatan,
+       decoration:const InputDecoration(labelText:'Jabatan',prefixIcon:Icon(Icons.work_outline),border:OutlineInputBorder()),
+       hint:const Text('Pilih jabatan'),
+       items:const [DropdownMenuItem(value:'Operator Layanan Administrasi',child:Text('Operator Layanan Administrasi')),
+        DropdownMenuItem(value:'Operator Layanan Umum',child:Text('Operator Layanan Umum'))],
+       onChanged:editable?(v)=>setState(()=>jabatan=v):null),
+      const SizedBox(height:12),
+      const Text('Golongan: -',style:TextStyle(color:Color(0xff63748a))),
      ]))),
     const SizedBox(height:12),
     for(var i=0;i<4;i++)Container(
