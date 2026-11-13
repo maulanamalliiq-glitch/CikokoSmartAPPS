@@ -223,7 +223,7 @@ if(in_array($action,['accounts_list','accounts_create','accounts_delete','accoun
  $b=mobile_body();
  if($action==='accounts_password_reset'){
   $id=mobile_text($b['id']??'',80);$pass=(string)($b['new_password']??'');
-  if($id===''||strlen($pass)<10||strlen($pass)>128||!preg_match('/[A-Za-z]/',$pass)||!preg_match('/[0-9]/',$pass))mobile_error('Password minimal 10 karakter dengan huruf dan angka.',422);
+  if($id===''||strlen($pass)<5||strlen($pass)>128)mobile_error('Password minimal 5 karakter, maksimal 128 karakter.',422);
   $path=data_path('portal_users');$fp=@fopen($path,'c+');
   if(!$fp||!flock($fp,LOCK_EX)){if($fp)fclose($fp);mobile_error('Data akun sedang digunakan.',503);}
   try{
@@ -284,7 +284,7 @@ if(in_array($action,['accounts_list','accounts_create','accounts_delete','accoun
   $password=(string)($b['password']??'');$role=mobile_text($b['role']??'',50);
   $allowed=portal_roles();unset($allowed['warga']);
   if(!isset($allowed[$role])||mobile_strlen($name)<3||
-    !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||strlen($password)<8)
+    !preg_match('/^[a-zA-Z0-9_.-]{4,40}$/',$username)||strlen($password)<5)
    mobile_error('Periksa nama, username, password dan peran.',422);
   $email=mobile_text($b['email']??'',160);
   if(($role==='ppsu'&& !filter_var($email,FILTER_VALIDATE_EMAIL))||($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL)))
