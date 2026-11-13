@@ -193,24 +193,40 @@ class _LeaveState extends State<CikokoPpsuLeaveHub> {
   field.dispose();
  }
  Future<void> decide(Map<String,dynamic> r)async{
-  String decision='approve';final reason=TextEditingController();
+  String decision='approve';
+  final reason=TextEditingController();
+  final number=TextEditingController(text:(r['official_number']??'').toString());
   await showDialog<void>(context:context,builder:(dialog)=>StatefulBuilder(builder:(ctx,update)=>AlertDialog(
-   title:Text('Keputusan Pengajuan #'+r['id'].toString()),
-   content:Column(mainAxisSize:MainAxisSize.min,children:[
-    DropdownButtonFormField<String>(value:decision,decoration:const InputDecoration(labelText:'Keputusan'),
+   title:Text('Persetujuan Cuti #'+r['id'].toString()),
+   content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+    DropdownButtonFormField<String>(value:decision,decoration:const InputDecoration(labelText:'Keputusan Admin'),
      items:const [
       DropdownMenuItem(value:'approve',child:Text('Disetujui')),
       DropdownMenuItem(value:'revision',child:Text('Perubahan')),
       DropdownMenuItem(value:'defer',child:Text('Ditangguhkan')),
       DropdownMenuItem(value:'reject',child:Text('Ditolak')),
      ],onChanged:(v)=>update(()=>decision=v??'approve')),
-    TextField(controller:reason,maxLines:2,decoration:const InputDecoration(labelText:'Alasan bila tidak setuju')),
-   ]),
+    if(decision=='approve')...[
+     const SizedBox(height:12),
+     TextField(controller:number,decoration:const InputDecoration(
+      labelText:'Nomor Surat Cuti',hintText:'12/KG 11.01',
+      helperText:'Dapat diubah sebelum disetujui')),
+    ],
+    if(decision!='approve')TextField(controller:reason,maxLines:2,
+     decoration:const InputDecoration(labelText:'Alasan keputusan')),
+   ])),
    actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),
-    FilledButton(onPressed:()=>post(dialog,'pjlp_review',{
-     'request_id':r['id'],'decision':decision,'reason':reason.text}),child:const Text('Simpan'))],
+    FilledButton(onPressed:()async{
+     if(decision=='approve'&&!RegExp(r'^[a-zA-Z0-9./ -]{4,100}$').hasMatch(number.text.trim())){
+      toast('Isi nomor surat resmi, contoh: 12/KG 11.01');return;
+     }
+     await post(dialog,'pjlp_review',{
+      'request_id':r['id'],'decision':decision,'reason':reason.text,
+      'official_number':number.text.trim()
+     });
+    },child:Text(decision=='approve'?'Setujui & Terbitkan PDF':'Simpan Keputusan'))],
   )));
-  reason.dispose();
+  reason.dispose();number.dispose();
  }
  Future<void> printLetter(Map<String,dynamic> r)async{
   try{
