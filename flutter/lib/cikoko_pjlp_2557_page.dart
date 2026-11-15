@@ -224,12 +224,25 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
                   ),
                 if (!readOnly)
                   for (final field in labels.entries)
-                  TextFormField(
-                    initialValue: '${values[field.key] ?? ''}',
-                    decoration: InputDecoration(labelText: field.value),
-                    validator: (value) => (value ?? '').trim().isEmpty ? 'Wajib diisi' : null,
-                    onSaved: (value) => result[field.key] = value!.trim(),
-                  ),
+                    TextFormField(
+                      initialValue: '${values[field.key] ?? ''}',
+                      keyboardType: field.key == 'radius_m' ? TextInputType.number : null,
+                      decoration: InputDecoration(
+                        labelText: field.value,
+                        helperText: field.key == 'radius_m' ? '30–2000 meter, misalnya 100' : null,
+                        errorMaxLines: 2,
+                      ),
+                      validator: (value) {
+                        final text = (value ?? '').trim();
+                        if (field.key != 'radius_m') return text.isEmpty ? 'Wajib diisi' : null;
+                        final radius = int.tryParse(text, radix: 10);
+                        if (radius == null || radius < 30 || radius > 2000) {
+                          return 'Masukkan angka 30–2000, tanpa satuan.';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) => result[field.key] = value!.trim(),
+                    ),
               ],
             ),
           ),

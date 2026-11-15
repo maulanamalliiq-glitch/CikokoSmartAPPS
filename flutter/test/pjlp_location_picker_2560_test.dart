@@ -61,4 +61,27 @@ void main() {
     expect(api.saved, containsPair('longitude', '106.84'));
     expect(api.saved, containsPair('radius_m', '75'));
   });
+
+  testWidgets('an invalid radius keeps the dialog open so it can be corrected',
+      (tester) async {
+    final api = LocationConfigApi({
+      'latitude': '-6.24', 'longitude': '106.84', 'radius_m': '75',
+    });
+    await openSettings(tester, api);
+
+    final radius = find.widgetWithText(TextFormField, 'Radius dalam meter');
+    for (final value in ['29', '2001', '100 meter']) {
+      await tester.enterText(radius, value);
+      await tester.tap(find.text('Simpan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Masukkan angka 30–2000, tanpa satuan.'), findsOneWidget);
+      expect(api.saved, isNull);
+    }
+
+    await tester.enterText(radius, '100');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+    expect(api.saved, containsPair('radius_m', '100'));
+    expect(api.saved, containsPair('latitude', '-6.24'));
+  });
 }
