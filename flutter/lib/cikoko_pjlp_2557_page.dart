@@ -21,6 +21,7 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
   bool busy = true;
   String? error;
   String? employeeId;
+  String selectedShift = 'pagi';
   Map<String, dynamic> record = {};
   Map<String, dynamic> config = {};
   List<Map<String, dynamic>> staff = [];
@@ -51,7 +52,8 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
         final roster = await widget.api.call('pjlp_monitor_dashboard');
         staff = rows(roster['staff']);
         if (!staff.any((person) => '${person['user_id']}' == employeeId)) employeeId = null;
-        config = Map<String, dynamic>.from(roster['config'] as Map? ?? {});
+        final settings = roster['config'];
+        config = settings is Map ? Map<String, dynamic>.from(settings) : {};
       }
       if (!mounted) return;
       final target = employeeId;
@@ -110,36 +112,40 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
   }
 
   void capture(String action, Map<String, String> fields, {required bool selfie}) {
-    run(() async {
-      final point = await position();
+    run(() => captureAndSend(action, fields, selfie: selfie));
+  }
+
+  Future<void> captureAndSend(String action, Map<String, String> fields,
+      {required bool selfie}) async {
+    final point = await position();
+    if (!mounted) return;
+    final photo = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: selfie ? CameraDevice.front : CameraDevice.rear,
+      maxWidth: 1600, maxHeight: 1600, imageQuality: 75,
+    );
+    if (photo == null) return;
+    try {
       if (!mounted) return;
-      final photo = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: selfie ? CameraDevice.front : CameraDevice.rear,
-        maxWidth: 1600, maxHeight: 1600, imageQuality: 75,
-      );
-      if (photo == null) return;
-      try {
-        if (!mounted) return;
-        final freshPoint = DateTime.now().difference(point.timestamp).inSeconds > 30
-            ? await position() : point;
-        await widget.api.upload(action, {
-          ...fields,
-          'latitude': '${freshPoint.latitude}',
-          'longitude': '${freshPoint.longitude}',
-          'accuracy_m': '${freshPoint.accuracy}',
-        }, {'photo': [photo.path]});
-        notify('Catatan tersimpan.');
-      } finally {
-        try { await File(photo.path).delete(); } on FileSystemException {
-          // The system may already have cleared its temporary camera file.
-        }
+      final freshPoint = DateTime.now().difference(point.timestamp).inSeconds > 30
+          ? await position() : point;
+      await widget.api.upload(action, {
+        ...fields,
+        'latitude': '${freshPoint.latitude}',
+        'longitude': '${freshPoint.longitude}',
+        'accuracy_m': '${freshPoint.accuracy}',
+      }, {'photo': [photo.path]});
+      notify('Catatan tersimpan.');
+    } finally {
+      try { await File(photo.path).delete(); } on FileSystemException {
+        // The system may already have cleared its temporary camera file.
       }
-    });
+    }
   }
 
   Future<Map<String, String>?> form(String title, Map<String, String> labels,
-      {Map<String, dynamic> values = const {}}) async {
+      {Map<String, dynamic> values = const {}, List<String> details = const [],
+      bool readOnly = false, String submitLabel = 'Simpan'}) async {
     final formKey = GlobalKey<FormState>();
     final result = <String, String>{};
     return showDialog<Map<String, String>>(
@@ -152,7 +158,10 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final field in labels.entries)
+                for (final detail in details)
+                  Align(alignment: Alignment.centerLeft, child: Text(detail)),
+                if (!readOnly)
+                  for (final field in labels.entries)
                   TextFormField(
                     initialValue: '${values[field.key] ?? ''}',
                     decoration: InputDecoration(labelText: field.value),
@@ -165,11 +174,11 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Batal')),
-          FilledButton(onPressed: () {
+          if (!readOnly) FilledButton(onPressed: () {
             if (!formKey.currentState!.validate()) return;
             formKey.currentState!.save();
             Navigator.pop(dialogContext, result);
-          }, child: const Text('Simpan')),
+          }, child: Text(submitLabel)),
         ],
       ),
     );
@@ -257,6 +266,50 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
     }, reload: false);
   }
 
+  String reportLabel(String mode) => mode == 'dinas_luar' ? 'Dinas Luar' : 'Laporan Rutin';
+
+  Future<void> openReport(String mode, List<Map<String, dynamic>> sent) async {
+    final stage = await Navigator.of(context).push<int>(MaterialPageRoute<int>(builder: (pageContext) => Scaffold(
+      appBar: AppBar(title: Text(reportLabel(mode))),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (final stage in [0, 50, 100])
+            ListTile(
+              title: Text('Foto $stage%'),
+              subtitle: Text(sent.any((report) => '${report['stage']}' == '$stage')
+                  ? 'Sudah terkirim' : 'Keterangan dan bukti foto'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.pop(pageContext, stage),
+            ),
+        ],
+      ),
+    )));
+    if (stage == null || !mounted) return;
+    await run(() async {
+      final response = await widget.api.call('pjlp_daily_report_open', body: {
+        'report_type': mode, 'progress': stage,
+      });
+      final draft = Map<String, dynamic>.from(response['report'] as Map);
+      if (!mounted) return;
+      final fields = await form('Formulir ${reportLabel(mode)} $stage%', {
+        'description': 'Keterangan pekerjaan',
+      }, details: [
+        'Nama lengkap ${draft['full_name']}',
+        'Dibuka ${draft['opened_at']} WIB',
+        'Tanggal shift ${draft['work_date']}',
+        if (draft['submitted_at'] != null) 'Terkirim ${draft['submitted_at']} WIB',
+      ], readOnly: draft['submitted_at'] != null, submitLabel: 'Ambil foto dan kirim');
+      if (fields == null || !mounted) return;
+      await captureAndSend('pjlp_daily_report_submit', {
+        ...fields,
+        'date': '${draft['work_date']}',
+        'report_type': mode,
+        'progress': '$stage',
+      }, selfie: false);
+    });
+  }
+
   Future<void> selectMonth() async {
     final parts = month.split('-').map(int.parse).toList();
     final chosen = await showDatePicker(
@@ -286,8 +339,12 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
     final attendance = rows(record['attendance']);
     final jobs = rows(record['jobs']);
     final summary = record['summary'] as Map? ?? {};
-    final todayEvents = attendance.where((event) => event['date'] == serverDate)
-        .map((event) => event['status']).toSet();
+    final daily = rows(record['daily']);
+    final activeShift = record['active_shift'] as Map?;
+    final activeDate = activeShift?['work_date'];
+    final shiftReports = daily.where((day) => day['date'] == activeDate)
+        .expand((day) => rows(day['reports'])).toList();
+    final supportsShifts = record.containsKey('active_shift');
     final current = serverDate.startsWith(month);
     final configured = record['configured'] == true;
     final unit = '${record['unit'] ?? ''}';
@@ -332,23 +389,48 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
             if (isAdmin) Wrap(spacing: 8, children: [
               OutlinedButton(onPressed: () => configure('pjlp_schedule_save', 'Jadwal akhir pekan',
                 {'date': 'Tanggal (YYYY-MM-DD)'}), child: const Text('Jadwal akhir pekan')),
-              if (!monthClosed)
-                OutlinedButton(onPressed: () => configure('pjlp_job_assign', 'Tugaskan pekerjaan',
-                  {'title': 'Judul pekerjaan'}), child: const Text('Tugaskan pekerjaan')),
             ]),
             if (isPjlp && !configured)
               const ListTile(title: Text('Admin Utama perlu menyiapkan lokasi dan bobot penilaian.')),
-            if (isPjlp && current && configured)
+            if (isPjlp && !supportsShifts)
+              const ListTile(title: Text('Server perlu diperbarui untuk laporan shift.')),
+            if (isPjlp && configured && supportsShifts) ...[
+              if (activeShift == null && current && record['checked_in_today'] != true)
+                DropdownButtonFormField<String>(
+                  initialValue: selectedShift,
+                  decoration: const InputDecoration(labelText: 'Pilih shift'),
+                  items: const [
+                    DropdownMenuItem(value: 'pagi', child: Text('Pagi')),
+                    DropdownMenuItem(value: 'siang', child: Text('Siang')),
+                    DropdownMenuItem(value: 'malam', child: Text('Malam')),
+                  ],
+                  onChanged: (shift) => setState(() => selectedShift = shift ?? selectedShift),
+                ),
+              if (activeShift != null)
+                ListTile(title: Text('Shift ${activeShift['shift_name'] ?? 'sebelumnya'}'),
+                  subtitle: Text('Masuk ${activeShift['checkin_at']} WIB')),
               Wrap(spacing: 8, children: [
                 FilledButton.icon(
-                  onPressed: todayEvents.contains('checkin') ? null :
-                    () => capture('pjlp_attendance_submit', {'type': 'checkin'}, selfie: true),
+                  onPressed: current && activeShift == null && record['checked_in_today'] != true
+                    ? () => capture('pjlp_attendance_submit',
+                        {'type': 'checkin', 'shift': selectedShift}, selfie: true) : null,
                   icon: const Icon(Icons.login), label: const Text('Absen masuk')),
                 FilledButton.icon(
-                  onPressed: todayEvents.contains('checkin') && !todayEvents.contains('checkout') ?
-                    () => capture('pjlp_attendance_submit', {'type': 'checkout'}, selfie: true) : null,
+                  onPressed: activeShift == null ? null : () => capture('pjlp_attendance_submit',
+                    {'type': 'checkout', 'shift': '${activeShift['shift_name'] ?? ''}'}, selfie: true),
                   icon: const Icon(Icons.logout), label: const Text('Absen pulang')),
               ]),
+              if (activeShift?['shift_name'] != null)
+                Wrap(spacing: 8, children: [
+                  for (final mode in ['rutin', 'dinas_luar'])
+                    OutlinedButton.icon(
+                      icon: Icon(mode == 'rutin' ? Icons.description_outlined : Icons.place_outlined),
+                      label: Text(reportLabel(mode)),
+                      onPressed: () => openReport(mode,
+                        shiftReports.where((report) => report['report_type'] == mode).toList()),
+                    ),
+                ]),
+            ],
             Card(child: ListTile(
               title: Text('${record['employee']}'),
               subtitle: Text('Hadir ${summary['present_days']}/${summary['scheduled_days']} hari  •  '
@@ -365,8 +447,29 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
               if (!isPjlp && monthClosed && unit.isNotEmpty)
                 OutlinedButton(onPressed: () => download(unit: unit), child: const Text('Unduh PDF unit')),
             ]),
-            Text('Pekerjaan', style: Theme.of(context).textTheme.titleMedium),
-            if (jobs.isEmpty) const ListTile(title: Text('Belum ada penugasan')),
+            Text('Rekap harian', style: Theme.of(context).textTheme.titleMedium),
+            if (daily.isEmpty) const ListTile(title: Text('Belum ada rekap shift pada periode ini')),
+            for (final day in daily)
+              ExpansionTile(
+                title: Text("${day['date']} · Shift ${day['shift']}"),
+                subtitle: Text(
+                  "${day['valid'] == true ? 'Lengkap' : day['checkout_at'] == null ? 'Shift berjalan' : 'Kurang dari 8 jam'}"
+                  " · ${day['minutes']} menit · ${reportLabel('${day['report_type']}')}"
+                  "${day['score'] == null ? '' : ' · Nilai ${day['score']}'}",
+                ),
+                children: [
+                  for (final report in rows(day['reports']))
+                    ListTile(
+                      title: Text("${reportLabel('${report['report_type']}')} ${report['stage']}%"),
+                      subtitle: Text("${report['submitted_at']} WIB\n${report['description']}"),
+                      onTap: () => showPhoto('pjlp_daily_report_photo', {
+                        'date': '${day['date']}', 'progress': '${report['stage']}',
+                        'report_type': '${report['report_type']}',
+                      }),
+                    ),
+                ],
+              ),
+            if (jobs.isNotEmpty) Text('Pekerjaan terdahulu', style: Theme.of(context).textTheme.titleMedium),
             for (final job in jobs)
               Card(
                 child: Column(

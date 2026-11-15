@@ -138,7 +138,7 @@ if(str_starts_with($action,'pppk_')){
  require_once __DIR__.'/pppk_performance.php';
  pppk_dispatch($action,$method);
 }
-if(str_starts_with($action,'pjlp_') && in_array($action,['pjlp_self_dashboard','pjlp_monitor_dashboard','pjlp_attendance_submit','pjlp_job_assign','pjlp_job_progress','pjlp_month_approve','pjlp_location_save','pjlp_schedule_save','pjlp_month_pdf','pjlp_team_pdf','pjlp_attendance_photo','pjlp_evidence_photo'],true)){
+if(str_starts_with($action,'pjlp_') && in_array($action,['pjlp_self_dashboard','pjlp_monitor_dashboard','pjlp_attendance_submit','pjlp_job_assign','pjlp_job_progress','pjlp_month_approve','pjlp_location_save','pjlp_schedule_save','pjlp_daily_report_open','pjlp_daily_report_submit','pjlp_daily_report_photo','pjlp_month_pdf','pjlp_team_pdf','pjlp_attendance_photo','pjlp_evidence_photo'],true)){
  require_once __DIR__.'/pjlp_attendance_2557.php';
  cikoko_pjlp_2557_dispatch($action,$method);
 }

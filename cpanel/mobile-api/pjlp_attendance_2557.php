@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/pjlp_shifts_2558.php';
 
 function pj57_query(PDO $db, string $sql, array $params = []): PDOStatement {
     $statement = $db->prepare($sql);
@@ -72,9 +73,10 @@ function pj57_month_data(PDO $db, array $employee, string $month, array $config)
     $holidays = pj57_query($db, 'SELECT holiday_date FROM pjlp_holidays WHERE holiday_date>=? AND holiday_date<?', array_slice($range,1))->fetchAll(PDO::FETCH_COLUMN);
     $events = [];
     foreach ($attendance as $entry) {
-        $events[$entry['date']][$entry['status']] = true;
+        $events[$entry['date']][$entry['status']] = $entry['created_at'];
     }
-    $days = $present = 0;
+    $daily = pj58_daily($db,$range,$events,$config);
+    $days = $present = $shiftDays = $shiftComplete = $shiftEvidence = 0;
     for ($day = $start; $day < $end && $day <= $today; $day = $day->modify('+1 day')) {
         $date = $day->format('Y-m-d');
         if (($config && $date < $config['active_from']) || in_array($date,$holidays,true)
@@ -83,22 +85,30 @@ function pj57_month_data(PDO $db, array $employee, string $month, array $config)
             continue;
         }
         ++$days;
-        if (isset($events[$date]['checkin'], $events[$date]['checkout'])) {
+        if (isset($daily[$date])) {
+            ++$shiftDays;
+            $shiftComplete += (int)$daily[$date]['complete'];
+            $shiftEvidence += $daily[$date]['evidence_count'];
+        }
+        if (isset($daily[$date]) ? $daily[$date]['valid'] : isset($events[$date]['checkin'],$events[$date]['checkout'])) {
             ++$present;
         }
     }
     $completed = count(array_filter($jobs, static fn($job) => (int)$job['progress'] === 100));
     $documented = count(array_filter($jobs, static fn($job) => (int)$job['stages'] === 3));
+    $totalWork = count($jobs) + $shiftDays;
+    $completed += $shiftComplete;
+    $documented += $shiftComplete;
     $score = $config && $month >= substr($config['active_from'],0,7) ? round(
         ($days ? $present / $days : 0) * (int)$config['attendance_weight']
-        + ($jobs ? $completed / count($jobs) : 0) * (int)$config['work_weight']
-        + ($jobs ? $documented / count($jobs) : 0) * (int)$config['evidence_weight'], 2) : null;
+        + ($totalWork ? $completed / $totalWork : 0) * (int)$config['work_weight']
+        + ($totalWork ? (3 * ($documented - $shiftComplete) + $shiftEvidence) / (3 * $totalWork) : 0) * (int)$config['evidence_weight'], 2) : null;
     return [
         'employee' => $employee['full_name'], 'unit' => $employee['work_unit'],
-        'attendance' => $attendance, 'jobs' => $jobs,
+        'attendance' => $attendance, 'jobs' => $jobs, 'daily' => array_values($daily),
         'summary' => [
             'scheduled_days' => $days, 'present_days' => $present,
-            'assigned_jobs' => count($jobs), 'completed_jobs' => $completed,
+            'assigned_jobs' => $totalWork, 'completed_jobs' => $completed,
             'documented_jobs' => $documented, 'monthly_score' => $score,
         ],
     ];
@@ -119,12 +129,12 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
     if (!$admin && !in_array($role, ['pjlp','asn'], true)) {
         mobile_error('Akses modul PJLP ditolak.', 403);
     }
-    $multipart = in_array($action, ['pjlp_attendance_submit','pjlp_job_progress'], true);
-    $read = in_array($action, ['pjlp_self_dashboard','pjlp_monitor_dashboard','pjlp_month_pdf','pjlp_team_pdf','pjlp_attendance_photo','pjlp_evidence_photo'], true);
+    $multipart = in_array($action, ['pjlp_attendance_submit','pjlp_job_progress','pjlp_daily_report_submit'], true);
+    $read = in_array($action, ['pjlp_self_dashboard','pjlp_monitor_dashboard','pjlp_month_pdf','pjlp_team_pdf','pjlp_daily_report_photo','pjlp_attendance_photo','pjlp_evidence_photo'], true);
     if ($method !== ($read ? 'GET' : 'POST')) {
         mobile_error('Metode tidak diizinkan.', 405);
     }
-    if ($multipart ? $role !== 'pjlp' : (!$read && !$admin)) {
+    if ($multipart ? $role !== 'pjlp' : (!$read && !$admin && !($action === 'pjlp_daily_report_open' && $role === 'pjlp'))) {
         mobile_error('Akun tidak berwenang untuk tindakan ini.', 403);
     }
     $db = mobile_db();
@@ -184,6 +194,9 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
         cikoko_pdf_render('Rekap-PJLP-Unit-'.$month.'.pdf',$lines);
     }
     $employee = pj57_employee($db, $target, $actor);
+    if (in_array($action,['pjlp_daily_report_open','pjlp_daily_report_submit','pjlp_daily_report_photo'],true)) {
+        pj58_report_action($db,$action,$actor,$employee,$body,$now);
+    }
     if (in_array($action,['pjlp_attendance_photo','pjlp_evidence_photo'],true)) {
         if ($action === 'pjlp_attendance_photo') {
             $photo = pj57_query($db,'SELECT photo FROM pj57_attendance WHERE user_id=? AND work_date=? AND event_type=?',
@@ -220,35 +233,20 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
         if (!$config) mobile_error('Modul belum dikonfigurasi Admin Utama.',503);
         $position = [...pj57_position($body),pj57_number($body,'accuracy_m',0.1,100)];
         if ($action === 'pjlp_attendance_submit') {
-            $event = $body['type'] ?? '';
-            if (!in_array($event,['checkin','checkout'],true)) mobile_error('Jenis absensi tidak valid.',422);
-            if ((int)$now->format('N') >= 6) {
-                $site = pj57_query($db,'SELECT latitude,longitude,radius_m FROM pj57_schedules WHERE user_id=? AND work_date=?',[$uid,$today])->fetch();
-                if (!$site) mobile_error('Tidak ada jadwal akhir pekan.',422);
-                pj57_geofence($position,$site);
-            } elseif ((int)$now->format('N') !== 3) {
-                pj57_geofence($position,$config);
-            }
-            if ($event === 'checkout' && !pj57_query($db,"SELECT 1 FROM pj57_attendance WHERE user_id=? AND work_date=? AND event_type='checkin'",[$uid,$today])->fetchColumn()) {
-                mobile_error('Catat absensi masuk terlebih dahulu.',422);
-            }
-            $photo = pj57_photo();
-            $sql = 'INSERT INTO pj57_attendance VALUES (?,?,?,?,?,?,?,?,?)';
-            $params = [$uid,$today,$event,...$position,$photo,hash('sha256',$photo),$timestamp];
-        } else {
-            $jobId = filter_var($body['job_id'] ?? null,FILTER_VALIDATE_INT);
-            $stage = filter_var($body['progress'] ?? null,FILTER_VALIDATE_INT);
-            if (!$jobId || !in_array($stage,[0,50,100],true)) mobile_error('Tahap pekerjaan tidak valid.',422);
-            $job = pj57_query($db,'SELECT * FROM pj57_jobs WHERE id=? AND user_id=? AND work_month=?',[$jobId,$uid,$currentMonth])->fetch();
-            if (!$job) mobile_error('Penugasan bulan berjalan tidak ditemukan.',404);
-            pj57_geofence($position,$job);
-            if ($stage !== 0 && !pj57_query($db,'SELECT 1 FROM pj57_job_evidence WHERE job_id=? AND stage=?',[$jobId,$stage-50])->fetchColumn()) {
-                mobile_error('Kirim bukti tahap sebelumnya terlebih dahulu.',422);
-            }
-            $photo = pj57_photo();
-            $sql = 'INSERT INTO pj57_job_evidence VALUES (?,?,?,?,?,?,?,?)';
-            $params = [$jobId,$stage,...$position,$photo,hash('sha256',$photo),$timestamp];
+            pj58_attendance($db,$uid,$body,$config,$now,$position,pj57_photo());
         }
+        $jobId = filter_var($body['job_id'] ?? null,FILTER_VALIDATE_INT);
+        $stage = filter_var($body['progress'] ?? null,FILTER_VALIDATE_INT);
+        if (!$jobId || !in_array($stage,[0,50,100],true)) mobile_error('Tahap pekerjaan tidak valid.',422);
+        $job = pj57_query($db,'SELECT * FROM pj57_jobs WHERE id=? AND user_id=? AND work_month=?',[$jobId,$uid,$currentMonth])->fetch();
+        if (!$job) mobile_error('Penugasan bulan berjalan tidak ditemukan.',404);
+        pj57_geofence($position,$job);
+        if ($stage !== 0 && !pj57_query($db,'SELECT 1 FROM pj57_job_evidence WHERE job_id=? AND stage=?',[$jobId,$stage-50])->fetchColumn()) {
+            mobile_error('Kirim bukti tahap sebelumnya terlebih dahulu.',422);
+        }
+        $photo = pj57_photo();
+        $sql = 'INSERT INTO pj57_job_evidence VALUES (?,?,?,?,?,?,?,?)';
+        $params = [$jobId,$stage,...$position,$photo,hash('sha256',$photo),$timestamp];
         try {
             pj57_query($db,$sql,$params);
         } catch (PDOException $error) {
@@ -264,6 +262,10 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
             mobile_error('Pilih bulan yang sudah berakhir dan atur bobot penilaian.',422);
         }
         if (!$approved) {
+            $active = pj58_active_shift($db,$target,$now);
+            if ($active && substr($active['work_date'],0,7) === $month) {
+                mobile_error('Shift terakhir pada periode ini masih aktif.',409);
+            }
             pj57_query($db,'INSERT INTO pj57_month_approvals VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE approved_at=approved_at',[$target,$month,json_encode($data,JSON_THROW_ON_ERROR),$actor['username'],$timestamp]);
         }
         mobile_json(['ok'=>true]);
@@ -277,6 +279,11 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
         foreach ($data['attendance'] as $event) {
             $lines[] = $event['created_at'].' WIB - '.($event['status'] === 'checkin' ? 'Masuk' : 'Pulang');
         }
+        if (!empty($data['daily'])) $lines[] = 'Rekap Shift dan Laporan Harian';
+        foreach ($data['daily'] ?? [] as $day) {
+            $lines[] = $day['date'].' | '.ucfirst($day['shift']).' | '.$day['minutes'].' menit | '
+                .($day['report_type'] === 'dinas_luar' ? 'Dinas Luar' : 'Rutin').' | Nilai '.($day['score'] ?? '-');
+        }
         $lines[] = 'Bukti Pekerjaan';
         foreach ($data['jobs'] as $job) {
             $lines[] = $job['title'].' | '.(int)$job['stages'].' dari 3 tahap terdokumentasi';
@@ -286,5 +293,9 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
     $data['approved'] = (bool)$approved;
     $data['server_date'] = $today;
     $data['configured'] = (bool)$config;
+    if ($role === 'pjlp') {
+        $data['active_shift'] = pj58_active_shift($db,$uid,$now);
+        $data['checked_in_today'] = (bool)pj57_query($db,"SELECT 1 FROM pj57_attendance WHERE user_id=? AND work_date=? AND event_type='checkin'",[$uid,$today])->fetchColumn();
+    }
     mobile_json(['ok'=>true]+$data);
 }
