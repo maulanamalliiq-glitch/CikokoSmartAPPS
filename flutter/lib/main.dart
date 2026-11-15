@@ -39,6 +39,7 @@ import 'rt_rw_signer_page.dart';
 import 'lpj_pages.dart';
 import 'cikoko_ppsu_leave.dart' show CikokoPpsuLeaveHub;
 import 'cikoko_pppk_performance.dart';
+import 'cikoko_pjlp_2557_page.dart';
 
 const navy=V6.ink, blue=V6.blue, pale=V6.background;
 const sky=Color(0xffdceeff), ink=Color(0xff18334f);
@@ -520,6 +521,8 @@ class _HomeState extends State<HomePage> {
   Widget _page(){switch(section){
     case 'Dashboard':return home();
      case 'Modul Dinamis':return CikokoDynamicModulesPage(api:api,role:role);
+    case 'Absensi dan Kinerja PJLP':
+      return CikokoPjlp2557Page(api: api, role: role);
     case 'Kinerja PPPK':
       return role=='pppk' || role=='admin' || role=='admin_kelurahan'
         ? CikokoPppkPerformancePage(api:api,role:role)

@@ -35,6 +35,7 @@ const roleFeatures = <String,RoleFeature>{
   'lmk': RoleFeature('Laporan LMK','Musyawarah dan aspirasi warga','Laporan LMK',capability:'report:lmk'),
   'posyandu': RoleFeature('Laporan Posyandu','Dokumentasi kegiatan pelayanan','Laporan Posyandu',capability:'report:posyandu'),
   'dasawisma': RoleFeature('Laporan Dasawisma','Kegiatan dan pendataan keluarga','Laporan Dasawisma',capability:'report:pkk'),
+  'pjlp_2557': RoleFeature('Absensi dan Kinerja PJLP','Absensi, pekerjaan dan rekap bulanan','Absensi dan Kinerja PJLP'),
   'leave_pjlp': RoleFeature('Cuti Pegawai','Pengajuan cuti dan riwayat cuti PJLP','Cuti PPSU'),
   'leave_ppsu': RoleFeature('Cuti Saya','Pengajuan dan cetak surat cuti PPSU','Cuti PPSU'),
   'leave_admin': RoleFeature('Kelola Cuti PPSU','Pegawai, saldo, QR pimpinan dan verifikasi','Kelola Cuti PPSU'),
@@ -68,12 +69,12 @@ const roleFeatures = <String,RoleFeature>{
   'profile': RoleFeature('Profil Akun','Identitas dan data akun','Profil'),
 };
 const roleMenus = <String,List<String>>{
- 'admin':['performance_pppk','leave_admin','push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
+ 'admin':['pjlp_2557','performance_pppk','leave_admin','push_manage','pages_manage','bendahara_manage','accounts_manage','services_manage','lpj_rt','lpj_rw','wilayah_ketua','surat_wilayah','verify_waris','verify_kegiatan','chat_admin','news_add','announce_add','archive_add','archive_list','role_manage','news','announcements','gallery','services'],
  'admin_kelurahan':['performance_pppk','leave_admin','leave_approval','push_manage','pages_manage','surat_wilayah','verify','archive_add','archive_list','news_add','announce_add','chat_admin','news','announcements','services'],
  'lurah':['leave_approval','verify','archive_list','approval','monitor','protap','performance','news','announcements'],
- 'asn':['leave_approval','verify','archive_list','monitor','kegiatan','news','announcements'],
+ 'asn':['pjlp_2557','leave_approval','verify','archive_list','monitor','kegiatan','news','announcements'],
  'pppk':['kegiatan','attendance','roster','performance_pppk','leave','history','news'],
- 'pjlp':['kegiatan','attendance','roster','performance','protap','leave_pjlp','history'],
+ 'pjlp':['pjlp_2557','kegiatan','attendance','roster','performance','protap','leave_pjlp','history'],
  'ptsp':['verify','archive_list','civil','kegiatan','history','services'],
  'dukcapil':['civil','kegiatan','history','services','announcements'],
  'rt':['ttd_stempel','surat_wilayah','lpj_rt','bakti','jumantik','history','news','announcements'],
