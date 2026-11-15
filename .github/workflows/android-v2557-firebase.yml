@@ -1,4 +1,4 @@
-name: Build Cikoko v2558 APK and AAB (Firebase fixed)
+name: Build Cikoko v2559 APK and AAB (Firebase fixed)
 on:
   push:
     branches:
@@ -37,13 +37,13 @@ jobs:
           assert p['client'][0]['client_info']['android_client_info']['package_name']=='com.KelurahanCikoko.malik'
           print('Firebase project and Android package validated')
           PY
-          grep -q 'versionCode = 2558' flutter/android/app/build.gradle.kts
+          grep -q 'versionCode = 2559' flutter/android/app/build.gradle.kts
       - name: Restore Android project and dependencies
         working-directory: flutter
         run: |
           flutter create --platforms=android --project-name=cikoko .
           flutter pub get
-      - name: Test 2558 release
+      - name: Test 2559 release
         run: |
           php -l cpanel/mobile-api/index.php
           php -l cpanel/mobile-api/pjlp_attendance_2557.php
@@ -86,7 +86,7 @@ jobs:
           expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
           actual=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
           test "$actual" = "$expected" || { echo "::error::AAB certificate mismatch"; exit 1; }
-          cp "$aab" "$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.58-2558-PLAY.aab"
+          cp "$aab" "$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.59-2559-PLAY.aab"
       - name: Build and sign APK
         working-directory: flutter
         env:
@@ -102,7 +102,7 @@ jobs:
           apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           test -s "$apk"
           apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
-          signed="$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.58-2558-arm64.apk"
+          signed="$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.59-2559-arm64.apk"
           "$apksigner" sign --ks "$CIKOKO_KEYSTORE_PATH" --ks-key-alias "$CIKOKO_KEY_ALIAS" --ks-pass env:CIKOKO_STORE_PASSWORD --key-pass env:CIKOKO_KEY_PASSWORD --out "$signed" "$apk"
           "$apksigner" verify --verbose --print-certs "$signed" > /tmp/apk-check.txt
           actual=$(grep -iE 'certificate.*SHA.?256' /tmp/apk-check.txt | grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' | head -n1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
@@ -111,7 +111,7 @@ jobs:
       - name: Upload installable APK and Play AAB
         uses: actions/upload-artifact@v4
         with:
-          name: CikokoSmart-v2558-APK-AAB
+          name: CikokoSmart-v2559-APK-AAB
           path: dist/*
           if-no-files-found: error
           retention-days: 14

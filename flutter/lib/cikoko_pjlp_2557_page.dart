@@ -21,7 +21,9 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
   bool busy = true;
   String? error;
   String? employeeId;
-  String selectedShift = 'pagi';
+  String? selectedShift;
+  List<Map<String, dynamic>> shiftReports = [];
+  static const shiftNames = {'pagi': 'Pagi', 'siang': 'Siang', 'malam': 'Malam'};
   Map<String, dynamic> record = {};
   Map<String, dynamic> config = {};
   List<Map<String, dynamic>> staff = [];
@@ -62,6 +64,20 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
           isPjlp ? 'pjlp_self_dashboard' : 'pjlp_monitor_dashboard',
           {'month': month, if (target != null) 'user_id': target},
         );
+        final shift = record['active_shift'] as Map?;
+        final activeDate = shift?['work_date'];
+        if (isPjlp && activeDate is String && activeDate.length == 10) {
+          final activeMonth = activeDate.substring(0, 7);
+          final activeRecord = activeMonth == month ? record : await widget.api.callWithQuery(
+            'pjlp_self_dashboard', {'month': activeMonth},
+          );
+          shiftReports = rows(activeRecord['daily'])
+              .where((day) => day['date'] == activeDate)
+              .expand((day) => rows(day['reports']))
+              .toList();
+        } else {
+          shiftReports = [];
+        }
       } else {
         record = {};
       }
@@ -268,24 +284,91 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
 
   String reportLabel(String mode) => mode == 'dinas_luar' ? 'Dinas Luar' : 'Laporan Rutin';
 
-  Future<void> openReport(String mode, List<Map<String, dynamic>> sent) async {
-    final stage = await Navigator.of(context).push<int>(MaterialPageRoute<int>(builder: (pageContext) => Scaffold(
-      appBar: AppBar(title: Text(reportLabel(mode))),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          for (final stage in [0, 50, 100])
-            ListTile(
-              title: Text('Foto $stage%'),
-              subtitle: Text(sent.any((report) => '${report['stage']}' == '$stage')
-                  ? 'Sudah terkirim' : 'Keterangan dan bukti foto'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.pop(pageContext, stage),
-            ),
+  Widget reportStages(String mode, String? blockedReason, {void Function(int)? onStage}) {
+    final sent = {
+      for (final report in shiftReports.where((row) => row['report_type'] == mode))
+        int.parse('${report['stage']}'): report,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (blockedReason != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(blockedReason),
+          ),
+        for (final stage in [0, 50, 100]) ...[
+          ListTile(
+            leading: Icon(sent.containsKey(stage) ? Icons.check_circle_outline : Icons.add_a_photo_outlined),
+            title: Text('Laporan $stage%'),
+            subtitle: Text(sent.containsKey(stage)
+                ? 'Terkirim ${sent[stage]!['submitted_at']} WIB'
+                : stage == 0 || sent.containsKey(stage - 50)
+                    ? 'Keterangan dan foto'
+                    : 'Setelah laporan ${stage - 50}% dikirim'),
+            enabled: sent.containsKey(stage) ||
+                blockedReason == null && (stage == 0 || sent.containsKey(stage - 50)),
+            onTap: sent.containsKey(stage)
+                || blockedReason == null && (stage == 0 || sent.containsKey(stage - 50))
+                ? () {
+                    if (onStage != null) {
+                      onStage(stage);
+                    } else {
+                      openStage(mode, stage, submitted: sent[stage]);
+                    }
+                  }
+                : null,
+          ),
         ],
-      ),
-    )));
+      ],
+    );
+  }
+
+  Future<void> openFieldReports(String? blockedReason) async {
+    // Close the page before opening a form so the form can refresh dashboard state.
+    final stage = await Navigator.of(context).push<int>(MaterialPageRoute<int>(
+      builder: (pageContext) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Dinas Luar')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text('Nilai pekerjaan hari ini memakai laporan Dinas Luar setelah tahap pertama terkirim.'),
+              reportStages('dinas_luar', blockedReason,
+                onStage: (stage) => Navigator.pop(pageContext, stage)),
+            ],
+          ),
+        );
+      },
+    ));
     if (stage == null || !mounted) return;
+    final report = shiftReports.where((row) =>
+        row['report_type'] == 'dinas_luar' && '${row['stage']}' == '$stage').firstOrNull;
+    await openStage('dinas_luar', stage, submitted: report);
+  }
+
+  Future<void> openStage(String mode, int stage, {Map<String, dynamic>? submitted}) async {
+    if (submitted != null) {
+      await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+        title: Text('${reportLabel(mode)} $stage%'),
+        content: SingleChildScrollView(child: Text(
+          '${submitted['full_name']}\n'
+          'Dibuka ${submitted['opened_at']} WIB\n'
+          'Terkirim ${submitted['submitted_at']} WIB\n\n'
+          '${submitted['description']}',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tutup')),
+          TextButton(onPressed: () async {
+            Navigator.pop(dialogContext);
+            await showPhoto('pjlp_daily_report_photo', {
+              'date': '${submitted['work_date']}', 'progress': '$stage', 'report_type': mode,
+            });
+          }, child: const Text('Lihat foto')),
+        ],
+      ));
+      return;
+    }
     await run(() async {
       final response = await widget.api.call('pjlp_daily_report_open', body: {
         'report_type': mode, 'progress': stage,
@@ -341,12 +424,16 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
     final summary = record['summary'] as Map? ?? {};
     final daily = rows(record['daily']);
     final activeShift = record['active_shift'] as Map?;
-    final activeDate = activeShift?['work_date'];
-    final shiftReports = daily.where((day) => day['date'] == activeDate)
-        .expand((day) => rows(day['reports'])).toList();
     final supportsShifts = record.containsKey('active_shift');
     final current = serverDate.startsWith(month);
     final configured = record['configured'] == true;
+    final attendanceBlock = !supportsShifts
+        ? 'Server perlu diperbarui untuk absensi shift.'
+        : !configured ? 'Admin Utama perlu menyimpan lokasi kantor dan bobot penilaian.' : null;
+    final checkedInToday = record['checked_in_today'] == true;
+    final reportBlock = attendanceBlock ??
+        (activeShift?['shift_name'] == null ? 'Absen masuk dengan pilihan shift untuk mengisi laporan.' : null);
+    final shift = selectedShift;
     final unit = '${record['unit'] ?? ''}';
     const weights = {
       'attendance_weight': 'Bobot kehadiran (%)',
@@ -390,51 +477,68 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
               OutlinedButton(onPressed: () => configure('pjlp_schedule_save', 'Jadwal akhir pekan',
                 {'date': 'Tanggal (YYYY-MM-DD)'}), child: const Text('Jadwal akhir pekan')),
             ]),
-            if (isPjlp && !configured)
-              const ListTile(title: Text('Admin Utama perlu menyiapkan lokasi dan bobot penilaian.')),
-            if (isPjlp && !supportsShifts)
-              const ListTile(title: Text('Server perlu diperbarui untuk laporan shift.')),
-            if (isPjlp && configured && supportsShifts) ...[
-              if (activeShift == null && current && record['checked_in_today'] != true)
-                DropdownButtonFormField<String>(
-                  initialValue: selectedShift,
-                  decoration: const InputDecoration(labelText: 'Pilih shift'),
-                  items: const [
-                    DropdownMenuItem(value: 'pagi', child: Text('Pagi')),
-                    DropdownMenuItem(value: 'siang', child: Text('Siang')),
-                    DropdownMenuItem(value: 'malam', child: Text('Malam')),
+            if (isPjlp) ...[
+              Card(child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Absensi shift', style: Theme.of(context).textTheme.titleMedium),
+                    if (activeShift == null)
+                      Wrap(spacing: 8, children: [
+                        for (final option in shiftNames.entries)
+                          ChoiceChip(
+                            label: Text(option.value),
+                            selected: shift == option.key,
+                            onSelected: (_) => setState(() => selectedShift = option.key),
+                          ),
+                      ])
+                    else
+                      Text("Shift ${shiftNames[activeShift['shift_name']] ?? 'sebelumnya'}"
+                        " · Masuk ${activeShift['checkin_at']} WIB"),
+                    if (attendanceBlock != null)
+                      Text(attendanceBlock)
+                    else if (activeShift == null)
+                      Text(checkedInToday ? 'Absensi hari ini sudah tercatat.'
+                          : shift == null ? 'Pilih shift untuk absen masuk.'
+                          : 'Ambil selfie untuk mencatat absensi masuk.'),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      FilledButton.icon(
+                        onPressed: attendanceBlock == null && shift != null &&
+                            activeShift == null && !checkedInToday
+                          ? () => capture('pjlp_attendance_submit',
+                              {'type': 'checkin', 'shift': shift}, selfie: true) : null,
+                        icon: const Icon(Icons.login), label: const Text('Absen masuk')),
+                      OutlinedButton.icon(
+                        onPressed: attendanceBlock != null || activeShift == null
+                          ? null : () => capture('pjlp_attendance_submit',
+                              {'type': 'checkout', 'shift': '${activeShift['shift_name'] ?? ''}'}, selfie: true),
+                        icon: const Icon(Icons.logout), label: const Text('Absen pulang')),
+                    ]),
                   ],
-                  onChanged: (shift) => setState(() => selectedShift = shift ?? selectedShift),
                 ),
-              if (activeShift != null)
-                ListTile(title: Text('Shift ${activeShift['shift_name'] ?? 'sebelumnya'}'),
-                  subtitle: Text('Masuk ${activeShift['checkin_at']} WIB')),
-              Wrap(spacing: 8, children: [
-                FilledButton.icon(
-                  onPressed: current && activeShift == null && record['checked_in_today'] != true
-                    ? () => capture('pjlp_attendance_submit',
-                        {'type': 'checkin', 'shift': selectedShift}, selfie: true) : null,
-                  icon: const Icon(Icons.login), label: const Text('Absen masuk')),
-                FilledButton.icon(
-                  onPressed: activeShift == null ? null : () => capture('pjlp_attendance_submit',
-                    {'type': 'checkout', 'shift': '${activeShift['shift_name'] ?? ''}'}, selfie: true),
-                  icon: const Icon(Icons.logout), label: const Text('Absen pulang')),
-              ]),
-              if (activeShift?['shift_name'] != null)
-                Wrap(spacing: 8, children: [
-                  for (final mode in ['rutin', 'dinas_luar'])
-                    OutlinedButton.icon(
-                      icon: Icon(mode == 'rutin' ? Icons.description_outlined : Icons.place_outlined),
-                      label: Text(reportLabel(mode)),
-                      onPressed: () => openReport(mode,
-                        shiftReports.where((report) => report['report_type'] == mode).toList()),
-                    ),
-                ]),
+              )),
+              Card(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const ListTile(title: Text('Laporan Harian')),
+                  reportStages('rutin', reportBlock),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.place_outlined),
+                    title: const Text('Dinas Luar'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openFieldReports(reportBlock),
+                  ),
+                ],
+              )),
             ],
+            Text('Rekap bulanan', style: Theme.of(context).textTheme.titleMedium),
             Card(child: ListTile(
               title: Text('${record['employee']}'),
               subtitle: Text('Hadir ${summary['present_days']}/${summary['scheduled_days']} hari  •  '
-                'Tugas ${summary['completed_jobs']}/${summary['assigned_jobs']}\n'
+                'Laporan selesai ${summary['completed_jobs']}/${summary['assigned_jobs']}\n'
                 'Bukti lengkap ${summary['documented_jobs']}  •  '
                 '${approved ? 'Nilai disahkan' : 'Nilai sementara'} ${summary['monthly_score'] ?? '–'}'),
             )),
