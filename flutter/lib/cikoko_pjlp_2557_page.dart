@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'api.dart';
+import 'cikoko_pjlp_location_picker.dart';
 
 class CikokoPjlp2557Page extends StatefulWidget {
   final CikokoApi api;
@@ -161,9 +163,15 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
 
   Future<Map<String, String>?> form(String title, Map<String, String> labels,
       {Map<String, dynamic> values = const {}, List<String> details = const [],
-      bool readOnly = false, String submitLabel = 'Simpan'}) async {
+      bool readOnly = false, String submitLabel = 'Simpan', bool includeLocation = false}) async {
     final formKey = GlobalKey<FormState>();
     final result = <String, String>{};
+    final latitude = double.tryParse('${values['latitude']}');
+    final longitude = double.tryParse('${values['longitude']}');
+    final savedLocation = latitude != null && longitude != null &&
+        latitude.isFinite && longitude.isFinite &&
+        latitude.abs() <= 90 && longitude.abs() <= 180
+        ? LatLng(latitude, longitude) : null;
     return showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -176,6 +184,44 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
               children: [
                 for (final detail in details)
                   Align(alignment: Alignment.centerLeft, child: Text(detail)),
+                if (includeLocation)
+                  FormField<LatLng>(
+                    initialValue: savedLocation,
+                    validator: (value) => value == null ? 'Pilih lokasi pada peta.' : null,
+                    onSaved: (value) {
+                      final point = value!;
+                      result['latitude'] = '${point.latitude}';
+                      result['longitude'] = '${point.longitude}';
+                    },
+                    builder: (field) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.map_outlined),
+                          label: Text(field.value == null ? 'Pilih di peta' : 'Ubah titik di peta'),
+                          onPressed: () async {
+                            final picked = await Navigator.of(dialogContext).push<LatLng>(
+                              MaterialPageRoute<LatLng>(builder: (_) => CikokoPjlpLocationPicker(
+                                savedLocation: field.value,
+                                currentLocation: () async {
+                                  final point = await position();
+                                  return LatLng(point.latitude, point.longitude);
+                                },
+                              )),
+                            );
+                            if (picked != null && field.mounted) field.didChange(picked);
+                          },
+                        ),
+                        if (field.value != null)
+                          const Text('Titik lokasi sudah dipilih.'),
+                        if (field.errorText != null)
+                          Text(field.errorText!, style: TextStyle(
+                            color: Theme.of(dialogContext).colorScheme.error,
+                          )),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
                 if (!readOnly)
                   for (final field in labels.entries)
                   TextFormField(
@@ -204,10 +250,8 @@ class _CikokoPjlp2557PageState extends State<CikokoPjlp2557Page> {
       {Map<String, dynamic> values = const {}}) async {
     final data = await form(title, {
       ...fields,
-      'latitude': 'Lintang',
-      'longitude': 'Bujur',
       'radius_m': 'Radius dalam meter',
-    }, values: values);
+    }, values: values, includeLocation: true);
     if (data == null) return;
     await run(() async {
       await widget.api.call(action, body: {
