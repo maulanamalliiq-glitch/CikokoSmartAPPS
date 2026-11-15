@@ -163,7 +163,7 @@ function cikoko_pjlp_2557_dispatch(string $action, string $method): void {
         $staff = $admin
             ? pj57_query($db, 'SELECT user_id,full_name,work_unit FROM pjlp_employees WHERE active=1 ORDER BY full_name')->fetchAll()
             : pj57_query($db, 'SELECT user_id,full_name,work_unit FROM pjlp_employees WHERE active=1 AND supervisor_user_id=? ORDER BY full_name', [$uid])->fetchAll();
-        mobile_json(['ok'=>true,'staff'=>$staff,'config'=>$admin ? $config : []]);
+        mobile_json(['ok'=>true,'staff'=>$staff,'config'=>(object)($admin ? $config : [])]);
     }
     if ($action === 'pjlp_team_pdf') {
         if ($role === 'pjlp') mobile_error('Akses rekap tim ditolak.', 403);
