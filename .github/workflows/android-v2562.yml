@@ -1,0 +1,270 @@
+name: Cikoko Smart v2562 - APK and AAB
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/redesign-2562-navigation]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/android-v2562.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/android-v2562.yml'
+
+# Keep only the latest v2562 build running to prevent older commits
+# from replacing the downloadable APK in the same GitHub Release.
+concurrency:
+  group: cikoko-android-2562-${{ github.ref }}
+  cancel-in-progress: true
+
+# Release uploads are separate from GitHub Actions artifact quota.
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/redesign-2562-navigation
+      - name: Reclaim runner disk for Android / AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk before cleanup:"
+          df -h /
+          for directory in \
+            /usr/share/dotnet \
+            /usr/local/share/powershell \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/lib/android/sdk/system-images \
+            /usr/local/lib/android/sdk/emulator; do
+            if [[ -d "$directory" ]]; then
+              echo "Removing unused Android-unrelated tools: $directory"
+              sudo rm -rf "$directory"
+            fi
+          done
+          echo "Disk after cleanup:"
+          df -h /
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: stable
+          cache: true
+      - name: Restore Android project files
+        working-directory: flutter
+        run: flutter create --platforms=android --project-name=cikoko .
+      - name: Install dependencies and analyze
+        working-directory: flutter
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Run Flutter tests before Play release
+        working-directory: flutter
+        run: flutter test
+      - name: Build test APK
+        working-directory: flutter
+        run: |
+          flutter build apk --debug
+          test -s build/app/outputs/flutter-apk/app-debug.apk
+          mkdir -p "$GITHUB_WORKSPACE/cikoko-downloads"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2562-TEST.apk"
+      - name: Save test APK as GitHub Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2562-TEST-APK
+          path: cikoko-downloads/Cikoko-v2562-TEST.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish test APK immediately to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v2.5.62-build2562"
+          apk="cikoko-downloads/Cikoko-v2562-TEST.apk"
+          test -s "$apk"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if ! gh release upload "$tag" "$apk" --clobber; then
+              echo "::warning::GitHub Release upload blocked; test APK remains downloadable as Actions artifact."
+            fi
+          else
+            if ! gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.62 (2562) APK + AAB" --notes "APK TEST v2562 sudah tersedia. APK release dan AAB tersedia dari GitHub Actions artifacts jika Release tidak diizinkan."; then
+              echo "::warning::GitHub Release creation blocked; continue to signed Play build."
+            fi
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}' || true
+      - name: Clear debug build outputs before release AAB
+        working-directory: flutter
+        shell: bash
+        run: |
+          echo "Disk before Flutter cleanup:"
+          df -h /
+          flutter clean
+          flutter pub get
+          echo "Disk after Flutter cleanup:"
+          df -h /
+      - name: Restore Play upload signing key if configured
+        shell: bash
+        env:
+          CIKOKO_KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$CIKOKO_KEYSTORE_B64" || -z "$CIKOKO_STORE_PASSWORD" || -z "$CIKOKO_KEY_PASSWORD" ]]; then
+            echo "CIKOKO_SIGN_READY=false" >> "$GITHUB_ENV"
+            echo "::warning::Upload signing secrets missing. Only test APK and unsigned AAB can be distributed."
+            exit 0
+          fi
+          printf '%s' "$CIKOKO_KEYSTORE_B64" | base64 --decode > flutter/android/cikoko_upload.jks
+          test -s flutter/android/cikoko_upload.jks
+          keytool -list -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey > /dev/null
+          echo "CIKOKO_SIGN_READY=true" >> "$GITHUB_ENV"
+      - name: Verify Play upload certificate fingerprint
+        if: env.CIKOKO_SIGN_READY == 'true'
+        shell: bash
+        env:
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+        run: |
+          actual=$(keytool -list -v -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey | grep -m1 'SHA256:' | sed 's/.*SHA256: //' | tr -d ':' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Play upload certificate fingerprint did not match. Release stopped to protect existing Play Store app."
+            exit 1
+          fi
+      - name: Build signed Play Store AAB and release APK
+        if: env.CIKOKO_SIGN_READY == 'true'
+        working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Free disk before release AAB:"
+          df -h /
+          flutter build appbundle --release
+          aab="build/app/outputs/bundle/release/app-release.aab"
+          test -s "$aab"
+          # Self-signed upload certificates are expected. Verify the JAR
+          # signature and the exact known Play upload signing certificate.
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          if ! jarsigner -verify "$aab" > /tmp/cikoko-aab-verify.log 2>&1; then
+            tail -n 35 /tmp/cikoko-aab-verify.log
+            echo "::error::AAB signature verification failed."
+            exit 1
+          fi
+          if ! grep -q "jar verified" /tmp/cikoko-aab-verify.log; then
+            tail -n 35 /tmp/cikoko-aab-verify.log
+            echo "::error::AAB did not report a verified JAR signature."
+            exit 1
+          fi
+          aab_fingerprint=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
+          if [[ "$aab_fingerprint" != "$expected" ]]; then
+            echo "::error::AAB signer is not the expected Play upload certificate."
+            exit 1
+          fi
+          # A verified AAB is safe to publish even if the separate APK
+          # signing stage fails; this does not use the full Actions artifact quota.
+          cp "$aab" "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2562-PLAY-SIGNED.aab"
+          gh release upload "v2.5.62-build2562" \
+            "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2562-PLAY-SIGNED.aab" --clobber || \
+            echo "::warning::Release AAB upload blocked; signed AAB remains in output for Actions artifact."
+          # Signed AAB is safely published. Recover space before APK build.
+          echo "Disk before AAB output cleanup:"
+          df -h /
+          flutter clean
+          flutter pub get
+          echo "Disk after AAB output cleanup:"
+          df -h /
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$apk"
+          apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          signed_apk="$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2562-RELEASE-arm64.apk"
+          # Explicitly sign the APK with the same verified upload key instead of
+          # trusting the APK produced by Flutter/Gradle to use that key.
+          # Passwords are read from protected environment variables, not argv.
+          "$apksigner" sign \
+            --ks "$CIKOKO_KEYSTORE_PATH" \
+            --ks-key-alias "$CIKOKO_KEY_ALIAS" \
+            --ks-pass env:CIKOKO_STORE_PASSWORD \
+            --key-pass env:CIKOKO_KEY_PASSWORD \
+            --out "$signed_apk" "$apk"
+          # Verification checks the APK's cryptographic signature first.
+          # Then read the SHA-256 value from the certificate line, tolerating
+          # apksigner output differences in spacing, colons and label format.
+          "$apksigner" verify --verbose --print-certs "$signed_apk" > /tmp/cikoko-apk-verify.log
+          echo "APK signer certificate fingerprints:"
+          grep -iE 'certificate.*SHA.?256' /tmp/cikoko-apk-verify.log || true
+          apk_cert_lines=$(grep -iE 'certificate.*SHA.?256' /tmp/cikoko-apk-verify.log || true)
+          apk_fingerprint=$(printf '%s\n' "$apk_cert_lines" |
+            grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' |
+            head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]' || true)
+          if [[ -z "$apk_fingerprint" || "$apk_fingerprint" != "$expected" ]]; then
+            echo "::error::APK certificate verification did not match the configured Play upload key."
+            echo "Expected SHA-256: $expected"
+            echo "Actual SHA-256: ${apk_fingerprint:-NOT_FOUND}"
+            exit 1
+          fi
+          echo "AAB and APK signatures verified against the expected upload certificate."
+      - name: Build clearly labeled unsigned AAB if no upload key
+        if: env.CIKOKO_SIGN_READY != 'true'
+        working-directory: flutter
+        run: |
+          flutter build appbundle --release
+          test -s build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/cikoko-downloads/Cikoko-v2562-UNSIGNED-NOT-FOR-PLAY.aab"
+      - name: Save signed AAB and APK as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2562-PLAY-SIGNED-AAB-APK
+          path: |
+            cikoko-downloads/Cikoko-v2562-PLAY-SIGNED.aab
+            cikoko-downloads/Cikoko-v2562-RELEASE-arm64.apk
+            cikoko-downloads/Cikoko-v2562-UNSIGNED-NOT-FOR-PLAY.aab
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Publish APK and AAB directly to GitHub Release (optional)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v2.5.62-build2562"
+          files=(cikoko-downloads/*)
+          test -s "cikoko-downloads/Cikoko-v2562-TEST.apk"
+          cat > /tmp/cikoko-release-notes.md <<'NOTES'
+          Cikoko SmartApp v2.5.62 (versionCode 2562)
+
+          - APK TEST: untuk pengujian manual di Android. Ini debug APK, bukan pembaruan langsung dari Play Store.
+          - PLAY-SIGNED.aab: hanya tersedia jika signing upload Play Store berhasil diverifikasi.
+          - RELEASE-arm64.apk: tersedia jika signing release berhasil.
+          - UNSIGNED-NOT-FOR-PLAY.aab: belum ditandatangani. JANGAN diunggah ke Play Console.
+
+          Rilis aplikasi ini tidak otomatis memperbarui backend cPanel. Pasang patch cPanel secara terpisah.
+          NOTES
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber || echo "::warning::Release upload forbidden; Actions artifacts are available."
+            gh release edit "$tag" --notes-file /tmp/cikoko-release-notes.md || true
+          else
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Cikoko SmartApp v2.5.62 (2562) APK + AAB" --notes-file /tmp/cikoko-release-notes.md || echo "::warning::Release creation forbidden; Actions artifacts are available."
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, filenames: [.assets[].name]}' || true
+      - name: Remove private keystore from build environment
+        if: always()
+        run: rm -f flutter/android/cikoko_upload.jks
