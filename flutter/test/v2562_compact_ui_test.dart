@@ -20,9 +20,10 @@ void main() {
  testWidgets('v2562 compact quick actions open real routes', (tester) async {
   String? destination;
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:Center(
-   child:V6QuickActions(navigate:(route)=>destination=route)
+   child:V6QuickActions(navigate:(route)=>destination=route,unreadCount:4)
   ))));
   expect(find.byKey(const Key('v2562_quick_actions')),findsOneWidget);
+  expect(find.text('4'),findsOneWidget);
   for(var i=0;i<4;i++){
    expect(find.byKey(Key('v2562_quick_$i')),findsOneWidget);
   }
@@ -56,4 +57,22 @@ void main() {
   await tester.tap(find.byKey(const Key('v6_status_selesai')));
   expect(status,'selesai');
  });
+ testWidgets('v2562 integrated CMS service opens existing service handler', (tester) async {
+  Map<String,dynamic>? opened;
+  await tester.pumpWidget(MaterialApp(home:Scaffold(body:
+   V6ServicesPage(
+    guest:false,onOpen:(_){},
+    integratedServices:const [
+     {'title':'Layanan Terhubung Resmi','active':true},
+    ],
+    onIntegratedOpen:(row)=>opened=row,
+   )
+  )));
+  await tester.scrollUntilVisible(
+   find.text('Layanan Terhubung Resmi'),200,
+   scrollable:find.byType(Scrollable).first);
+  await tester.tap(find.text('Layanan Terhubung Resmi'));
+  expect(opened?['title'],'Layanan Terhubung Resmi');
+ });
+
 }
