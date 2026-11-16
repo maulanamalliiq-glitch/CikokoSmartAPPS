@@ -154,46 +154,103 @@ class V6Hero extends StatelessWidget{
  const V6Hero({super.key,required this.onServices,required this.onAbout,
    this.photoUrl,this.photoFit=BoxFit.cover,
    this.photoAlignment=Alignment.center});
+
  @override Widget build(BuildContext context)=>Container(
-  height:178,clipBehavior:Clip.antiAlias,
-  decoration:BoxDecoration(borderRadius:V6.radius(15),border:Border.all(color:const Color(0xFFCFE4FA)),
-   gradient:const LinearGradient(colors:[Color(0xFFEAF5FF),Color(0xFFD1E7FF)])),
+  key:const Key('v2562_compact_hero'),
+  height:179,clipBehavior:Clip.antiAlias,
+  decoration:BoxDecoration(
+    borderRadius:V6.radius(17),
+    gradient:const LinearGradient(
+      begin:Alignment.topLeft,end:Alignment.bottomRight,
+      colors:[Color(0xFF063C90),Color(0xFF0969DE),Color(0xFF16A1F7)]),
+    boxShadow:const [BoxShadow(color:Color(0x240B66BD),blurRadius:17,offset:Offset(0,7))]),
   child:Stack(children:[
-   const Positioned(left:0,right:0,bottom:0,child:V6Skyline(height:53)),
-   Positioned(right:0,top:0,bottom:0,width:159,child:ClipRRect(
-     borderRadius:const BorderRadius.only(topRight:Radius.circular(14),bottomRight:Radius.circular(14)),
-     child:photoUrl!=null&&photoUrl!.isNotEmpty
+   const Positioned(left:0,right:0,bottom:0,
+     child:Opacity(opacity:.35,child:V6Skyline(height:83))),
+   Positioned(top:0,right:0,bottom:0,width:142,child:ClipRRect(
+     borderRadius:const BorderRadius.only(
+       topRight:Radius.circular(17),bottomRight:Radius.circular(17)),
+     child:Opacity(opacity:.76,child:photoUrl!=null&&photoUrl!.isNotEmpty
        ?Image.network(photoUrl!,key:const Key('cikoko_live_website_header'),
-          fit:photoFit,alignment:photoAlignment,
-          errorBuilder:(_,__,___)=>Image.asset('assets/kantor-cikoko.jpg',
-            fit:BoxFit.cover,alignment:Alignment.center))
-       :Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover,
-          alignment:Alignment.center))),
-   const Positioned(right:137,top:0,bottom:0,width:60,child:DecoratedBox(
+         fit:photoFit,alignment:photoAlignment,
+         errorBuilder:(_,__,___)=>Image.asset('assets/kantor-cikoko.jpg',
+           fit:BoxFit.cover))
+       :Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover)))),
+   const Positioned(top:0,bottom:0,right:110,width:85,child:DecoratedBox(
      decoration:BoxDecoration(gradient:LinearGradient(colors:[
-       Color(0xFFE5F3FF),Color(0xE2E5F3FF),Color(0x00E5F3FF)])))),
-   Positioned(left:14,right:130,top:15,bottom:13,child:Column(
+       Color(0x00096CDE),Color(0xFF096BDF)],begin:Alignment.centerRight,
+       end:Alignment.centerLeft)))),
+   Positioned(left:15,right:115,top:13,bottom:13,child:Column(
      crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,
-       style:TextStyle(color:V6.ink,fontWeight:FontWeight.w900,fontSize:18)),
+        style:TextStyle(fontWeight:FontWeight.w900,color:Colors.white,fontSize:16.5)),
       const SizedBox(height:4),
-      const Text('Layanan dan informasi\nKelurahan Cikoko',maxLines:2,
-       style:TextStyle(color:V6.ink,fontSize:13.2,height:1.12,fontWeight:FontWeight.w800)),
+      const Text('Layanan Digital\nKelurahan Cikoko',maxLines:2,
+        overflow:TextOverflow.ellipsis,
+        style:TextStyle(color:Colors.white,fontSize:13.2,height:1.17,
+          fontWeight:FontWeight.w800)),
       const SizedBox(height:5),
       const Text('Kecamatan Pancoran · Jakarta Selatan',
-       maxLines:2,style:TextStyle(color:V6.secondary,fontSize:9.4,height:1.3)),
+        maxLines:2,overflow:TextOverflow.ellipsis,
+        style:TextStyle(color:Color(0xFFE5F4FF),fontSize:9.1,height:1.2)),
       const Spacer(),
-      SizedBox(height:32,child:FilledButton(
-       onPressed:onServices,
-       style:FilledButton.styleFrom(padding:const EdgeInsets.symmetric(horizontal:10),
-         shape:RoundedRectangleBorder(borderRadius:V6.radius(7))),
-       child:const Text('Ajukan Layanan  →',style:TextStyle(fontSize:9.5,fontWeight:FontWeight.w800)))),
+      SizedBox(height:31,child:FilledButton(
+        onPressed:onServices,
+        style:FilledButton.styleFrom(
+          backgroundColor:Colors.white,foregroundColor:V6.blueDark,
+          padding:const EdgeInsets.symmetric(horizontal:11),
+          shape:RoundedRectangleBorder(borderRadius:V6.radius(9))),
+        child:const Text('Ajukan Layanan  →',
+          style:TextStyle(fontWeight:FontWeight.w900,fontSize:9.7)))),
       const SizedBox(height:5),
       InkWell(onTap:onAbout,child:const Text('Lihat Profil Kelurahan  →',
-       style:TextStyle(color:V6.blue,fontSize:9.2,fontWeight:FontWeight.w700))),
+        maxLines:1,overflow:TextOverflow.ellipsis,
+        style:TextStyle(color:Colors.white,fontWeight:FontWeight.w700,
+          fontSize:9.1))),
      ])),
   ]),
  );
+}
+
+/// Compact quick actions mirror the v2562 mockup while opening real pages.
+/// No fabricated unread counts, application data or notifications.
+class V6QuickActions extends StatelessWidget{
+ final void Function(String) navigate;
+ const V6QuickActions({super.key,required this.navigate});
+
+ @override Widget build(BuildContext context){
+  const actions=[
+   ('Ajukan\nLayanan','Layanan Online',Color(0xFF0357CF),Color(0xFF168EFF),Icons.post_add_rounded),
+   ('Cek\nStatus','Riwayat',Color(0xFF029B74),Color(0xFF20C897),Icons.manage_search_rounded),
+   ('Inbox\nNotifikasi','Notifikasi',Color(0xFFF38B12),Color(0xFFFFB436),Icons.notifications_active_outlined),
+   ('Bantuan\n& Info','Hubungi Kami',Color(0xFF5D45DA),Color(0xFF8B6BFA),Icons.help_outline_rounded),
+  ];
+  return Row(key:const Key('v2562_quick_actions'),children:[
+   for(var i=0;i<actions.length;i++)
+     Expanded(child:Padding(
+       padding:EdgeInsets.only(left:i==0?0:3,right:i==actions.length-1?0:3),
+       child:Material(color:Colors.transparent,child:InkWell(
+         key:Key('v2562_quick_$i'),
+         onTap:()=>navigate(actions[i].$2),
+         borderRadius:V6.radius(13),
+         child:Ink(
+          height:84,
+          decoration:BoxDecoration(borderRadius:V6.radius(13),
+           gradient:LinearGradient(
+             begin:Alignment.topLeft,end:Alignment.bottomRight,
+             colors:[actions[i].$3,actions[i].$4]),
+           boxShadow:const [BoxShadow(color:Color(0x160C2455),
+             blurRadius:7,offset:Offset(0,3))]),
+          child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+           Icon(actions[i].$5,size:23,color:Colors.white),
+           const SizedBox(height:6),
+           Text(actions[i].$1,textAlign:TextAlign.center,maxLines:2,
+             style:const TextStyle(color:Colors.white,fontSize:9.4,
+               height:1.17,fontWeight:FontWeight.w800))
+          ])),
+       )))),
+  ]);
+ }
 }
 
 class V6ReportPanel extends StatelessWidget{
@@ -375,7 +432,9 @@ class V6Home extends StatelessWidget{
       onAbout:()=>navigate('Tentang Kami'),
       photoUrl:websiteHeroUrl,photoFit:websiteHeroFit,
       photoAlignment:websiteHeroAlignment),
-    const SizedBox(height:13),
+    const SizedBox(height:12),
+    V6QuickActions(navigate:navigate),
+    const SizedBox(height:14),
     V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
     V6CitizenServices(navigate:navigate),
