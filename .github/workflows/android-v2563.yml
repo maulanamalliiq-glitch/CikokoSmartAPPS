@@ -1,0 +1,191 @@
+name: Cikoko Smart v2563 - Fixed Chat Signed APK and AAB
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feat/chat-inbox-2563
+    paths:
+      - 'flutter/**'
+      - 'cpanel/mobile-api/chat_v2548.php'
+      - 'cpanel/mobile-api/chat_inbox_2563.php'
+      - 'qa/chat_inbox_2563_test.php'
+      - '.github/workflows/android-v2563.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/android-v2563.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cikoko-chat-v2563-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/chat-inbox-2563
+      - name: Free runner space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/share/powershell /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h /
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: stable
+          cache: true
+      - name: Validate Firebase and version
+        run: |
+          python3 - <<'PY'
+          import json
+          p=json.load(open('flutter/android/app/google-services.json'))
+          assert p['project_info']['project_id']=='kelurahan-cikoko-862d3'
+          assert p['project_info']['project_number']=='417622897353'
+          assert p['client'][0]['client_info']['android_client_info']['package_name']=='com.KelurahanCikoko.malik'
+          print('Firebase project and Android package validated')
+          PY
+          grep -q 'versionCode = 2563' flutter/android/app/build.gradle.kts
+          grep -q 'versionName = "2.5.63"' flutter/android/app/build.gradle.kts
+          grep -q 'version: 2.5.63+2563' flutter/pubspec.yaml
+      - name: Restore Android project and dependencies
+        working-directory: flutter
+        run: |
+          flutter create --platforms=android --project-name=cikoko .
+          flutter pub get
+      - name: Test 2563 release
+        run: |
+          php -l cpanel/mobile-api/index.php
+          php -l cpanel/mobile-api/pjlp_attendance_2557.php
+          php -l cpanel/mobile-api/pjlp_shifts_2558.php
+          php qa/pjlp_shift_recap_2558_test.php
+          php -l cpanel/mobile-api/chat_v2548.php
+          php -l cpanel/mobile-api/chat_inbox_2563.php
+          php -l qa/chat_inbox_2563_test.php
+          php qa/chat_inbox_2563_test.php
+          cd flutter
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+      - name: Package safe chat-only cPanel patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cikoko-chat-patch/mobile-api
+          cp cpanel/mobile-api/chat_v2548.php cpanel/mobile-api/chat_inbox_2563.php cikoko-chat-patch/mobile-api/
+          cat > cikoko-chat-patch/INSTALL-CHAT-v2563.txt <<'INSTRUCTIONS'
+          CIKOKO v2563 CHAT ONLY / SAFE CPANEL UPDATE
+          1. Backup your current public_html/mobile-api/chat_v2548.php first.
+          2. Extract this ZIP into public_html/ so mobile-api/*.php are placed in public_html/mobile-api/.
+          3. Do NOT upload Flutter source or replace index.php, database, login or private files.
+          4. The new chat_v2548_threads staff endpoint requires the existing mobile_chat and mobile_chat_receipts tables.
+          5. In the Android v2563 app, login to staff account, open Pesan Masuk, and send a test from a resident account.
+          6. Check exact unread count, user account IDs, image attachments, and tapping a chat notification.
+          7. If a problem occurs, restore only your backed up chat_v2548.php and remove chat_inbox_2563.php.
+          This patch does NOT migrate or delete any data.
+          INSTRUCTIONS
+          (cd cikoko-chat-patch && zip -qr "$GITHUB_WORKSPACE/Cikoko-v2563-Chat-CPANEL-PATCH.zip" .)
+          test -s Cikoko-v2563-Chat-CPANEL-PATCH.zip
+      - name: Upload cPanel chat patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-v2563-Chat-CPANEL-PATCH
+          path: Cikoko-v2563-Chat-CPANEL-PATCH.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Restore signing key
+        env:
+          CIKOKO_KEYSTORE_B64: ${{ secrets.CIKOKO_KEYSTORE_B64 }}
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$CIKOKO_KEYSTORE_B64" || -z "$CIKOKO_STORE_PASSWORD" || -z "$CIKOKO_KEY_PASSWORD" ]]; then
+            echo "::error::Play signing secrets are missing; cannot produce ready-to-install update."
+            exit 1
+          fi
+          printf '%s' "$CIKOKO_KEYSTORE_B64" | base64 --decode > flutter/android/cikoko_upload.jks
+          keytool -list -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey > /dev/null
+          actual=$(keytool -list -v -keystore flutter/android/cikoko_upload.jks -storepass "$CIKOKO_STORE_PASSWORD" -alias androidkey | grep -m1 'SHA256:' | sed 's/.*SHA256: //' | tr -d ':' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          test "$actual" = "$expected" || { echo "::error::Signing certificate mismatch"; exit 1; }
+      - name: Build signed AAB
+        working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
+        run: |
+          set -euo pipefail
+          flutter build appbundle --release
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          aab=build/app/outputs/bundle/release/app-release.aab
+          test -s "$aab"
+          jarsigner -verify "$aab" > /tmp/aab-check.txt 2>&1
+          grep -q 'jar verified' /tmp/aab-check.txt
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          actual=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
+          test "$actual" = "$expected" || { echo "::error::AAB certificate mismatch"; exit 1; }
+          cp "$aab" "$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.63-2563-PLAY.aab"
+      - name: Build and sign APK
+        working-directory: flutter
+        env:
+          CIKOKO_KEYSTORE_PATH: ${{ github.workspace }}/flutter/android/cikoko_upload.jks
+          CIKOKO_STORE_PASSWORD: ${{ secrets.CIKOKO_STORE_PASSWORD }}
+          CIKOKO_KEY_PASSWORD: ${{ secrets.CIKOKO_KEY_PASSWORD }}
+          CIKOKO_KEY_ALIAS: androidkey
+        run: |
+          set -euo pipefail
+          flutter clean
+          flutter pub get
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          test -s "$apk"
+          apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          signed="$GITHUB_WORKSPACE/dist/CikokoSmart-v2.5.63-2563-arm64.apk"
+          "$apksigner" sign --ks "$CIKOKO_KEYSTORE_PATH" --ks-key-alias "$CIKOKO_KEY_ALIAS" --ks-pass env:CIKOKO_STORE_PASSWORD --key-pass env:CIKOKO_KEY_PASSWORD --out "$signed" "$apk"
+          "$apksigner" verify --verbose --print-certs "$signed" > /tmp/apk-check.txt
+          actual=$(grep -iE 'certificate.*SHA.?256' /tmp/apk-check.txt | grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' | head -n1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          expected="394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5"
+          test "$actual" = "$expected" || { echo "::error::APK certificate mismatch"; exit 1; }
+      - name: Upload installable APK and Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: CikokoSmart-v2563-APK-AAB
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish signed APK and AAB for direct downloads
+        if: github.ref == 'refs/heads/feat/chat-inbox-2563'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          short=$(printf '%s' "$GITHUB_SHA" | cut -c1-7)
+          tag="v2.5.63-2563-chat-$short"
+          apk="dist/CikokoSmart-v2.5.63-2563-arm64.apk"
+          aab="dist/CikokoSmart-v2.5.63-2563-PLAY.aab"
+          test -s "$apk"
+          test -s "$aab"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" "$aab" --clobber
+          else
+            gh release create "$tag" "$apk" "$aab" --target "$GITHUB_SHA" --title "Cikoko SmartAPP v2563 Chat Fixed ($short)" --notes "APK arm64 + Play AAB signed with original Cikoko upload key. Automated Flutter/PHP tests passed. Requires matching cPanel CHAT v2563 patch; test on real devices before production." --prerelease
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, assets: [.assets[].name]}'
+      - name: Remove signing key
+        if: always()
+        run: rm -f flutter/android/cikoko_upload.jks
