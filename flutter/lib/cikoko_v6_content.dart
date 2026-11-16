@@ -7,7 +7,10 @@ import 'role_catalog.dart';
 class V6ServicesPage extends StatefulWidget{
  final bool guest;
  final void Function(String) onOpen;
- const V6ServicesPage({super.key,required this.guest,required this.onOpen});
+ final List<Map<String,dynamic>> integratedServices;
+ final ValueChanged<Map<String,dynamic>>? onIntegratedOpen;
+ const V6ServicesPage({super.key,required this.guest,required this.onOpen,
+   this.integratedServices=const [],this.onIntegratedOpen});
  @override State<V6ServicesPage> createState()=>_V6ServicesState();
 }
 class _V6ServicesState extends State<V6ServicesPage>{
@@ -24,6 +27,11 @@ class _V6ServicesState extends State<V6ServicesPage>{
   final filtered=services.where((s)=>
     (category=='Semua'||category==s.$3)&&
     (s.$1+' '+s.$2).toLowerCase().contains(query.trim().toLowerCase())).toList();
+  final integrated=widget.integratedServices.where((row)=>
+    row['active']!=false&&
+    (category=='Semua'||category=='Lainnya')&&
+    (row['title']??'').toString().toLowerCase()
+       .contains(query.trim().toLowerCase())).toList();
   return ListView(key:const Key('v6_services'),
    padding:const EdgeInsets.fromLTRB(13,12,13,28),children:[
     Container(key:const Key('v2562_services_header'),
@@ -119,7 +127,26 @@ class _V6ServicesState extends State<V6ServicesPage>{
           const Icon(Icons.chevron_right_rounded,color:V6.blue,size:20),
          ])),
        ))),
-    if(filtered.isEmpty)const V6Panel(
+    if(integrated.isNotEmpty&&widget.onIntegratedOpen!=null)...[
+     const SizedBox(height:13),
+     const V6Section(title:'Layanan Terintegrasi'),
+     for(final entry in integrated)Padding(
+      padding:const EdgeInsets.only(bottom:7),
+      child:V6Panel(padding:EdgeInsets.zero,child:ListTile(
+       dense:true,
+       leading:const Icon(Icons.account_balance_outlined,
+        color:V6.blue,size:22),
+       title:Text((entry['title']??'Layanan').toString(),
+        maxLines:2,overflow:TextOverflow.ellipsis,
+        style:const TextStyle(color:V6.ink,fontSize:12,
+          fontWeight:FontWeight.w800)),
+       subtitle:const Text('Buka layanan resmi terkait',
+        style:TextStyle(color:V6.secondary,fontSize:10.3)),
+       trailing:const Icon(Icons.open_in_new_rounded,color:V6.blue,size:18),
+       onTap:()=>widget.onIntegratedOpen?.call(entry),
+      ))),
+    ],
+    if(filtered.isEmpty&&integrated.isEmpty)const V6Panel(
       child:Text('Layanan tidak ditemukan. Coba kata kunci lain.',
        style:TextStyle(fontSize:12,color:V6.secondary))),
     if(widget.guest)const Padding(
