@@ -234,6 +234,7 @@ class _HomeState extends State<HomePage> {
   BoxFit websiteHeroFit=BoxFit.cover;
   Alignment websiteHeroAlignment=Alignment.center;
   int get unreadCount=>events.where((e)=>e['is_read']!=true && '${e['is_read']??0}'!='1').length;
+  int chatUnread=0;
   Map<String,int>? letterCounts;
   Map<String,bool> capabilities={};
   bool loading=true,permissionsOk=false,_refreshingEvents=false;
@@ -273,9 +274,18 @@ class _HomeState extends State<HomePage> {
     try {
       // Delivery acknowledgement is not a read receipt. A visible app inbox
       // acknowledges that the receiving device fetched the relevant chat.
+      int? latestChatUnread;
       try{
         if(role=='warga')await api.call('chat_inbox');
-        else if(capabilities['chat:reply']==true)await api.call('chat_threads');
+        else if(capabilities['chat:reply']==true){
+          try{
+            final chat=await api.call('chat_v2548_threads');
+            latestChatUnread=int.tryParse((chat['unread_total']??0).toString())??0;
+          }catch(_){
+            // Backwards-compatible while the v2563 cPanel patch is installed.
+            await api.call('chat_threads');
+          }
+        }
       }catch(_){}
       final v=await api.call('events');
       final incoming=List<dynamic>.from(v['events']??[]);
@@ -284,7 +294,10 @@ class _HomeState extends State<HomePage> {
         !oldIds.contains('${e['id']??''}')&&
         ['berita','pengumuman','inovasi'].contains('${e['category']??''}'));
       await push?.onEvents(incoming);
-      if(mounted)setState(()=>events=incoming);
+      if(mounted)setState((){
+        events=incoming;
+        if(latestChatUnread!=null)chatUnread=latestChatUnread;
+      });
       if(updatedPublications)await refreshPublishedContent();
     }catch(_){}
     finally{_refreshingEvents=false;}
@@ -479,6 +492,13 @@ class _HomeState extends State<HomePage> {
        ])),
       ]),
       actions:[
+       if(capabilities['chat:reply']==true)
+        IconButton(
+         tooltip:'Pesan masuk',onPressed:()=>switchTo('Pesan Masuk'),
+         icon:Badge(
+          isLabelVisible:chatUnread>0,
+          label:Text(chatUnread>99?'99+':chatUnread.toString()),
+          child:const Icon(Icons.forum_outlined,color:V6.ink))),
        IconButton(tooltip:'Notifikasi',onPressed:()=>switchTo('Notifikasi'),
          icon:Badge(isLabelVisible:unreadCount>0,label:Text('$unreadCount'),
            child:const Icon(Icons.notifications_none_outlined,color:V6.ink))),
@@ -575,8 +595,13 @@ class _HomeState extends State<HomePage> {
     case 'Laporan Kerja Bakti':return _v6Form('Laporan Kerja Bakti','Pelaporan kegiatan kerja bakti.',const ReportForm(kind:'kerja_bakti'));
     case 'Laporan PPSU':return _v6Form('Laporan PPSU','Dokumentasi kegiatan PPSU.',PpsuReportPage(api:api));
     case 'Riwayat':return V6HistoryPage(api:api,onOpen:_openV6History);
-    case 'Hubungi Kami':return const ChatPage();
-    case 'Pesan Masuk':return const AdminChatPage();
+    case 'Hubungi Kami':return capabilities['chat:reply']==true
+       ?AdminChatPage(onUnreadChanged:(total){
+         if(mounted)setState(()=>chatUnread=total);
+       }):const ChatPage();
+    case 'Pesan Masuk':return AdminChatPage(onUnreadChanged:(total){
+       if(mounted)setState(()=>chatUnread=total);
+     });
     case 'Percakapan Chat':return role=='warga'||notificationChatOwner==null
       ?const ChatPage():CikokoLiveChat(api:api,userId:notificationChatOwner,title:'Percakapan Warga');
     case 'Notifikasi':return V6NotificationPage(guest:guest,events:events,onOpen:openNotification,login:openLogin);
@@ -1211,8 +1236,10 @@ class ChatPage extends StatelessWidget{
  @override Widget build(BuildContext context)=>CikokoLiveChat(api:api);
 }
 class AdminChatPage extends StatelessWidget{
- const AdminChatPage({super.key});
- @override Widget build(BuildContext context)=>CikokoLiveChatInbox(api:api);
+ final ValueChanged<int>? onUnreadChanged;
+ const AdminChatPage({super.key,this.onUnreadChanged});
+ @override Widget build(BuildContext context)=>CikokoLiveChatInbox(
+  api:api,onUnreadChanged:onUnreadChanged);
 }
 class AdminReports extends StatefulWidget{
  final String? onlyKind;
