@@ -30,17 +30,7 @@ if(!preg_match('/^[A-Za-z0-9_-]{2,80}$/D',$owner))mobile_error('Akun percakapan 
 // target must be a real, active portal account. This is essential for photo
 // uploads: the previous guard rejected staff photos with a stale false 404,
 // even if the resident was visible in the canonical inbox.
-function cikoko_chat_v2565_known_target(PDO $db,string $owner):bool {
- $q=$db->prepare('SELECT 1 FROM mobile_chat WHERE user_id=? LIMIT 1');
- $q->execute([$owner]);
- if($q->fetchColumn())return true;
- foreach(db_read('portal_users') as $account){
-  if(!is_array($account))continue;
-  if((string)($account['id']??'')===$owner&&
-   !empty($account['active']))return true;
- }
- return false;
-}
+require_once __DIR__.'/chat_hardcheck_2565.php';
 if($staff&&in_array($action,['chat_v2548_send','chat_v2548_upload'],true)){
  if(!cikoko_chat_v2565_known_target($db,$owner)){
   mobile_error('Akun tujuan percakapan tidak ditemukan. Segarkan inbox.',404);
