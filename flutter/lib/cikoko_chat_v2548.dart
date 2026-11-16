@@ -49,8 +49,16 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
       if(mounted&&scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,
        duration:const Duration(milliseconds:180),curve:Curves.easeOut);
     });
+   }else if(error!=null&&mounted){
+    // Clear a stale network error after a successful empty or unchanged poll.
+    setState(()=>error=null);
    }
-  }catch(e){if(mounted&&data.isEmpty)setState(()=>error='Percakapan belum dapat dimuat: '+e.toString());}
+  }catch(e){
+   if(mounted&&data.isEmpty)setState(()=>
+    error=isStaff&&e.toString().contains('Percakapan belum tersedia')
+      ?'Percakapan belum tersedia pada server. Buka kembali dari Pesan Masuk.'
+      :'Percakapan belum dapat dimuat: '+e.toString());
+  }
   finally{loading=false;}
  }
  Future<void> send()async{
@@ -172,8 +180,12 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
    child:ListView.builder(controller:scroll,key:const Key('cikoko_live_chat'),
     padding:const EdgeInsets.all(10),itemCount:data.isEmpty?1:data.length,
     itemBuilder:(c,i)=>data.isEmpty?
-      const Padding(padding:EdgeInsets.all(18),
-       child:Center(child:Text('Belum ada pesan. Tulis untuk memulai percakapan.'))):
+      Padding(padding:const EdgeInsets.all(18),
+       child:Center(child:Text(
+        error!=null?'Pesan belum dapat ditampilkan. Coba muat ulang.':
+        'Belum ada pesan. Tulis untuk memulai percakapan.',
+        textAlign:TextAlign.center,
+        style:const TextStyle(color:V6.secondary,fontSize:12)))):
       bubble(data[i])))),
   SafeArea(top:false,child:Container(color:Colors.white,
    padding:const EdgeInsets.symmetric(horizontal:6,vertical:8),
