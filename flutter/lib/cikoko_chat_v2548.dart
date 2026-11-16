@@ -4,11 +4,23 @@ import 'package:image_picker/image_picker.dart';
 import 'api.dart';
 import 'cikoko_v6_showcase.dart';
 
+// Only fall back after the old server explicitly says a thread or API
+// is missing. Authentication and authorization errors must never fall back.
+bool cikokoLegacyChatFallbackAllowed(ApiError error){
+ final msg=error.message.toLowerCase();
+ return msg.contains('percakapan belum tersedia')||
+   msg.contains('percakapan warga tidak ditemukan')||
+   msg.contains('aksi chat tidak tersedia')||
+   msg.contains('layanan belum tersedia.');
+}
+
 class CikokoLiveChat extends StatefulWidget{
  final CikokoApi api;
  final String? userId;
+ final int? inboxLastId;
  final String title;
- const CikokoLiveChat({super.key,required this.api,this.userId,this.title='Chat Kelurahan Cikoko'});
+ const CikokoLiveChat({super.key,required this.api,this.userId,
+   this.inboxLastId,this.title='Chat Kelurahan Cikoko'});
  @override State<CikokoLiveChat> createState()=>_CikokoLiveChatState();
 }
 class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObserver{
@@ -30,9 +42,32 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
  Future<void> reload()async{
   if(loading)return;loading=true;
   try{
-   final r=await widget.api.callWithParams('chat_v2548_thread',{
-    if(isStaff)'user_id':widget.userId!,
-   });
+   Map<String,dynamic> r;
+   try{
+    r=await widget.api.callWithParams('chat_v2548_thread',{
+     if(isStaff)'user_id':widget.userId!,
+     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId!>0)
+      'last_id':widget.inboxLastId.toString(),
+    });
+    // If the new thread PHP and the legacy inbox target different deployed
+    // implementations, a valid inbox row must never silently appear empty.
+    if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId!>0&&
+      (r['messages'] as List?)?.isEmpty==true){
+      try{
+       final old=await widget.api.callWithParams('support_admin_thread',{
+        'user_id':widget.userId!,
+       });
+       if((old['messages'] as List?)?.isNotEmpty==true)r=old;
+      }catch(_){/* Keep the primary authenticated response. */}
+    }
+   }on ApiError catch(e){
+    if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
+    r=isStaff
+      ?await widget.api.callWithParams('support_admin_thread',{
+         'user_id':widget.userId!,
+       })
+      :await widget.api.call('chat');
+   }
    final next=List<dynamic>.from(r['messages']??[])
     .whereType<Map>().map((v)=>Map<String,dynamic>.from(v)).toList();
    final previousLast=data.isEmpty?'':(data.last['id']??'').toString();
@@ -66,9 +101,23 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
   if(sending||msg.isEmpty)return;
   setState(()=>sending=true);
   try{
-   await widget.api.call('chat_v2548_send',body:{
-    'message':msg,if(isStaff)'user_id':widget.userId,
-   });
+   try{
+    await widget.api.call('chat_v2548_send',body:{
+     'message':msg,if(isStaff)'user_id':widget.userId,
+    });
+   }on ApiError catch(e){
+    // Fallback only after an explicit "not available / missing thread"
+    // response. Never retry after a timeout or ambiguous write failure,
+    // which could duplicate an already-stored message.
+    if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
+    if(isStaff){
+     await widget.api.call('chat_reply',body:{
+      'user_id':widget.userId,'message':msg,
+     });
+    }else{
+     await widget.api.call('chat_send',body:{'message':msg});
+    }
+   }
    input.clear();await reload();
   }catch(e){if(mounted)setState(()=>error='Pesan gagal dikirim: '+e.toString());}
   finally{if(mounted)setState(()=>sending=false);}
@@ -175,7 +224,13 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
      icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
    ])),
   if(error!=null)Padding(padding:const EdgeInsets.all(8),
-   child:Text(error!,style:const TextStyle(color:V6.red,fontSize:11))),
+   child:Row(children:[
+    const Icon(Icons.error_outline_rounded,color:V6.red,size:18),
+    const SizedBox(width:7),
+    Expanded(child:Text(error!,style:const TextStyle(
+     color:V6.red,fontSize:11))),
+    TextButton(onPressed:reload,child:const Text('Coba Lagi')),
+   ])),
   Expanded(child:RefreshIndicator(onRefresh:reload,
    child:ListView.builder(controller:scroll,key:const Key('cikoko_live_chat'),
     padding:const EdgeInsets.all(10),itemCount:data.isEmpty?1:data.length,
@@ -304,7 +359,9 @@ class _CikokoLiveChatInboxState extends State<CikokoLiveChatInbox>
     builder:(_)=>Scaffold(
      appBar:AppBar(title:Text(name,
        maxLines:1,overflow:TextOverflow.ellipsis)),
-     body:CikokoLiveChat(api:widget.api,userId:id,title:name),
+     body:CikokoLiveChat(api:widget.api,userId:id,title:name,
+       inboxLastId:int.tryParse(
+         (row['last_id']??row['id']??0).toString())),
     )));
   if(mounted)await refresh();
  }
