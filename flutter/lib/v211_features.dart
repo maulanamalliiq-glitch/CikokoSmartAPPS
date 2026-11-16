@@ -95,9 +95,30 @@ class _InnovationPageState extends State<InnovationPage>{
    final items=List<dynamic>.from(s.data?['items']??[]);
    return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},
     child:ListView(padding:const EdgeInsets.all(14),children:[
-     const V6PageHeader(title:'Inovasi Kelurahan',
-       description:'Program inovasi dan kegiatan pengembangan Kelurahan Cikoko.',
-       icon:Icons.auto_awesome_outlined),
+     Container(key:const Key('v2562_innovation_header'),
+       margin:const EdgeInsets.only(bottom:13),
+       padding:const EdgeInsets.fromLTRB(16,16,14,15),
+       decoration:BoxDecoration(borderRadius:V6.radius(17),
+         gradient:const LinearGradient(begin:Alignment.topLeft,
+           end:Alignment.bottomRight,
+           colors:[Color(0xFF073F94),Color(0xFF097DE8)])),
+       child:Row(children:[
+         Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           const Text('Inovasi',style:TextStyle(
+             color:Colors.white,fontSize:21,fontWeight:FontWeight.w900)),
+           const SizedBox(height:5),
+           const Text('Program inovasi Kelurahan Cikoko',
+             style:TextStyle(color:Color(0xFFF0F8FF),fontSize:11.5)),
+           const SizedBox(height:4),
+           const Text('Informasi terbaru langsung dari website resmi',
+             style:TextStyle(color:Color(0xFFD5ECFF),fontSize:10)),
+         ])),
+         Container(width:48,height:48,
+           decoration:BoxDecoration(color:const Color(0x25FFFFFF),
+             borderRadius:V6.radius(13)),
+           child:const Icon(Icons.lightbulb_outline_rounded,
+             color:Colors.white,size:28))
+       ])),
      if(s.data?['offline']==true)Padding(padding:const EdgeInsets.only(bottom:12),
        child:V6Panel(child:Row(children:[
          const Expanded(child:Text('Informasi inovasi belum dapat dimuat dari server.',
