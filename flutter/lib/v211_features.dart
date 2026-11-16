@@ -259,6 +259,30 @@ class _CivicProfileState extends State<CivicProfilePage>{
      const V6Section(title:'Pengaturan Akun'),
      V6Panel(padding:EdgeInsets.zero,
       child:Column(children:[
+       if(role=='pjlp')...[
+        ListTile(dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:const Icon(Icons.access_time_filled_rounded,color:V6.blue,size:22),
+         title:const Text('Absensi & Kinerja PJLP',style:TextStyle(
+          color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w800)),
+         subtitle:const Text('Kehadiran, shift, dan laporan kerja',
+          style:TextStyle(color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
+         onTap:()=>widget.onNavigate?.call('Absensi dan Kinerja PJLP')),
+        const Divider(height:1,indent:57,color:V6.border),
+       ],
+       if(role=='pppk')...[
+        ListTile(dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:const Icon(Icons.assessment_outlined,color:V6.blue,size:22),
+         title:const Text('Kinerja PPPK',style:TextStyle(
+          color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w800)),
+         subtitle:const Text('Laporan dan pemantauan kinerja',
+          style:TextStyle(color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
+         onTap:()=>widget.onNavigate?.call('Kinerja PPPK')),
+        const Divider(height:1,indent:57,color:V6.border),
+       ],
        for(final menu in const [
         ('Data Profil','Kelola data pribadi Anda',Icons.person_outline,'Profil'),
         ('Riwayat Pengajuan','Lihat semua pengajuan',Icons.fact_check_outlined,'Riwayat'),
