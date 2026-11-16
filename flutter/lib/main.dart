@@ -644,6 +644,7 @@ class _HomeState extends State<HomePage> {
     }
     return V6Home(role:role,guest:guest,modules:modules,
       api:api,items:items,letterCounts:letterCounts,
+      unreadCount:unreadCount,
       integratedServices:activeServices,integratedTap:_openIntegratedService,
       websiteHeroUrl:websiteHeroUrl,websiteHeroFit:websiteHeroFit,
       websiteHeroAlignment:websiteHeroAlignment,
