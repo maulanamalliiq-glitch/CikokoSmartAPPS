@@ -25,9 +25,14 @@ if($staff){
 }
 if(!$staff&&$owner!==$myId)mobile_error('Tidak diizinkan membaca percakapan lain.',403);
 if(!preg_match('/^[A-Za-z0-9_-]{2,80}$/D',$owner))mobile_error('Akun percakapan tidak valid',422);
-if($staff&&in_array($action,['chat_v2548_thread','chat_v2548_send','chat_v2548_upload'],true)){
+// A thread GET is read-only: never reject it merely because a legacy
+// inbox and standalone chat endpoint were deployed at different times.
+// The thread query itself is always scoped to exactly one authenticated owner.
+// Sending/attachment still requires an existing owner to prevent orphan chats.
+if($staff&&in_array($action,['chat_v2548_send','chat_v2548_upload'],true)){
  $check=$db->prepare('SELECT id FROM mobile_chat WHERE user_id=? LIMIT 1');
- $check->execute([$owner]);if(!$check->fetchColumn())mobile_error('Percakapan belum tersedia.',404);
+ $check->execute([$owner]);
+ if(!$check->fetchColumn())mobile_error('Percakapan warga tidak ditemukan. Perbarui inbox.',404);
 }
 $db->exec('CREATE TABLE IF NOT EXISTS mobile_chat_photos(
   message_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -71,6 +76,18 @@ function cikoko_chat_v2548_notify(PDO $db,string $owner,bool $fromStaff):void {
  }catch(Throwable $e){error_log('[Cikoko chat notification] '.$e->getMessage());}
 }
 if($action==='chat_v2548_thread'&&$method==='GET'){
+ // Optional last_id links the selected inbox row to a concrete DB message.
+ // Both selectors must resolve to the same owner; never cross user boundaries.
+ if($staff){
+  $lastId=max(0,(int)($_GET['last_id']??0));
+  if($lastId>0){
+   $verify=$db->prepare('SELECT user_id FROM mobile_chat WHERE id=? LIMIT 1');
+   $verify->execute([$lastId]);
+   $resolved=(string)($verify->fetchColumn()?:'');
+   if($resolved!==''&&!hash_equals($resolved,$owner))
+    mobile_error('ID percakapan tidak sesuai. Segarkan inbox.',409);
+  }
+ }
  $data=cikoko_chat_page($db,$owner,$staff?'admin':'warga');
  $rows=$data['messages']??[];
  $ids=array_values(array_filter(array_map(static fn($r)=>(int)$r['id'],$rows)));
