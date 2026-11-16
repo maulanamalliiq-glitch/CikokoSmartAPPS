@@ -211,31 +211,49 @@ class _CivicProfileState extends State<CivicProfilePage>{
   final hasImage=row['has_photo']==true||avatarReady;
   final role=(widget.api.profile?['role']??'warga').toString();
   return ListView(padding:const EdgeInsets.all(14),children:[
-   const V6PageHeader(title:'Profil Akun',
-     description:'Identitas dan pengaturan akun Cikoko Smart.',icon:Icons.person_outline),
-   V6Panel(child:Row(children:[
-     Stack(children:[
-      CircleAvatar(radius:30,backgroundColor:V6.pale,
+   Container(key:const Key('v2562_account_header'),
+    padding:const EdgeInsets.fromLTRB(15,16,15,17),
+    decoration:BoxDecoration(
+      borderRadius:V6.radius(18),
+      gradient:const LinearGradient(begin:Alignment.topLeft,
+        end:Alignment.bottomRight,
+        colors:[Color(0xFF063C8B),Color(0xFF0A77E8)])),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     const Text('Profil Akun',style:TextStyle(color:Color(0xFFEAF4FF),
+       fontWeight:FontWeight.w700,fontSize:11)),
+     const SizedBox(height:12),
+     Row(children:[
+      Stack(children:[
+       CircleAvatar(radius:30,backgroundColor:const Color(0x33FFFFFF),
         backgroundImage:hasImage?NetworkImage(photoUrl,
           headers:{'Authorization':'Bearer '+(widget.api.token??'')}):null,
-        child:hasImage?null:const Icon(Icons.person_outline,color:V6.blue,size:35)),
-      Positioned(right:0,bottom:0,child:InkWell(
-        onTap:uploadAvatar,
-        child:Container(width:23,height:23,decoration:BoxDecoration(
-          color:V6.blue,borderRadius:V6.radius(12)),
-          child:const Icon(Icons.camera_alt_outlined,size:14,color:Colors.white)))),
-     ]),
-     const SizedBox(width:11),
-     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        child:hasImage?null:const Icon(Icons.person_outline,
+          color:Colors.white,size:34)),
+       Positioned(right:0,bottom:0,child:Material(
+        color:Colors.white,borderRadius:V6.radius(12),
+        child:InkWell(onTap:uploadAvatar,
+         borderRadius:V6.radius(12),
+         child:const Padding(padding:EdgeInsets.all(4),
+           child:Icon(Icons.camera_alt_outlined,size:15,color:V6.blue))))),
+      ]),
+      const SizedBox(width:13),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
        Text(fields['name']!.text.isEmpty?'Pengguna Cikoko':fields['name']!.text,
-          style:const TextStyle(color:V6.ink,fontSize:15,fontWeight:FontWeight.w900)),
+         maxLines:2,overflow:TextOverflow.ellipsis,
+         style:const TextStyle(color:Colors.white,
+           fontSize:15.5,fontWeight:FontWeight.w900)),
        const SizedBox(height:4),
-       Text('Akun '+role.toUpperCase(),style:const TextStyle(
-        color:V6.secondary,fontSize:10.5,fontWeight:FontWeight.w700)),
-     ])),
-     IconButton(onPressed:()=>setState(()=>editing=!editing),
-       icon:Icon(editing?Icons.close:Icons.edit_outlined,color:V6.blue,size:21)),
-   ])),
+       Text('Akun '+role.toUpperCase(),
+         style:const TextStyle(color:Color(0xFFE0F1FF),
+           fontSize:10.5,fontWeight:FontWeight.w700)),
+      ])),
+      IconButton(
+       tooltip:editing?'Tutup edit profil':'Ubah profil',
+       onPressed:()=>setState(()=>editing=!editing),
+       icon:Icon(editing?Icons.close_rounded:Icons.edit_outlined,
+         color:Colors.white,size:22)),
+     ]),
+    ])),
    const SizedBox(height:18),
    if(!editing)...[
      const V6Section(title:'Pengaturan Akun'),
