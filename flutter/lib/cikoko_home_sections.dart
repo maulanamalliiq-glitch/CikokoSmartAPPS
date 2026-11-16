@@ -14,33 +14,41 @@ class V6LetterStatusStrip extends StatelessWidget {
   crossAxisAlignment:CrossAxisAlignment.start,children:[
    const V6Section(title:'Status Pelayanan Surat'),
    Row(children:[
-    for(final item in const [
-     ('masuk','Surat Masuk',V6.blue,Icons.markunread_mailbox_outlined),
-     ('proses','Diproses',V6.amber,Icons.timelapse_outlined),
-     ('selesai','Selesai',V6.green,Icons.check_circle_outline),
-    ])Expanded(child:Padding(
-      padding:const EdgeInsets.symmetric(horizontal:3),
-      child:Material(color:Colors.white,borderRadius:V6.radius(12),
-       child:InkWell(
-        key:Key('v6_status_'+item.$1),
-        onTap:()=>onStatus(item.$1),
-        borderRadius:V6.radius(12),
-        child:Container(
-         padding:const EdgeInsets.symmetric(horizontal:5,vertical:13),
-         decoration:BoxDecoration(border:Border.all(color:V6.border),
-           borderRadius:V6.radius(12)),
-         child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-          Icon(item.$4,size:18,color:item.$3),
-          const SizedBox(height:5),
-          Text(counts==null?'—':(counts![item.$1]??0).toString(),
-           style:TextStyle(color:item.$3,fontSize:21,fontWeight:FontWeight.w900)),
-          const SizedBox(height:2),
-          Text(item.$2,maxLines:1,textAlign:TextAlign.center,
-           overflow:TextOverflow.ellipsis,
-           style:const TextStyle(color:V6.ink,fontWeight:FontWeight.w700,fontSize:10)),
-         ]),
-        ),
-       )),
+    for(var i=0;i<3;i++)Expanded(child:Padding(
+      padding:EdgeInsets.only(left:i==0?0:4,right:i==2?0:4),
+      child:Builder(builder:(context){
+       const statuses=[
+        ('masuk','Masuk',V6.blue,Icons.description_outlined),
+        ('proses','Proses',V6.amber,Icons.schedule_rounded),
+        ('selesai','Selesai',V6.green,Icons.check_circle_rounded),
+       ];
+       final item=statuses[i];
+       return Material(color:item.$3.withValues(alpha:.10),
+        borderRadius:V6.radius(13),
+        child:InkWell(
+         key:Key('v6_status_'+item.$1),
+         onTap:()=>onStatus(item.$1),
+         borderRadius:V6.radius(13),
+         child:Container(
+          constraints:const BoxConstraints(minHeight:84),
+          padding:const EdgeInsets.symmetric(horizontal:4,vertical:11),
+          decoration:BoxDecoration(
+           border:Border.all(color:item.$3.withValues(alpha:.17)),
+           borderRadius:V6.radius(13)),
+          child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+           Icon(item.$4,size:21,color:item.$3),
+           const SizedBox(height:5),
+           Text(counts==null?'—':(counts![item.$1]??0).toString(),
+            style:TextStyle(color:item.$3,fontSize:20,
+             fontWeight:FontWeight.w900)),
+           const SizedBox(height:2),
+           Text(item.$2,maxLines:1,textAlign:TextAlign.center,
+            style:const TextStyle(color:V6.ink,fontWeight:FontWeight.w700,
+             fontSize:10.5)),
+          ]),
+         ),
+        ));
+      }),
     )),
    ]),
  ]);
