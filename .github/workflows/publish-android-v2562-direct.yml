@@ -1,0 +1,83 @@
+name: Publish Cikoko v2562 APK and AAB direct downloads
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-android-v2562-direct.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: cikoko-v2562-direct-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download latest successful signed v2562 artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          run_data=$(gh run list --workflow android-v2562.yml --branch feat/redesign-2562-navigation --status success --limit 10 --json databaseId,headSha --jq '.[0]')
+          run_id=$(printf '%s' "$run_data" | jq -r '.databaseId // empty')
+          source_sha=$(printf '%s' "$run_data" | jq -r '.headSha // empty')
+          if [[ -z "$run_id" || -z "$source_sha" ]]; then
+            echo "::error::No successful v2562 Android build found."
+            exit 1
+          fi
+          mkdir -p dist
+          gh run download "$run_id" --name CikokoSmart-v2562-APK-AAB --dir dist
+          test -s dist/CikokoSmart-v2.5.62-2562-arm64.apk
+          test -s dist/CikokoSmart-v2.5.62-2562-PLAY.aab
+          printf 'SOURCE_SHA=%s\n' "$source_sha" >> "$GITHUB_ENV"
+          printf 'SOURCE_RUN=%s\n' "$run_id" >> "$GITHUB_ENV"
+          ls -lh dist
+      - name: Check both packages are signed by the original Cikoko upload key
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=394633E6A2F4C91C150D81B228908562D230D763031A0A0C205618B9D669D4E5
+          aab=dist/CikokoSmart-v2.5.62-2562-PLAY.aab
+          apk=dist/CikokoSmart-v2.5.62-2562-arm64.apk
+          jarsigner -verify "$aab" >/tmp/cikoko-2562-aab-check.log 2>&1
+          grep -q 'jar verified' /tmp/cikoko-2562-aab-check.log
+          cert=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')
+          test "$cert" = "$expected" || { echo "::error::AAB certificate mismatch"; exit 1; }
+          tool="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$tool" verify --verbose --print-certs "$apk" >/tmp/cikoko-2562-apk-check.log
+          cert=$(grep -iE 'certificate.*SHA.?256' /tmp/cikoko-2562-apk-check.log | grep -oiE '[0-9a-f]{64}|([0-9a-f]{2}:){31}[0-9a-f]{2}' | head -n1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          test "$cert" = "$expected" || { echo "::error::APK certificate mismatch"; exit 1; }
+          echo "Both signed packages verified."
+      - name: Publish separate APK and AAB to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=v2.5.62-build2562
+          apk=dist/CikokoSmart-v2.5.62-2562-arm64.apk
+          aab=dist/CikokoSmart-v2.5.62-2562-PLAY.aab
+          cat > release-notes.md <<'NOTES'
+          Cikoko SmartAPP v2.5.62 (build 2562)
+
+          - APK arm64: ready for Android arm64 device installation.
+          - PLAY.aab: signed for upload to Google Play Console.
+          - Both packages verified with the established Cikoko upload certificate.
+          - Website/cPanel deployment is a separate step; this release only includes Android.
+          NOTES
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" "$aab" --clobber
+            gh release edit "$tag" --notes-file release-notes.md
+          else
+            gh release create "$tag" "$apk" "$aab" --target "$SOURCE_SHA" --title 'Cikoko SmartAPP v2.5.62 (2562)' --notes-file release-notes.md
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, files: [.assets[].name]}'
