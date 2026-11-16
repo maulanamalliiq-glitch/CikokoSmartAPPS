@@ -4,11 +4,22 @@ import 'package:image_picker/image_picker.dart';
 import 'api.dart';
 import 'cikoko_v6_showcase.dart';
 
+// Only fall back after the old server explicitly says a thread or API
+// is missing. Authentication and authorization errors must never fall back.
+bool cikokoLegacyChatFallbackAllowed(ApiError error){
+ final msg=error.message.toLowerCase();
+ return msg.contains('percakapan belum tersedia')||
+   msg.contains('percakapan warga tidak ditemukan')||
+   msg.contains('aksi chat tidak tersedia');
+}
+
 class CikokoLiveChat extends StatefulWidget{
  final CikokoApi api;
  final String? userId;
+ final int? inboxLastId;
  final String title;
- const CikokoLiveChat({super.key,required this.api,this.userId,this.title='Chat Kelurahan Cikoko'});
+ const CikokoLiveChat({super.key,required this.api,this.userId,
+   this.inboxLastId,this.title='Chat Kelurahan Cikoko'});
  @override State<CikokoLiveChat> createState()=>_CikokoLiveChatState();
 }
 class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObserver{
@@ -30,9 +41,31 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
  Future<void> reload()async{
   if(loading)return;loading=true;
   try{
-   final r=await widget.api.callWithParams('chat_v2548_thread',{
-    if(isStaff)'user_id':widget.userId!,
-   });
+   Map<String,dynamic> r;
+   try{
+    r=await widget.api.callWithParams('chat_v2548_thread',{
+     if(isStaff)'user_id':widget.userId!,
+     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId! > 0)
+      'last_id':widget.inboxLastId.toString(),
+    });
+    // If the new thread PHP and the legacy inbox target different deployed
+    // implementations, a valid inbox row must never silently appear empty.
+    if(isStaff&&(r['messages'] as List?)?.isEmpty==true){
+      try{
+       final old=await widget.api.callWithParams('support_admin_thread',{
+        'user_id':widget.userId!,
+       });
+       if((old['messages'] as List?)?.isNotEmpty==true)r=old;
+      }catch(_){/* Keep the primary authenticated response. */}
+    }
+   }on ApiError catch(e){
+    if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
+    r=isStaff
+      ?await widget.api.callWithParams('support_admin_thread',{
+         'user_id':widget.userId!,
+       })
+      :await widget.api.call('chat');
+   }
    final next=List<dynamic>.from(r['messages']??[])
     .whereType<Map>().map((v)=>Map<String,dynamic>.from(v)).toList();
    final previousLast=data.isEmpty?'':(data.last['id']??'').toString();
@@ -49,8 +82,16 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
       if(mounted&&scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,
        duration:const Duration(milliseconds:180),curve:Curves.easeOut);
     });
+   }else if(error!=null&&mounted){
+    // Clear a stale network error after a successful empty or unchanged poll.
+    setState(()=>error=null);
    }
-  }catch(e){if(mounted&&data.isEmpty)setState(()=>error='Percakapan belum dapat dimuat: '+e.toString());}
+  }catch(e){
+   if(mounted&&data.isEmpty)setState(()=>
+    error=isStaff&&e.toString().contains('Percakapan belum tersedia')
+      ?'Percakapan belum tersedia pada server. Buka kembali dari Pesan Masuk.'
+      :'Percakapan belum dapat dimuat: '+e.toString());
+  }
   finally{loading=false;}
  }
  Future<void> send()async{
@@ -58,9 +99,23 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
   if(sending||msg.isEmpty)return;
   setState(()=>sending=true);
   try{
-   await widget.api.call('chat_v2548_send',body:{
-    'message':msg,if(isStaff)'user_id':widget.userId,
-   });
+   try{
+    await widget.api.call('chat_v2548_send',body:{
+     'message':msg,if(isStaff)'user_id':widget.userId,
+    });
+   }on ApiError catch(e){
+    // Fallback only after an explicit "not available / missing thread"
+    // response. Never retry after a timeout or ambiguous write failure,
+    // which could duplicate an already-stored message.
+    if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
+    if(isStaff){
+     await widget.api.call('chat_reply',body:{
+      'user_id':widget.userId,'message':msg,
+     });
+    }else{
+     await widget.api.call('chat_send',body:{'message':msg});
+    }
+   }
    input.clear();await reload();
   }catch(e){if(mounted)setState(()=>error='Pesan gagal dikirim: '+e.toString());}
   finally{if(mounted)setState(()=>sending=false);}
@@ -141,22 +196,49 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
   ));
  }
  @override Widget build(BuildContext context)=>Column(children:[
-  Container(color:Colors.white,padding:const EdgeInsets.all(13),
+  Container(key:const Key('v2562_chat_header'),
+   margin:const EdgeInsets.fromLTRB(12,12,12,8),
+   padding:const EdgeInsets.symmetric(horizontal:14,vertical:13),
+   decoration:BoxDecoration(
+    borderRadius:V6.radius(16),
+    gradient:const LinearGradient(
+     colors:[Color(0xFF06439B),Color(0xFF0A7DE8)],
+     begin:Alignment.topLeft,end:Alignment.bottomRight)),
    child:Row(children:[
-    const Icon(Icons.chat_bubble_outline,color:V6.blue),
-    const SizedBox(width:8),
-    Expanded(child:Text(widget.title,style:const TextStyle(color:V6.ink,
-     fontWeight:FontWeight.w900,fontSize:13))),
-    IconButton(onPressed:reload,icon:const Icon(Icons.refresh,color:V6.blue)),
+    Container(width:39,height:39,
+     decoration:BoxDecoration(color:const Color(0x28FFFFFF),
+       borderRadius:V6.radius(12)),
+     child:const Icon(Icons.chat_bubble_outline_rounded,color:Colors.white,size:21)),
+    const SizedBox(width:10),
+    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text(widget.title,style:const TextStyle(color:Colors.white,
+      fontWeight:FontWeight.w900,fontSize:15)),
+     const SizedBox(height:3),
+     const Text('Komunikasi langsung dengan petugas kelurahan',
+      maxLines:2,overflow:TextOverflow.ellipsis,
+      style:TextStyle(color:Color(0xFFE7F4FF),fontSize:10.3)),
+    ])),
+    IconButton(onPressed:reload,tooltip:'Muat ulang chat',
+     icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
    ])),
   if(error!=null)Padding(padding:const EdgeInsets.all(8),
-   child:Text(error!,style:const TextStyle(color:V6.red,fontSize:11))),
+   child:Row(children:[
+    const Icon(Icons.error_outline_rounded,color:V6.red,size:18),
+    const SizedBox(width:7),
+    Expanded(child:Text(error!,style:const TextStyle(
+     color:V6.red,fontSize:11))),
+    TextButton(onPressed:reload,child:const Text('Coba Lagi')),
+   ])),
   Expanded(child:RefreshIndicator(onRefresh:reload,
    child:ListView.builder(controller:scroll,key:const Key('cikoko_live_chat'),
     padding:const EdgeInsets.all(10),itemCount:data.isEmpty?1:data.length,
     itemBuilder:(c,i)=>data.isEmpty?
-      const Padding(padding:EdgeInsets.all(18),
-       child:Center(child:Text('Belum ada pesan. Tulis untuk memulai percakapan.'))):
+      Padding(padding:const EdgeInsets.all(18),
+       child:Center(child:Text(
+        error!=null?'Pesan belum dapat ditampilkan. Coba muat ulang.':
+        'Belum ada pesan. Tulis untuk memulai percakapan.',
+        textAlign:TextAlign.center,
+        style:const TextStyle(color:V6.secondary,fontSize:12)))):
       bubble(data[i])))),
   SafeArea(top:false,child:Container(color:Colors.white,
    padding:const EdgeInsets.symmetric(horizontal:6,vertical:8),
@@ -176,49 +258,261 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
  ]);
 }
 
+/// Canonical account ID is the only safe thread identity. A display name can
+/// belong to multiple accounts; merging by name would expose private messages.
+List<Map<String,dynamic>> cikokoDistinctChatThreads(Iterable<dynamic> incoming){
+ final latest=<String,Map<String,dynamic>>{};
+ for(final item in incoming){
+  if(item is! Map)continue;
+  final row=Map<String,dynamic>.from(item);
+  final owner=(row['user_id']??'').toString().trim();
+  if(owner.isEmpty)continue;
+  final id=int.tryParse((row['last_id']??row['id']??0).toString())??0;
+  final existing=latest[owner];
+  final oldId=existing==null? -1:
+    (int.tryParse((existing['last_id']??existing['id']??0).toString())??0);
+  if(existing==null||id>oldId)latest[owner]=row;
+ }
+ final rows=latest.values.toList();
+ rows.sort((a,b){
+  final ai=int.tryParse((a['last_id']??a['id']??0).toString())??0;
+  final bi=int.tryParse((b['last_id']??b['id']??0).toString())??0;
+  return bi.compareTo(ai);
+ });
+ return rows;
+}
+int cikokoChatUnreadCount(Map<String,dynamic> row){
+ final count=int.tryParse((row['unread_count']??0).toString())??0;
+ return count<0?0:(count>99999?99999:count);
+}
+
 class CikokoLiveChatInbox extends StatefulWidget{
  final CikokoApi api;
- const CikokoLiveChatInbox({super.key,required this.api});
+ final ValueChanged<int>? onUnreadChanged;
+ const CikokoLiveChatInbox({super.key,required this.api,this.onUnreadChanged});
  @override State<CikokoLiveChatInbox> createState()=>_CikokoLiveChatInboxState();
 }
-class _CikokoLiveChatInboxState extends State<CikokoLiveChatInbox> with WidgetsBindingObserver{
+class _CikokoLiveChatInboxState extends State<CikokoLiveChatInbox>
+    with WidgetsBindingObserver{
+ final search=TextEditingController();
  List<Map<String,dynamic>> threads=[];
- Timer?timer;bool foreground=true,loading=false;
+ Timer? timer;
+ bool foreground=true,loading=false;
+ int unreadTotal=0;
  String? error;
- @override void initState(){super.initState();WidgetsBinding.instance.addObserver(this);
-  refresh();timer=Timer.periodic(const Duration(seconds:4),(_){if(foreground)refresh();});}
- @override void didChangeAppLifecycleState(AppLifecycleState s){
-  foreground=s==AppLifecycleState.resumed;if(foreground)refresh();}
- @override void dispose(){timer?.cancel();WidgetsBinding.instance.removeObserver(this);super.dispose();}
+
+ @override void initState(){
+  super.initState();
+  WidgetsBinding.instance.addObserver(this);
+  refresh();
+  timer=Timer.periodic(const Duration(seconds:4),(_){
+   if(foreground)refresh();
+  });
+ }
+ @override void didChangeAppLifecycleState(AppLifecycleState state){
+  foreground=state==AppLifecycleState.resumed;
+  if(foreground)refresh();
+ }
+ @override void dispose(){
+  timer?.cancel();search.dispose();
+  WidgetsBinding.instance.removeObserver(this);
+  super.dispose();
+ }
  Future<void> refresh()async{
-  if(loading)return;loading=true;
+  if(loading)return;
+  loading=true;
   try{
-   final r=await widget.api.call('chat_threads');
-   final next=List<dynamic>.from(r['threads']??[])
-    .whereType<Map>().map((x)=>Map<String,dynamic>.from(x)).toList();
-   if(mounted)setState((){threads=next;error=null;});
-  }catch(e){if(mounted)setState(()=>error='Percakapan belum dimuat: '+e.toString());}
-  finally{loading=false;}
+   Map<String,dynamic> response;
+   try{
+    // Canonical v2563 inbox lives beside the chat thread endpoint, with the
+    // same database, identity and permission checks.
+    response=await widget.api.call('chat_v2548_threads');
+   }catch(_){
+    // Rolling cPanel deployments may still have the previous index API.
+    // Normalize the legacy response without ever merging different accounts.
+    response=await widget.api.call('chat_threads');
+   }
+   final next=cikokoDistinctChatThreads(
+     List<dynamic>.from(response['threads']??[]));
+   final total=next.fold<int>(0,
+     (value,row)=>value+cikokoChatUnreadCount(row));
+   if(!mounted)return;
+   final notify=total!=unreadTotal;
+   setState((){
+    threads=next;
+    unreadTotal=total;
+    error=null;
+   });
+   if(notify)widget.onUnreadChanged?.call(total);
+  }catch(e){
+   if(mounted)setState(()=>
+     error='Inbox belum dapat dimuat. Periksa koneksi atau API chat.');
+  }finally{loading=false;}
  }
  Future<void> open(Map<String,dynamic> row)async{
-  final id=(row['user_id']??'').toString();
+  final id=(row['user_id']??'').toString().trim();
   if(id.isEmpty)return;
-  await Navigator.of(context).push(MaterialPageRoute<void>(builder:(_)=>Scaffold(
-   appBar:AppBar(title:const Text('Chat Warga')),
-   body:CikokoLiveChat(api:widget.api,userId:id,title:(row['name']??'Warga').toString()))));
-  await refresh();
+  final name=(row['name']??'Warga Cikoko').toString();
+  await Navigator.of(context).push(MaterialPageRoute<void>(
+    builder:(_)=>Scaffold(
+     appBar:AppBar(title:Text(name,
+       maxLines:1,overflow:TextOverflow.ellipsis)),
+     body:CikokoLiveChat(api:widget.api,userId:id,title:name,
+       inboxLastId:int.tryParse(
+         (row['last_id']??row['id']??0).toString())),
+    )));
+  if(mounted)await refresh();
  }
- @override Widget build(BuildContext c)=>RefreshIndicator(onRefresh:refresh,
-  child:ListView(key:const Key('cikoko_live_chat_inbox'),children:[
-   if(error!=null)Padding(padding:const EdgeInsets.all(12),
-    child:Text(error!,style:const TextStyle(color:V6.red))),
-   for(final row in threads)ListTile(
-    leading:const CircleAvatar(child:Icon(Icons.person_outline)),
-    title:Text((row['name']??'Warga').toString()),
-    subtitle:Text((row['message']??'').toString(),
-      maxLines:1,overflow:TextOverflow.ellipsis),
-    trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue),
-    onTap:()=>open(row)),
-   if(threads.isEmpty)const ListTile(title:Text('Belum ada pesan masuk.')),
-  ]));
+ String shortAccount(String id){
+  if(id.length<=11)return id;
+  return id.substring(0,5)+'…'+id.substring(id.length-4);
+ }
+ String shortTime(String raw){
+  if(raw.isEmpty)return '';
+  final parsed=DateTime.tryParse(raw.replaceFirst(' ','T'));
+  if(parsed==null)return raw.length>=16?raw.substring(11,16):raw;
+  final now=DateTime.now();
+  if(now.year==parsed.year&&now.month==parsed.month&&now.day==parsed.day){
+   return parsed.hour.toString().padLeft(2,'0')+':'+
+     parsed.minute.toString().padLeft(2,'0');
+  }
+  return parsed.day.toString().padLeft(2,'0')+'/'+
+    parsed.month.toString().padLeft(2,'0');
+ }
+ @override Widget build(BuildContext context){
+  final term=search.text.trim().toLowerCase();
+  final visible=threads.where((row){
+   if(term.isEmpty)return true;
+   return ['name','user_id','message'].any(
+     (k)=>(row[k]??'').toString().toLowerCase().contains(term));
+  }).toList();
+
+  return Column(children:[
+   Container(
+    key:const Key('cikoko_admin_inbox_header'),
+    margin:const EdgeInsets.fromLTRB(12,12,12,10),
+    padding:const EdgeInsets.symmetric(horizontal:15,vertical:14),
+    decoration:BoxDecoration(
+     borderRadius:V6.radius(15),
+     gradient:const LinearGradient(
+      colors:[Color(0xFF063D92),Color(0xFF107BEF)],
+      begin:Alignment.topLeft,end:Alignment.bottomRight)),
+    child:Row(children:[
+     Container(width:41,height:41,alignment:Alignment.center,
+      decoration:BoxDecoration(
+       color:const Color(0x25FFFFFF),borderRadius:V6.radius(12)),
+      child:const Icon(Icons.forum_outlined,
+       size:24,color:Colors.white)),
+     const SizedBox(width:11),
+     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Text('Pesan Masuk',style:TextStyle(
+       fontSize:16,color:Colors.white,fontWeight:FontWeight.w900)),
+      const SizedBox(height:3),
+      Text(threads.length.toString()+' percakapan · '+
+       unreadTotal.toString()+' pesan belum dibaca',
+       maxLines:2,overflow:TextOverflow.ellipsis,
+       style:const TextStyle(fontSize:10.5,color:Color(0xFFE8F5FF))),
+     ])),
+     IconButton(
+      tooltip:'Segarkan inbox',onPressed:refresh,
+      icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
+    ])),
+   Padding(padding:const EdgeInsets.fromLTRB(13,0,13,8),
+    child:TextField(
+     key:const Key('cikoko_admin_inbox_search'),
+     controller:search,
+     onChanged:(_)=>setState((){}),
+     decoration:InputDecoration(
+      hintText:'Cari nama, akun, atau isi pesan',
+      prefixIcon:const Icon(Icons.search_rounded,color:V6.blue),
+      suffixIcon:search.text.isEmpty?null:IconButton(
+       tooltip:'Hapus pencarian',
+       onPressed:(){search.clear();setState((){});},
+       icon:const Icon(Icons.close_rounded,color:V6.secondary)),
+     ))),
+   if(error!=null)Padding(
+    padding:const EdgeInsets.symmetric(horizontal:13,vertical:7),
+    child:Row(children:[
+     const Icon(Icons.error_outline_rounded,color:V6.red,size:18),
+     const SizedBox(width:8),
+     Expanded(child:Text(error!,style:const TextStyle(
+      color:V6.red,fontSize:11.5))),
+     TextButton(onPressed:refresh,child:const Text('Coba Lagi')),
+    ])),
+   Expanded(child:RefreshIndicator(onRefresh:refresh,
+    child:ListView.builder(
+     key:const Key('cikoko_live_chat_inbox'),
+     physics:const AlwaysScrollableScrollPhysics(),
+     padding:const EdgeInsets.fromLTRB(12,2,12,18),
+     itemCount:visible.isEmpty?1:visible.length,
+     itemBuilder:(ctx,i){
+      if(visible.isEmpty)return Padding(
+       padding:const EdgeInsets.symmetric(vertical:38,horizontal:15),
+       child:Center(child:Text(
+        error!=null?'Belum dapat menampilkan percakapan':
+         term.isNotEmpty?'Tidak ada percakapan yang sesuai':
+         'Belum ada pesan masuk',
+        textAlign:TextAlign.center,
+        style:const TextStyle(color:V6.secondary,fontSize:12))));
+      final row=visible[i];
+      final owner=(row['user_id']??'').toString();
+      final name=(row['name']??'Warga Cikoko').toString().trim();
+      final last=(row['message']??'').toString().trim();
+      final fromStaff=(row['sender']??'').toString()=='admin';
+      final unread=cikokoChatUnreadCount(row);
+      final initial=name.isEmpty?'W':name.substring(0,1).toUpperCase();
+      return Padding(padding:const EdgeInsets.only(bottom:7),
+       child:Material(color:Colors.white,
+        shape:RoundedRectangleBorder(
+         side:BorderSide(color:unread>0?
+           const Color(0xFFB9D8FF):V6.border),
+         borderRadius:V6.radius(13)),
+        child:InkWell(
+         key:Key('cikoko_inbox_thread_'+owner),
+         onTap:()=>open(row),borderRadius:V6.radius(13),
+         child:Padding(padding:const EdgeInsets.all(11),
+          child:Row(children:[
+           CircleAvatar(radius:23,backgroundColor:V6.pale,
+            child:Text(initial,style:const TextStyle(
+             color:V6.blue,fontWeight:FontWeight.w900,fontSize:17))),
+           const SizedBox(width:11),
+           Expanded(child:Column(
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+             Row(children:[
+              Expanded(child:Text(name.isEmpty?'Warga Cikoko':name,
+               maxLines:1,overflow:TextOverflow.ellipsis,
+               style:TextStyle(color:V6.ink,fontSize:13,
+                fontWeight:unread>0?FontWeight.w900:FontWeight.w700))),
+              Text(shortTime((row['created_at']??'').toString()),
+               style:const TextStyle(color:V6.secondary,fontSize:10)),
+             ]),
+             const SizedBox(height:3),
+             Text((fromStaff?'Anda: ':'')+(last.isEmpty?'📷 Foto':last),
+              maxLines:1,overflow:TextOverflow.ellipsis,
+              style:TextStyle(color:unread>0?V6.ink:V6.secondary,
+               fontSize:11.5,fontWeight:unread>0?
+                FontWeight.w700:FontWeight.w400)),
+             const SizedBox(height:4),
+             Text('ID akun: '+shortAccount(owner),
+              maxLines:1,overflow:TextOverflow.ellipsis,
+              style:const TextStyle(fontSize:9.5,color:V6.secondary)),
+            ])),
+           const SizedBox(width:8),
+           if(unread>0)Container(
+            constraints:const BoxConstraints(minWidth:23,minHeight:23),
+            alignment:Alignment.center,
+            padding:const EdgeInsets.symmetric(horizontal:5,vertical:2),
+            decoration:BoxDecoration(color:V6.blue,
+             borderRadius:V6.radius(14)),
+            child:Text(unread>99?'99+':unread.toString(),
+             style:const TextStyle(color:Colors.white,
+              fontSize:10,fontWeight:FontWeight.w900))),
+           const Icon(Icons.chevron_right_rounded,
+            color:V6.secondary,size:18),
+          ])),
+        )));
+     },
+    ))),
+  ]);
+ }
 }

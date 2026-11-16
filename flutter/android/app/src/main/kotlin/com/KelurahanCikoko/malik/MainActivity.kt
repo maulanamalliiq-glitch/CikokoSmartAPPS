@@ -1,5 +1,59 @@
 package com.KelurahanCikoko.malik
 
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
-class MainActivity: FlutterActivity()
+class MainActivity : FlutterActivity() {
+    private val pdfChannel = "cikoko/pdf_downloads"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, pdfChannel).setMethodCallHandler { call, result ->
+            if (call.method != "savePdfToDownloads") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    result.error("UNSUPPORTED_ANDROID", "Penyimpanan otomatis memerlukan Android 10 atau lebih baru", null)
+                    return@setMethodCallHandler
+                }
+                val bytes = call.argument<ByteArray>("bytes")
+                    ?: throw IllegalArgumentException("Data PDF tidak tersedia")
+                val requestedName = call.argument<String>("name") ?: "Kinerja-PPPK.pdf"
+                val safeName = requestedName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                    .let { if (it.endsWith(".pdf", true)) it else "$it.pdf" }
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, safeName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val resolver = contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("Tidak dapat membuat berkas di folder Download")
+                try {
+                    resolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(bytes)
+                        stream.flush()
+                    } ?: throw IllegalStateException("Tidak dapat menulis PDF")
+                    val completed = ContentValues().apply {
+                        put(MediaStore.Downloads.IS_PENDING, 0)
+                    }
+                    resolver.update(uri, completed, null, null)
+                    result.success(uri.toString())
+                } catch (error: Exception) {
+                    resolver.delete(uri, null, null)
+                    throw error
+                }
+            } catch (error: Exception) {
+                result.error("SAVE_PDF_FAILED", error.message ?: "Gagal menyimpan PDF", null)
+            }
+        }
+    }
+}

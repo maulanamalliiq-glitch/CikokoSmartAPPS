@@ -1,4 +1,6 @@
 import 'package:cikoko/cikoko_admin_content_hub.dart';
+import 'package:cikoko/cikoko_header_editor.dart';
+import 'package:cikoko/api.dart';
 import 'package:cikoko/role_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,15 +26,26 @@ void main(){
  });
  testWidgets('Admin page hub provides actual CMS editor destinations',(tester)async{
    await tester.pumpWidget(MaterialApp(home:Scaffold(
-    body:CikokoAdminContentHub(role:'admin',openInApp:(_){ }))));
+    body:CikokoAdminContentHub(api:CikokoApi(),role:'admin',openInApp:(_){ }))));
    expect(find.text('Kelola Semua Halaman'),findsOneWidget);
-   expect(find.text('Beranda Aplikasi'),findsOneWidget);
+   expect(find.text('Ganti Foto Header'),findsOneWidget);
    expect(find.byKey(const Key('cms_beranda-aplikasi')),findsOneWidget);
    expect(find.text('Tampilan Website'),findsOneWidget);
  });
+ testWidgets('Header editor opens natively without browser',(tester)async{
+   await tester.pumpWidget(MaterialApp(home:Scaffold(
+     body:CikokoAdminContentHub(api:_FakeCmsApi(),
+       role:'admin',openInApp:(_){ }))));
+   await tester.ensureVisible(find.byKey(const Key('cms_beranda-aplikasi')));
+   await tester.pumpAndSettle();
+   await tester.tap(find.byKey(const Key('cms_beranda-aplikasi')));
+   await tester.pumpAndSettle();
+   expect(find.byType(CikokoHomeSlidesEditor),findsOneWidget);
+   expect(find.text('Ganti Foto Header'),findsWidgets);
+ });
  testWidgets('Non-administrator does not receive editor controls',(tester)async{
    await tester.pumpWidget(MaterialApp(home:Scaffold(
-    body:CikokoAdminContentHub(role:'warga',openInApp:(_){ }))));
+    body:CikokoAdminContentHub(api:CikokoApi(),role:'warga',openInApp:(_){ }))));
    expect(find.text('Pengaturan halaman hanya tersedia untuk administrator.'),findsOneWidget);
    expect(find.byKey(const Key('cms_beranda-aplikasi')),findsNothing);
  });
@@ -44,4 +57,13 @@ void main(){
    expect(modules.any((m)=>m.route=='Kelola Semua Halaman'),isTrue);
   }
  });
+}
+
+class _FakeCmsApi extends CikokoApi {
+  @override
+  Future<Map<String,dynamic>> call(String action,
+      {Map<String,dynamic>? body,bool authorized=false}) async {
+    if(action=='home_slides')return {'ok':true,'slides':[]};
+    return {'ok':true};
+  }
 }
