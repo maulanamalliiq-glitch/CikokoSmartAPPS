@@ -257,23 +257,35 @@ class _CivicProfileState extends State<CivicProfilePage>{
    const SizedBox(height:18),
    if(!editing)...[
      const V6Section(title:'Pengaturan Akun'),
-     for(final menu in const [
-       ('Data Profil','Kelola data pribadi Anda',Icons.person_outline,'Profil'),
-       ('Riwayat Pengajuan','Lihat semua pengajuan',Icons.fact_check_outlined,'Riwayat'),
-       ('Notifikasi','Pemberitahuan aktivitas aplikasi',Icons.notifications_none,'Notifikasi'),
-       ('Tentang Kami','Informasi Kelurahan Cikoko',Icons.info_outline,'Tentang Kami'),
-       ('Bantuan & FAQ','Hubungi petugas kelurahan',Icons.help_outline,'Hubungi Kami'),
-     ])Padding(padding:const EdgeInsets.only(bottom:8),
-       child:V6Panel(padding:EdgeInsets.zero,child:ListTile(
-         leading:Icon(menu.$3,color:V6.blue,size:22),
+     V6Panel(padding:EdgeInsets.zero,
+      child:Column(children:[
+       for(final menu in const [
+        ('Data Profil','Kelola data pribadi Anda',Icons.person_outline,'Profil'),
+        ('Riwayat Pengajuan','Lihat semua pengajuan',Icons.fact_check_outlined,'Riwayat'),
+        ('Notifikasi','Pemberitahuan aktivitas aplikasi',Icons.notifications_none,'Notifikasi'),
+        ('Tentang Kami','Informasi Kelurahan Cikoko',Icons.info_outline,'Tentang Kami'),
+        ('Bantuan & FAQ','Hubungi petugas kelurahan',Icons.help_outline,'Hubungi Kami'),
+       ])...[
+        ListTile(
+         dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:Container(
+          width:35,height:35,alignment:Alignment.center,
+          decoration:BoxDecoration(color:V6.pale,
+           borderRadius:V6.radius(10)),
+          child:Icon(menu.$3,color:V6.blue,size:20)),
          title:Text(menu.$1,style:const TextStyle(color:V6.ink,
           fontSize:12.3,fontWeight:FontWeight.w800)),
          subtitle:Text(menu.$2,style:const TextStyle(
-          color:V6.secondary,fontSize:10.5)),
-         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:19),
+          color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
          onTap:menu.$4=='Profil'?()=>setState(()=>editing=true):
            ()=>widget.onNavigate?.call(menu.$4),
-       ))),
+        ),
+        if(menu.$4!='Hubungi Kami')
+         const Divider(height:1,indent:57,color:V6.border),
+       ],
+      ])),
      if(widget.onLogout!=null)Padding(padding:const EdgeInsets.only(top:7),
        child:OutlinedButton.icon(
          onPressed:()async{
