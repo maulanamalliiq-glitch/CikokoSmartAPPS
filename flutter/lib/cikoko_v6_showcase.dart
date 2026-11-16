@@ -109,7 +109,7 @@ class V6BottomNavigation extends StatelessWidget {
  final int selected; final ValueChanged<int> onSelected;
  const V6BottomNavigation({super.key,required this.selected,required this.onSelected});
  @override Widget build(BuildContext context) {
-  // Beranda remains precisely centered as previously requested; About is a real fifth page.
+  // The five v2562 destinations are fixed; Beranda stays centered and prominent.
   const tabs=[
    ('Layanan',Icons.widgets_outlined,Icons.widgets_rounded),
    ('Inovasi',Icons.auto_awesome_outlined,Icons.auto_awesome_rounded),
@@ -118,7 +118,7 @@ class V6BottomNavigation extends StatelessWidget {
    ('Akun',Icons.person_outline,Icons.person_rounded),
   ];
   return SafeArea(top:false,child:Container(
-    height:67,
+    height:70,
     decoration:const BoxDecoration(color:Colors.white,border:Border(top:BorderSide(color:V6.border)),
       boxShadow:[BoxShadow(color:Color(0x0A0C2455),blurRadius:12,offset:Offset(0,-3))]),
     child:Row(children:[
@@ -126,14 +126,14 @@ class V6BottomNavigation extends StatelessWidget {
       key:Key('v6_nav_$i'),onTap:()=>onSelected(i),
       child:Semantics(selected:i==selected,label:tabs[i].$1,button:true,
        child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-        Container(width:i==2?48:43,height:i==2?39:32,
+        Container(width:i==2?54:43,height:i==2?42:32,
          decoration:BoxDecoration(
            color:i==2?V6.blue:(selected==i?V6.pale:Colors.transparent),
-           borderRadius:V6.radius(i==2?16:12),
+           borderRadius:V6.radius(i==2?21:12),
            boxShadow:i==2?const [BoxShadow(color:Color(0x330B65C2),blurRadius:10,offset:Offset(0,3))]:null),
          alignment:Alignment.center,
          child:Icon(selected==i?tabs[i].$3:tabs[i].$2,
-           size:i==2?25:21,color:i==2?Colors.white:(selected==i?V6.blue:V6.secondary))),
+           size:i==2?26:21,color:i==2?Colors.white:(selected==i?V6.blue:V6.secondary))),
         const SizedBox(height:4),
         Text(tabs[i].$1,maxLines:1,overflow:TextOverflow.ellipsis,
           style:TextStyle(fontSize:i==2?11.5:(i==4?9:10.2),
