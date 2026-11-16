@@ -7,6 +7,19 @@ require __DIR__.'/bootstrap.php';
 require __DIR__.'/permissions.php';
 require_once __DIR__.'/chat_storage_2544.php';
 require_once __DIR__.'/chat_runtime_2566.php';
+// Fatal runtime/SQL errors must have a traceable code, never raw SQL or a
+// silent non-JSON 500. cPanel PHP error_log contains details for admin only.
+set_exception_handler(static function(Throwable $e):void{
+ $trace=bin2hex(random_bytes(4));
+ error_log('[Cikoko CHAT_RUNTIME '.$trace.'] '.$e->getMessage());
+ http_response_code(503);
+ header('Content-Type: application/json; charset=utf-8');
+ echo json_encode([
+  'ok'=>false,'error'=>'Layanan chat tidak siap di server. Kode: CHAT_RUNTIME_'.$trace,
+  'error_code'=>'CHAT_RUNTIME'
+ ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+});
+
 $action=(string)($_GET['action']??'');
 $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
 if($action==='chat_v2548_status'){
