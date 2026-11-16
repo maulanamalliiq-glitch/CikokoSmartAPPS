@@ -489,15 +489,30 @@ class V6AdminHome extends StatelessWidget {
    ('Pengumuman','Tambah Pengumuman',Icons.campaign_outlined),
   ];
   return ListView(padding:const EdgeInsets.fromLTRB(14,12,14,32),children:[
-   Container(padding:const EdgeInsets.all(15),
+   Container(
+    key:const Key('v2562_admin_header'),
+    padding:const EdgeInsets.fromLTRB(16,17,16,17),
     decoration:BoxDecoration(
-      borderRadius:V6.radius(14),gradient:const LinearGradient(
-       colors:[Color(0xFFEAF5FF),Color(0xFFD7EBFF)]),
-      border:Border.all(color:V6.border)),
-    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('Dashboard Admin',style:TextStyle(fontSize:20,color:V6.ink,fontWeight:FontWeight.w900)),
-      const SizedBox(height:5),
-      Text('Selamat datang · $roleName',style:const TextStyle(fontSize:11.4,color:V6.secondary)),
+      borderRadius:V6.radius(17),
+      gradient:const LinearGradient(
+       begin:Alignment.topLeft,end:Alignment.bottomRight,
+       colors:[Color(0xFF063C90),Color(0xFF0879ED)])),
+    child:Row(children:[
+     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       const Text('Dashboard Admin',style:TextStyle(
+         fontSize:19,color:Colors.white,fontWeight:FontWeight.w900)),
+       const SizedBox(height:5),
+       Text('Selamat datang · '+roleName,
+         style:const TextStyle(fontSize:11.5,color:Color(0xFFE4F2FF))),
+       const SizedBox(height:4),
+       const Text('Kelola layanan dan aktivitas Kelurahan Cikoko',
+         style:TextStyle(fontSize:10,color:Color(0xFFE4F2FF))),
+     ])),
+     Container(width:47,height:47,
+       decoration:BoxDecoration(color:const Color(0x22FFFFFF),
+         borderRadius:V6.radius(13)),
+       child:const Icon(Icons.admin_panel_settings_outlined,
+         color:Colors.white,size:27)),
     ])),
    const SizedBox(height:17),
    const V6Section(title:'Ringkasan Pelayanan'),
