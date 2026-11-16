@@ -408,10 +408,11 @@ class _HomeState extends State<HomePage> {
       else if(route=='Kelola Layanan Terpadu')nav=1;
       else if(route=='Verifikasi Laporan')nav=3;
       else if(route=='Profil')nav=4;
-      else if(route=='Layanan Online')nav=1;
+      else if(route=='Layanan Online')nav=0;
+      else if(route=='Inovasi')nav=1;
       else if(route=='Dashboard')nav=2;
-      else if(route=='Berita & Kegiatan')nav=3;
-      else if(route=='Tentang Kami')nav=4;
+      else if(route=='Hubungi Kami')nav=3;
+      else if(route=='Profil')nav=4;
     });
   }
   void selectNav(int index){
@@ -425,11 +426,11 @@ class _HomeState extends State<HomePage> {
       }
     }
     switch(index){
-      case 0: switchTo('Laporan Terpadu');break;
-      case 1: switchTo('Layanan Online');break;
+      case 0: switchTo('Layanan Online');break;
+      case 1: switchTo('Inovasi');break;
       case 2: switchTo('Dashboard');break;
-      case 3: switchTo('Berita & Kegiatan');break;
-      case 4: switchTo('Tentang Kami');break;
+      case 3: switchTo('Hubungi Kami');break;
+      case 4: switchTo('Profil');break;
     }
   }
   IconData iconFor(String s)=>switch(s){
