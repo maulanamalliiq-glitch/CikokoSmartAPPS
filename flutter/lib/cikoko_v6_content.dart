@@ -5,8 +5,12 @@ import 'cikoko_kelurahan_profile.dart';
 import 'role_catalog.dart';
 
 class V6ServicesPage extends StatefulWidget{
- final bool guest; final void Function(String) onOpen;
- const V6ServicesPage({super.key,required this.guest,required this.onOpen});
+ final bool guest;
+ final void Function(String) onOpen;
+ final List<Map<String,dynamic>> integratedServices;
+ final ValueChanged<Map<String,dynamic>>? onIntegratedOpen;
+ const V6ServicesPage({super.key,required this.guest,required this.onOpen,
+   this.integratedServices=const [],this.onIntegratedOpen});
  @override State<V6ServicesPage> createState()=>_V6ServicesState();
 }
 class _V6ServicesState extends State<V6ServicesPage>{
@@ -21,45 +25,135 @@ class _V6ServicesState extends State<V6ServicesPage>{
  ];
  @override Widget build(BuildContext context){
   final filtered=services.where((s)=>
-    (category=='Semua'||category==s.$3) &&
-    ((s.$1+' '+s.$2).toLowerCase().contains(query.toLowerCase()))).toList();
-  return ListView(key:const Key('v6_services'),padding:const EdgeInsets.all(14),children:[
-    const V6PageHeader(title:'Layanan Online',description:'Pilih pelayanan sesuai kebutuhan warga.',icon:Icons.widgets_outlined),
-    TextField(onChanged:(v)=>setState(()=>query=v),
-     decoration:const InputDecoration(hintText:'Cari layanan…',
-       prefixIcon:Icon(Icons.search,color:V6.blue))),
-    const SizedBox(height:10),
-    Wrap(spacing:7,runSpacing:7,children:[
+    (category=='Semua'||category==s.$3)&&
+    (s.$1+' '+s.$2).toLowerCase().contains(query.trim().toLowerCase())).toList();
+  final integrated=widget.integratedServices.where((row)=>
+    row['active']!=false&&
+    (category=='Semua'||category=='Lainnya')&&
+    (row['title']??'').toString().toLowerCase()
+       .contains(query.trim().toLowerCase())).toList();
+  return ListView(key:const Key('v6_services'),
+   padding:const EdgeInsets.fromLTRB(13,12,13,28),children:[
+    Container(key:const Key('v2562_services_header'),
+     padding:const EdgeInsets.fromLTRB(16,16,15,17),
+     decoration:BoxDecoration(borderRadius:V6.radius(17),
+      gradient:const LinearGradient(
+       colors:[Color(0xFF063D94),Color(0xFF0975E8)],
+       begin:Alignment.topLeft,end:Alignment.bottomRight)),
+     child:Row(children:[
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       const Text('Layanan',style:TextStyle(
+        color:Colors.white,fontSize:21,fontWeight:FontWeight.w900)),
+       const SizedBox(height:5),
+       const Text('Layanan digital Kelurahan Cikoko',
+        style:TextStyle(color:Color(0xFFEAF4FF),fontSize:11.5)),
+       const SizedBox(height:7),
+       Text(widget.guest?'Masuk untuk mengajukan surat':'Pilih layanan sesuai kebutuhan',
+        style:const TextStyle(color:Color(0xFFDDEEFF),fontSize:10.5)),
+      ])),
+      const SizedBox(width:8),
+      Container(width:51,height:51,decoration:BoxDecoration(
+       color:const Color(0x25FFFFFF),borderRadius:V6.radius(15)),
+       child:const Icon(Icons.assignment_turned_in_outlined,
+        color:Colors.white,size:30))
+     ])),
+    const SizedBox(height:13),
+    TextField(
+     key:const Key('v2562_service_search'),
+     onChanged:(v)=>setState(()=>query=v),
+     style:const TextStyle(color:V6.ink,fontSize:13),
+     decoration:InputDecoration(
+      hintText:'Cari layanan (surat, laporan, dll)',
+      hintStyle:const TextStyle(color:V6.secondary,fontSize:12),
+      prefixIcon:const Icon(Icons.search_rounded,color:V6.blue,size:21),
+      filled:true,fillColor:Colors.white,
+      contentPadding:const EdgeInsets.symmetric(horizontal:12,vertical:11),
+      border:OutlineInputBorder(borderRadius:V6.radius(13),
+       borderSide:const BorderSide(color:V6.border)),
+      enabledBorder:OutlineInputBorder(borderRadius:V6.radius(13),
+       borderSide:const BorderSide(color:V6.border)),
+      focusedBorder:OutlineInputBorder(borderRadius:V6.radius(13),
+       borderSide:const BorderSide(color:V6.blue,width:1.5)),
+     )),
+    const SizedBox(height:11),
+    SingleChildScrollView(scrollDirection:Axis.horizontal,
+     child:Row(children:[
       for(final item in const ['Semua','Surat','Pengaduan','Laporan','Lainnya'])
-        ChoiceChip(label:Text(item,style:const TextStyle(fontSize:10.7)),
-          selected:category==item,onSelected:(_)=>setState(()=>category=item)),
+       Padding(padding:const EdgeInsets.only(right:7),
+        child:ChoiceChip(
+         label:Text(item,style:TextStyle(fontSize:11,
+          color:category==item?Colors.white:V6.ink,
+          fontWeight:FontWeight.w700)),
+         selected:category==item,
+         selectedColor:V6.blue,backgroundColor:Colors.white,
+         side:BorderSide(color:category==item?V6.blue:V6.border),
+         shape:RoundedRectangleBorder(borderRadius:V6.radius(18)),
+         showCheckmark:false,
+         onSelected:(_)=>setState(()=>category=item))),
+     ])),
+    const SizedBox(height:16),
+    Row(children:[
+     const Expanded(child:Text('Kategori Pelayanan',
+      style:TextStyle(fontSize:14.5,color:V6.ink,fontWeight:FontWeight.w900))),
+     Text(filtered.length.toString()+' layanan',
+      style:const TextStyle(fontSize:10.5,color:V6.secondary)),
     ]),
-    const SizedBox(height:12),
-    for(final service in filtered)Padding(padding:const EdgeInsets.only(bottom:9),
-      child:V6Panel(padding:EdgeInsets.zero,child:InkWell(
-       onTap:()=>widget.onOpen(service.$4),
-       borderRadius:V6.radius(12),child:Padding(
-         padding:const EdgeInsets.all(12),child:Row(children:[
-          Container(width:40,height:42,
-            decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(10)),
-            child:Icon(service.$5,color:V6.blue,size:21)),
-          const SizedBox(width:11),
-          Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    const SizedBox(height:10),
+    for(final service in filtered)
+     Padding(padding:const EdgeInsets.only(bottom:8),
+      child:Material(color:Colors.white,
+       shape:RoundedRectangleBorder(borderRadius:V6.radius(13),
+        side:const BorderSide(color:V6.border)),
+       child:InkWell(
+        onTap:()=>widget.onOpen(service.$4),
+        borderRadius:V6.radius(13),
+        child:Padding(padding:const EdgeInsets.symmetric(
+          horizontal:11,vertical:10),
+         child:Row(children:[
+          Container(width:39,height:39,alignment:Alignment.center,
+           decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(11)),
+           child:Icon(service.$5,color:V6.blue,size:21)),
+          const SizedBox(width:10),
+          Expanded(child:Column(
+           crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(service.$1,style:const TextStyle(color:V6.ink,
-              fontWeight:FontWeight.w800,fontSize:12)),
+             fontWeight:FontWeight.w800,fontSize:12.5)),
             const SizedBox(height:3),
             Text(service.$2,maxLines:2,overflow:TextOverflow.ellipsis,
-              style:const TextStyle(color:V6.secondary,fontSize:10.5)),
-          ])),
-          const Icon(Icons.chevron_right_rounded,color:V6.blue),
-         ]),
-       )))),
-    if(filtered.isEmpty)const V6Panel(child:Text('Layanan tidak ditemukan.',
-      style:TextStyle(fontSize:12,color:V6.secondary))),
-    if(widget.guest)const Padding(padding:EdgeInsets.only(top:15),
-      child:Text('Silakan masuk ke akun Anda untuk membuat pengajuan.',
-        style:TextStyle(color:V6.secondary,fontSize:11))),
-  ]);
+             style:const TextStyle(color:V6.secondary,fontSize:10.5,
+              height:1.26)),
+           ])),
+          const SizedBox(width:6),
+          const Icon(Icons.chevron_right_rounded,color:V6.blue,size:20),
+         ])),
+       ))),
+    if(integrated.isNotEmpty&&widget.onIntegratedOpen!=null)...[
+     const SizedBox(height:13),
+     const V6Section(title:'Layanan Terintegrasi'),
+     for(final entry in integrated)Padding(
+      padding:const EdgeInsets.only(bottom:7),
+      child:V6Panel(padding:EdgeInsets.zero,child:ListTile(
+       dense:true,
+       leading:const Icon(Icons.account_balance_outlined,
+        color:V6.blue,size:22),
+       title:Text((entry['title']??'Layanan').toString(),
+        maxLines:2,overflow:TextOverflow.ellipsis,
+        style:const TextStyle(color:V6.ink,fontSize:12,
+          fontWeight:FontWeight.w800)),
+       subtitle:const Text('Buka layanan resmi terkait',
+        style:TextStyle(color:V6.secondary,fontSize:10.3)),
+       trailing:const Icon(Icons.open_in_new_rounded,color:V6.blue,size:18),
+       onTap:()=>widget.onIntegratedOpen?.call(entry),
+      ))),
+    ],
+    if(filtered.isEmpty&&integrated.isEmpty)const V6Panel(
+      child:Text('Layanan tidak ditemukan. Coba kata kunci lain.',
+       style:TextStyle(fontSize:12,color:V6.secondary))),
+    if(widget.guest)const Padding(
+      padding:EdgeInsets.only(top:12),
+      child:Text('Silakan masuk untuk mengirim pengajuan atau memeriksa riwayat pribadi.',
+       style:TextStyle(color:V6.secondary,fontSize:11))),
+   ]);
  }
 }
 

@@ -15,7 +15,7 @@ $staff=mobile_can($user,'chat:reply');
 $owner=$myId;
 if($staff){
  // Target and photo-read endpoints are resolved by event/photo ID, not a supplied thread ID.
- if(in_array($action,['chat_v2548_target','chat_v2548_photo'],true)){
+ if(in_array($action,['chat_v2548_target','chat_v2548_photo','chat_v2548_threads'],true)){
   $owner=$myId;
  }else{
   $owner=mobile_text(($method==='POST'?($_POST['user_id']??''):($_GET['user_id']??'')),80);
@@ -42,6 +42,15 @@ $db->exec('CREATE TABLE IF NOT EXISTS mobile_event_chat_targets(
   thread_user_id VARCHAR(80) NOT NULL,
   INDEX idx_thread(thread_user_id)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+// Admin inbox uses the SAME authenticated database as thread messages.
+// Do not return an individual message for each row or combine distinct users.
+if($action==='chat_v2548_threads'){
+ if($method!=='GET')mobile_error('Metode tidak didukung.',405);
+ if(!$staff)mobile_error('Tidak diizinkan membaca pesan warga.',403);
+ require_once __DIR__.'/chat_inbox_2563.php';
+ mobile_json(cikoko_chat_inbox_2563($db));
+}
 
 function cikoko_chat_v2548_notify(PDO $db,string $owner,bool $fromStaff):void {
  try{
