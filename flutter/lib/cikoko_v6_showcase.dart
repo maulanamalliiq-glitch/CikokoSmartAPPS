@@ -216,7 +216,8 @@ class V6Hero extends StatelessWidget{
 /// No fabricated unread counts, application data or notifications.
 class V6QuickActions extends StatelessWidget{
  final void Function(String) navigate;
- const V6QuickActions({super.key,required this.navigate});
+ final int unreadCount;
+ const V6QuickActions({super.key,required this.navigate,this.unreadCount=0});
 
  @override Widget build(BuildContext context){
   const actions=[
@@ -242,7 +243,9 @@ class V6QuickActions extends StatelessWidget{
            boxShadow:const [BoxShadow(color:Color(0x160C2455),
              blurRadius:7,offset:Offset(0,3))]),
           child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-           Icon(actions[i].$5,size:23,color:Colors.white),
+           Badge(isLabelVisible:i==2&&unreadCount>0,
+             label:Text(unreadCount>99?'99+':unreadCount.toString()),
+             child:Icon(actions[i].$5,size:23,color:Colors.white)),
            const SizedBox(height:6),
            Text(actions[i].$1,textAlign:TextAlign.center,maxLines:2,
              style:const TextStyle(color:Colors.white,fontSize:9.4,
@@ -407,6 +410,7 @@ class V6Home extends StatelessWidget{
  final List<dynamic> items;
  final List<Map<String,dynamic>> integratedServices;
  final Map<String,int>? letterCounts;
+ final int unreadCount;
  final void Function(String) navigate;
  final void Function(String) letterStatus;
  final ValueChanged<Map<String,dynamic>> integratedTap;
@@ -418,7 +422,7 @@ class V6Home extends StatelessWidget{
  const V6Home({super.key,required this.role,required this.guest,
   required this.modules,required this.api,required this.items,
   required this.integratedServices,required this.letterCounts,
-  required this.navigate,required this.letterStatus,required this.integratedTap,
+  this.unreadCount=0,required this.navigate,required this.letterStatus,required this.integratedTap,
   required this.articleTap,required this.reload,
   this.websiteHeroUrl,this.websiteHeroFit=BoxFit.cover,
   this.websiteHeroAlignment=Alignment.center});
@@ -433,7 +437,7 @@ class V6Home extends StatelessWidget{
       photoUrl:websiteHeroUrl,photoFit:websiteHeroFit,
       photoAlignment:websiteHeroAlignment),
     const SizedBox(height:12),
-    V6QuickActions(navigate:navigate),
+    V6QuickActions(navigate:navigate,unreadCount:unreadCount),
     const SizedBox(height:14),
     V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
