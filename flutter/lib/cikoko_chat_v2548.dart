@@ -166,45 +166,80 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
    }
   }
  }
+ // Only show confirmed writes from the API: no misleading unsent bubbles.
+ void showConfirmed(Map<String,dynamic> result,
+   {required String message,required bool photoSent}){
+  final id=int.tryParse((result['id']??0).toString())??0;
+  if(id<1||!mounted)return;
+  final item=<String,dynamic>{
+   'id':id,
+   'sender':result['sender']??(isStaff?'admin':'warga'),
+   'message':message,
+   'created_at':result['created_at']??DateTime.now().toIso8601String(),
+   'delivery_status':result['delivery_status']??'sent',
+   'has_photo':photoSent,
+   if(photoSent)'photo_id':result['photo_id']??id,
+  };
+  final next=cikokoOrderedChatMessages([...data,item],previous:data);
+  setState((){
+   data=next;
+   error=null;
+  });
+  scrollLatest();
+ }
  Future<void> send()async{
   final msg=input.text.trim();
   if(sending||msg.isEmpty)return;
   setState(()=>sending=true);
   try{
+   Map<String,dynamic> confirmation;
    try{
-    await widget.api.call('chat_v2548_send',body:{
+    confirmation=await widget.api.call('chat_v2548_send',body:{
      'message':msg,if(isStaff)'user_id':widget.userId,
     });
    }on ApiError catch(e){
-    // Fallback only after an explicit "not available / missing thread"
-    // response. Never retry after a timeout or ambiguous write failure,
-    // which could duplicate an already-stored message.
+    // Never retry uncertain network writes, which may already be saved.
     if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
-    if(isStaff){
-     await widget.api.call('chat_reply',body:{
-      'user_id':widget.userId,'message':msg,
-     });
-    }else{
-     await widget.api.call('chat_send',body:{'message':msg});
-    }
+    confirmation=isStaff
+     ?await widget.api.call('chat_reply',body:{
+       'user_id':widget.userId,'message':msg,
+      })
+     :await widget.api.call('chat_send',body:{'message':msg});
    }
-   input.clear();await reload();
-  }catch(e){if(mounted)setState(()=>error='Pesan gagal dikirim: '+e.toString());}
-  finally{if(mounted)setState(()=>sending=false);}
+   input.clear();
+   showConfirmed(confirmation,message:msg,photoSent:false);
+   await reload();
+  }catch(e){
+   if(mounted)setState(()=>error='Pesan belum berhasil dikirim: '+e.toString());
+  }finally{
+   if(mounted)setState(()=>sending=false);
+  }
  }
  Future<void> pick(ImageSource source)async{
   if(sending)return;
   try{
-   final image=await ImagePicker().pickImage(source:source,maxWidth:1920,imageQuality:80);
+   final image=await ImagePicker().pickImage(
+    source:source,maxWidth:1600,imageQuality:76);
    if(image==null||!mounted)return;
    setState(()=>sending=true);
-   await widget.api.upload('chat_v2548_upload',{
+   final caption=input.text.trim();
+   final confirmation=await widget.api.upload('chat_v2548_upload',{
     if(isStaff)'user_id':widget.userId!,
-    'caption':input.text.trim(),
+    'caption':caption,
    },{'photo':[image.path]});
-   input.clear();await reload();
-  }catch(e){if(mounted)setState(()=>error='Foto gagal dikirim: '+e.toString());}
-  finally{if(mounted)setState(()=>sending=false);}
+   final confirmedId=int.tryParse((confirmation['id']??0).toString())??0;
+   if(confirmedId<1||confirmation['has_photo']!=true){
+    throw ApiError('Server belum mengonfirmasi penyimpanan foto.');
+   }
+   input.clear();
+   showConfirmed(confirmation,
+    message:caption.isNotEmpty?caption:'📷 Foto',photoSent:true);
+   await reload();
+  }catch(e){
+   if(mounted)setState(()=>error='Foto belum berhasil dikirim: '+e.toString());
+  }finally{
+   if(mounted)setState(()=>sending=false);
+  }
  }
  void attach(){
   showModalBottomSheet<void>(context:context,showDragHandle:true,builder:(c)=>
