@@ -228,8 +228,10 @@ List<Map<String,dynamic>> cikokoDistinctChatThreads(Iterable<dynamic> incoming){
  });
  return rows;
 }
-int cikokoChatUnreadCount(Map<String,dynamic> row)=>
-  (int.tryParse((row['unread_count']??0).toString())??0).clamp(0,99999);
+int cikokoChatUnreadCount(Map<String,dynamic> row){
+ final count=int.tryParse((row['unread_count']??0).toString())??0;
+ return count<0?0:(count>99999?99999:count);
+}
 
 class CikokoLiveChatInbox extends StatefulWidget{
  final CikokoApi api;
