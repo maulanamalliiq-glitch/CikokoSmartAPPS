@@ -1,0 +1,75 @@
+name: Cikoko Chat Server 2566 - PHP Diagnostics and Safe cPanel Patch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/chat-runtime-2566]
+    paths:
+      - 'cpanel/mobile-api/chat_v2548.php'
+      - 'cpanel/mobile-api/chat_runtime_2566.php'
+      - 'qa/chat_runtime_2566_test.php'
+      - '.github/workflows/cikoko-chat-server-2566.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  php-chat-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/chat-runtime-2566
+      - name: Check server scripts and real backend contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l cpanel/mobile-api/chat_v2548.php
+          php -l cpanel/mobile-api/chat_runtime_2566.php
+          php -l cpanel/mobile-api/chat_inbox_2563.php
+          php -l cpanel/mobile-api/chat_hardcheck_2565.php
+          php -l qa/chat_runtime_2566_test.php
+          php qa/chat_runtime_2566_test.php
+          php qa/chat_inbox_2563_test.php
+          php qa/chat_hardcheck_2565_test.php
+      - name: Package chat server diagnostics (not automatic production deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p patch/mobile-api
+          cp cpanel/mobile-api/chat_v2548.php \
+             cpanel/mobile-api/chat_runtime_2566.php \
+             cpanel/mobile-api/chat_inbox_2563.php \
+             cpanel/mobile-api/chat_hardcheck_2565.php \
+             patch/mobile-api/
+          cat > patch/INSTALL-CHAT-2566.txt <<'NOTES'
+          CIKOKO CHAT SERVER PATCH 2566 — DIAGNOSTICS FIRST
+          IMPORTANT: This ZIP does NOT deploy itself to the live website.
+          1. Backup public_html/mobile-api/chat_v2548.php and the database.
+          2. Upload and extract all four files into public_html/mobile-api/.
+          3. Check https://datawebs.my.id/mobile-api/chat_v2548.php?action=chat_v2548_status
+             The expected JSON contains "chat_api_version":"2566". If it does not, the
+             web server is still running the old chat API.
+          4. As an authorized chat:reply admin, call
+             /mobile-api/chat_v2548.php?action=chat_v2548_diagnostic
+             with your normal Bearer token; NEVER post your token to ChatGPT.
+             Check table booleans, chat_id_auto_increment and push_cron_status.
+          5. Test two accounts (warga + admin): new text, photo, newest inbox,
+             read status, and chat notification, while observing PHP server logs.
+          6. If send fails, log message should contain [Cikoko CHAT_STORE <code>].
+             Share only the error code, never secrets or actual message bodies.
+          7. If 'push_cron_status' is not_recent/fcm_key_missing/not_configured,
+             inspect the existing cPanel Notifikasi Aplikasi dashboard and cron
+             configuration for Firebase FCM. APK alone cannot enable FCM.
+          8. No database migration or old message deletion is performed.
+          Rollback: restore the prior chat_v2548.php. The new helper is inert
+          after rollback.
+          NOTES
+          (cd patch && zip -q -r ../Cikoko-Chat-Server-2566-cPanel-PATCH.zip .)
+          test -s Cikoko-Chat-Server-2566-cPanel-PATCH.zip
+      - name: Upload tested safe cPanel patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cikoko-Chat-Server-2566-cPanel-PATCH
+          path: Cikoko-Chat-Server-2566-cPanel-PATCH.zip
+          if-no-files-found: error
+          retention-days: 14
