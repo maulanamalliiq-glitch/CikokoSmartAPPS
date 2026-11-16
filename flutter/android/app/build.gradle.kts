@@ -16,8 +16,8 @@ android {
         applicationId = "com.KelurahanCikoko.malik"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2561
-        versionName = "2.5.61"
+        versionCode = 2562
+        versionName = "2.5.62"
         multiDexEnabled = true
     }
     signingConfigs {
