@@ -8,6 +8,11 @@ on:
     paths:
       - 'flutter/**'
       - '.github/workflows/android-v2562.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/android-v2562.yml'
 
 permissions:
   contents: write
