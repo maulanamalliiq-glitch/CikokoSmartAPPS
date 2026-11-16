@@ -75,7 +75,7 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
  final input=TextEditingController(),scroll=ScrollController();
  List<Map<String,dynamic>> data=[];
  Timer? timer;
- bool loading=false,sending=false,foreground=true;
+ bool loading=false,sending=false,foreground=true,refreshPending=false;
  String? error;
  bool get isStaff=>widget.userId!=null;
  @override void initState(){super.initState();
@@ -87,61 +87,84 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
  }
  @override void dispose(){timer?.cancel();input.dispose();scroll.dispose();
   WidgetsBinding.instance.removeObserver(this);super.dispose();}
+ void scrollLatest({bool animate=true}){
+  WidgetsBinding.instance.addPostFrameCallback((_){
+   if(!mounted||!scroll.hasClients)return;
+   final max=scroll.position.maxScrollExtent;
+   if(animate){
+    scroll.animateTo(max,duration:const Duration(milliseconds:210),
+     curve:Curves.easeOutCubic);
+   }else{
+    scroll.jumpTo(max);
+   }
+  });
+ }
  Future<void> reload()async{
-  if(loading)return;loading=true;
+  if(loading){refreshPending=true;return;}
+  loading=true;
   try{
-   Map<String,dynamic> r;
+   Map<String,dynamic> response;
    try{
-    r=await widget.api.callWithParams('chat_v2548_thread',{
+    response=await widget.api.callWithParams('chat_v2548_thread',{
      if(isStaff)'user_id':widget.userId!,
-     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId! > 0)
+     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId!>0)
       'last_id':widget.inboxLastId.toString(),
     });
-    // If the new thread PHP and the legacy inbox target different deployed
-    // implementations, a valid inbox row must never silently appear empty.
-    if(isStaff&&(r['messages'] as List?)?.isEmpty==true){
-      try{
-       final old=await widget.api.callWithParams('support_admin_thread',{
-        'user_id':widget.userId!,
-       });
-       if((old['messages'] as List?)?.isNotEmpty==true)r=old;
-      }catch(_){/* Keep the primary authenticated response. */}
+    if(isStaff&&(response['messages'] as List?)?.isEmpty==true){
+     // Read-only fallback to the authenticated legacy endpoint for older
+     // installations. Never combine different residents' conversations.
+     try{
+      final old=await widget.api.callWithParams('support_admin_thread',{
+       'user_id':widget.userId!,
+      });
+      if((old['messages'] as List?)?.isNotEmpty==true)response=old;
+     }catch(_){}
     }
    }on ApiError catch(e){
     if(!cikokoLegacyChatFallbackAllowed(e))rethrow;
-    r=isStaff
-      ?await widget.api.callWithParams('support_admin_thread',{
-         'user_id':widget.userId!,
-       })
-      :await widget.api.call('chat');
+    response=isStaff
+     ?await widget.api.callWithParams('support_admin_thread',{
+       'user_id':widget.userId!,
+      })
+     :await widget.api.call('chat');
    }
-   final next=List<dynamic>.from(r['messages']??[])
-    .whereType<Map>().map((v)=>Map<String,dynamic>.from(v)).toList();
-   final previousLast=data.isEmpty?'':(data.last['id']??'').toString();
-   final nextLast=next.isEmpty?'':(next.last['id']??'').toString();
-   final changed=next.length!=data.length || next.asMap().entries.any((entry){
-    final i=entry.key;if(i>=data.length)return true;
-    return entry.value['delivery_status']!=data[i]['delivery_status'] ||
-     entry.value['message']!=data[i]['message'] ||
-     entry.value['has_photo']!=data[i]['has_photo'];
-   });
-   if(changed&&mounted){
+   final expected=isStaff?widget.userId:null;
+   final owner=(response['thread_user_id']??'').toString();
+   if(expected!=null&&owner.isNotEmpty&&owner!=expected){
+    throw ApiError('Identitas percakapan tidak sesuai. Segarkan inbox.');
+   }
+   final updates=response['receipt_updates'];
+   final next=cikokoOrderedChatMessages(
+    List<dynamic>.from(response['messages']??[]),
+    receiptUpdates:updates is Map?Map<String,dynamic>.from(updates):const {},
+    previous:data,
+   );
+   final beforeId=data.isEmpty?0:int.tryParse(
+     (data.last['id']??0).toString())??0;
+   final latestId=next.isEmpty?0:int.tryParse(
+     (next.last['id']??0).toString())??0;
+   // Keep the reading position when staff scrolls up through old messages.
+   final nearBottom=!scroll.hasClients||
+     scroll.position.maxScrollExtent-scroll.position.pixels<130;
+   final initial=data.isEmpty;
+   if(mounted&&cikokoChatMessagesChanged(data,next)){
     setState((){data=next;error=null;});
-    if(previousLast!=nextLast)WidgetsBinding.instance.addPostFrameCallback((_){
-      if(mounted&&scroll.hasClients)scroll.animateTo(scroll.position.maxScrollExtent,
-       duration:const Duration(milliseconds:180),curve:Curves.easeOut);
-    });
+    if(initial||((latestId>beforeId)&&nearBottom)){
+     scrollLatest(animate:!initial);
+    }
    }else if(error!=null&&mounted){
-    // Clear a stale network error after a successful empty or unchanged poll.
     setState(()=>error=null);
    }
   }catch(e){
-   if(mounted&&data.isEmpty)setState(()=>
-    error=isStaff&&e.toString().contains('Percakapan belum tersedia')
-      ?'Percakapan belum tersedia pada server. Buka kembali dari Pesan Masuk.'
-      :'Percakapan belum dapat dimuat: '+e.toString());
+   if(mounted)setState(()=>error='Percakapan belum dapat diperbarui: '+e.toString());
+  }finally{
+   loading=false;
+   // A send/upload while an earlier poll was running must not be lost.
+   if(refreshPending&&mounted){
+    refreshPending=false;
+    unawaited(reload());
+   }
   }
-  finally{loading=false;}
  }
  Future<void> send()async{
   final msg=input.text.trim();
