@@ -262,7 +262,7 @@ class _CivicProfileState extends State<CivicProfilePage>{
        if(role=='pjlp')...[
         ListTile(dense:true,visualDensity:VisualDensity.compact,
          contentPadding:const EdgeInsets.symmetric(horizontal:12),
-         leading:const Icon(Icons.access_time_filled_rounded,color:V6.blue,size:22),
+         leading:const Icon(Icons.access_time_rounded,color:V6.blue,size:22),
          title:const Text('Absensi & Kinerja PJLP',style:TextStyle(
           color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w800)),
          subtitle:const Text('Kehadiran, shift, dan laporan kerja',
