@@ -407,7 +407,6 @@ class _HomeState extends State<HomePage> {
       else if(route=='Kelola Semua Halaman'||route=='Push Notifikasi')nav=0;
       else if(route=='Kelola Layanan Terpadu')nav=1;
       else if(route=='Verifikasi Laporan')nav=3;
-      else if(route=='Profil')nav=4;
       else if(route=='Layanan Online')nav=0;
       else if(route=='Inovasi')nav=1;
       else if(route=='Dashboard')nav=2;
