@@ -10,7 +10,11 @@ on:
       - '.github/workflows/android-v2562.yml'
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: cikoko-compact-v2562-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -123,6 +127,27 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+      - name: Publish signed APK and AAB for direct downloads
+        if: github.ref == 'refs/heads/feat/redesign-2562-navigation'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          short=$(printf '%s' "$GITHUB_SHA" | cut -c1-7)
+          tag="v2.5.62-2562-compact-$short"
+          apk="dist/CikokoSmart-v2.5.62-2562-arm64.apk"
+          aab="dist/CikokoSmart-v2.5.62-2562-PLAY.aab"
+          test -s "$apk"
+          test -s "$aab"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" "$aab" --clobber
+          else
+            gh release create "$tag" "$apk" "$aab" --target "$GITHUB_SHA" --title "Cikoko SmartAPP v2562 Compact ($short)" --notes "APK arm64 + Play AAB signed with original Cikoko upload key. Automated Flutter/PHP tests passed. Release candidate: validate on real devices and existing backend before production." --prerelease
+          fi
+          gh release view "$tag" --json url,assets --jq '{url: .url, assets: [.assets[].name]}'
       - name: Remove signing key
         if: always()
         run: rm -f flutter/android/cikoko_upload.jks
