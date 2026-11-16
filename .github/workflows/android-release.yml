@@ -2,7 +2,7 @@ name: Build Android v2562 (GitHub Release Downloads)
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/redesign-2562-navigation]
+    branches: [main]
     paths:
       - 'flutter/**'
       - '.github/workflows/android-release.yml'
