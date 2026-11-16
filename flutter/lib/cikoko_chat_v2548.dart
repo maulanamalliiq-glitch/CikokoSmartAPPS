@@ -10,8 +10,7 @@ bool cikokoLegacyChatFallbackAllowed(ApiError error){
  final msg=error.message.toLowerCase();
  return msg.contains('percakapan belum tersedia')||
    msg.contains('percakapan warga tidak ditemukan')||
-   msg.contains('aksi chat tidak tersedia')||
-   msg.contains('layanan belum tersedia.');
+   msg.contains('aksi chat tidak tersedia');
 }
 
 class CikokoLiveChat extends StatefulWidget{
@@ -46,13 +45,12 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
    try{
     r=await widget.api.callWithParams('chat_v2548_thread',{
      if(isStaff)'user_id':widget.userId!,
-     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId!>0)
+     if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId! > 0)
       'last_id':widget.inboxLastId.toString(),
     });
     // If the new thread PHP and the legacy inbox target different deployed
     // implementations, a valid inbox row must never silently appear empty.
-    if(isStaff&&widget.inboxLastId!=null&&widget.inboxLastId!>0&&
-      (r['messages'] as List?)?.isEmpty==true){
+    if(isStaff&&(r['messages'] as List?)?.isEmpty==true){
       try{
        final old=await widget.api.callWithParams('support_admin_thread',{
         'user_id':widget.userId!,
