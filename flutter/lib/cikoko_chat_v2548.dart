@@ -13,6 +13,55 @@ bool cikokoLegacyChatFallbackAllowed(ApiError error){
    msg.contains('aksi chat tidak tersedia');
 }
 
+// Server endpoints may return the newest 60 messages in different orders.
+// Always render by durable message ID, not API array order or message text.
+List<Map<String,dynamic>> cikokoOrderedChatMessages(
+ Iterable<dynamic> source,{
+ Map<String,dynamic> receiptUpdates=const {},
+ List<Map<String,dynamic>> previous=const [],
+}){
+ final known=<int,Map<String,dynamic>>{};
+ for(final m in previous){
+  final id=int.tryParse((m['id']??'').toString())??0;
+  if(id>0)known[id]=m;
+ }
+ final byId=<int,Map<String,dynamic>>{};
+ for(final raw in source){
+  if(raw is! Map)continue;
+  final m=Map<String,dynamic>.from(raw);
+  final id=int.tryParse((m['id']??'').toString())??0;
+  if(id<=0)continue;
+  // A temporary fallback from the legacy API might omit image metadata.
+  final old=known[id];
+  if(!m.containsKey('has_photo')&&old?['has_photo']==true){
+   m['has_photo']=true;
+   m['photo_id']=old?['photo_id']??id;
+  }
+  final update=receiptUpdates[id.toString()];
+  if(update is String && update.isNotEmpty)m['delivery_status']=update;
+  byId[id]=m;
+ }
+ final messages=byId.values.toList()..sort((a,b){
+  final ai=int.parse(a['id'].toString());
+  final bi=int.parse(b['id'].toString());
+  return ai.compareTo(bi);
+ });
+ return messages;
+}
+
+bool cikokoChatMessagesChanged(
+ List<Map<String,dynamic>> previous,List<Map<String,dynamic>> next){
+ if(previous.length!=next.length)return true;
+ const fields=['id','sender','message','created_at',
+  'has_photo','photo_id','delivery_status'];
+ for(var i=0;i<next.length;i++){
+  for(final field in fields){
+   if(previous[i][field]!=next[i][field])return true;
+  }
+ }
+ return false;
+}
+
 class CikokoLiveChat extends StatefulWidget{
  final CikokoApi api;
  final String? userId;
