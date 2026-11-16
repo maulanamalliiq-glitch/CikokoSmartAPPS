@@ -25,14 +25,26 @@ if($staff){
 }
 if(!$staff&&$owner!==$myId)mobile_error('Tidak diizinkan membaca percakapan lain.',403);
 if(!preg_match('/^[A-Za-z0-9_-]{2,80}$/D',$owner))mobile_error('Akun percakapan tidak valid',422);
-// A thread GET is read-only: never reject it merely because a legacy
-// inbox and standalone chat endpoint were deployed at different times.
-// The thread query itself is always scoped to exactly one authenticated owner.
-// Sending/attachment still requires an existing owner to prevent orphan chats.
+// Only staff with chat:reply may address another account.
+// Existing mobile_chat threads are valid, but for newly created threads the
+// target must be a real, active portal account. This is essential for photo
+// uploads: the previous guard rejected staff photos with a stale false 404,
+// even if the resident was visible in the canonical inbox.
+function cikoko_chat_v2565_known_target(PDO $db,string $owner):bool {
+ $q=$db->prepare('SELECT 1 FROM mobile_chat WHERE user_id=? LIMIT 1');
+ $q->execute([$owner]);
+ if($q->fetchColumn())return true;
+ foreach(db_read('portal_users') as $account){
+  if(!is_array($account))continue;
+  if((string)($account['id']??'')===$owner&&
+   !empty($account['active']))return true;
+ }
+ return false;
+}
 if($staff&&in_array($action,['chat_v2548_send','chat_v2548_upload'],true)){
- $check=$db->prepare('SELECT id FROM mobile_chat WHERE user_id=? LIMIT 1');
- $check->execute([$owner]);
- if(!$check->fetchColumn())mobile_error('Percakapan warga tidak ditemukan. Perbarui inbox.',404);
+ if(!cikoko_chat_v2565_known_target($db,$owner)){
+  mobile_error('Akun tujuan percakapan tidak ditemukan. Segarkan inbox.',404);
+ }
 }
 $db->exec('CREATE TABLE IF NOT EXISTS mobile_chat_photos(
   message_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -106,6 +118,9 @@ if($action==='chat_v2548_thread'&&$method==='GET'){
  }
  unset($row);
  $data['messages']=$rows;
+ // The stable ID lets Flutter check that inbox and thread refer to the
+ // same authorized conversation, independent of the display name.
+ $data['thread_user_id']=$owner;
  mobile_json($data);
 }
 if($action==='chat_v2548_target'&&$method==='GET'){
