@@ -414,6 +414,10 @@ class _HomeState extends State<HomePage> {
       return;
     }
     if(guest&&_needsLogin(route)){openLogin();return;}
+    // Staff inbox and resident support chat share an entrypoint but not a role.
+    if(route=='Hubungi Kami'&&capabilities['chat:reply']==true){
+      route='Pesan Masuk';
+    }
     setState((){
       section=route;
       if(route=='Laporan Terpadu')nav=0;
@@ -424,6 +428,7 @@ class _HomeState extends State<HomePage> {
       else if(route=='Inovasi')nav=1;
       else if(route=='Dashboard')nav=2;
       else if(route=='Hubungi Kami')nav=3;
+      else if(route=='Pesan Masuk')nav=(role=='admin'||role=='admin_kelurahan')?-1:3;
       else if(route=='Profil')nav=4;
     });
   }
@@ -820,14 +825,14 @@ class _HomeState extends State<HomePage> {
      try{
        final result=await api.callWithParams('chat_v2548_target',{'event_id':id.toString()});
        final owner=(result['thread_user_id']??'').toString();
-       if(isStaff && owner.isNotEmpty && mounted){
+       if(capabilities['chat:reply']==true && owner.isNotEmpty && mounted){
          setState(()=>notificationChatOwner=owner);
          switchTo('Percakapan Chat');
          return;
        }
      }catch(_){/* Notification from previous API uses the legacy inbox. */}
    }
-   if(mounted)switchTo(isStaff?'Pesan Masuk':'Hubungi Kami');
+   if(mounted)switchTo(capabilities['chat:reply']==true?'Pesan Masuk':'Hubungi Kami');
  }
  Future<void> openNotification(Map<String,dynamic> event)async{
      final eventId=int.tryParse('${event['id']??''}')??0;
