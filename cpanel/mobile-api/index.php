@@ -136,7 +136,7 @@ if($action==='public_letter_status' && $method==='GET'){
  cikoko_public_letter_status_v2536();
 }
 if($action==='content'&&$method==='GET'){
- $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
+ $allowed=['berita','pengumuman','layanan','galeri'];$rows=[];foreach($allowed as $type)foreach(array_slice(entries($type),0,50) as $v){$rows[]=['id'=>$v['id']??'','type'=>$type,'title'=>$v['title']??'','body'=>mobile_text(strip_tags((string)($v['body']??'')),4000),'image'=>$v['image']??'','event_date'=>$v['event_date']??'','event_time'=>$v['event_time']??'','created_at'=>$v['created_at']??''];}mobile_json(['ok'=>true,'items'=>$rows]);
 }
 if(in_array($action,['dynamic_modules','dynamic_modules_save'],true)){
  require_once __DIR__.'/dynamic_modules_2552.php';
@@ -423,8 +423,11 @@ if($action==='role_permissions'){
 if($action==='content_create'&&$method==='POST'){
  mobile_need($u,'content:create');$b=mobile_body();$type=mobile_text($b['type']??'',30);$title=mobile_text($b['title']??'',200);$body=mobile_text($b['body']??'',12000);
  if(!in_array($type,['berita','pengumuman'],true)||mobile_strlen($title)<5||mobile_strlen($body)<10)mobile_error('Judul (5 karakter) dan isi (10 karakter) wajib',422);
+ $eventDate=mobile_text($b['event_date']??'',10);$eventTime=mobile_text($b['event_time']??'',5);
+ if($eventDate!==''&&(!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$eventDate)||!checkdate((int)substr($eventDate,5,2),(int)substr($eventDate,8,2),(int)substr($eventDate,0,4))))mobile_error('Tanggal kegiatan tidak valid.',422);
+ if($eventTime!==''&&!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$eventTime))mobile_error('Waktu kegiatan harus berformat jam:menit.',422);
  $content=db_read('content');$id=bin2hex(random_bytes(12));
- $content[]=['id'=>$id,'type'=>$type,'title'=>$title,'body'=>nl2br(esc($body)),'image'=>'','created_at'=>date('c')];
+ $content[]=['id'=>$id,'type'=>$type,'title'=>$title,'body'=>nl2br(esc($body)),'image'=>'','event_date'=>$eventDate,'event_time'=>$eventTime,'created_at'=>date('c')];
  if(!db_write('content',$content))mobile_error('Konten gagal disimpan',503);
  // The content writer already sends this event; don't publish it twice.
  mobile_json(['ok'=>true,'id'=>$id]);
