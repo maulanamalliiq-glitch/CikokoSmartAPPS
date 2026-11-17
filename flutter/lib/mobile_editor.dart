@@ -10,28 +10,35 @@ class MobileEditor extends StatefulWidget {
   @override State<MobileEditor> createState()=>_MobileEditorState();
 }
 class _MobileEditorState extends State<MobileEditor> {
- final title=TextEditingController(),body=TextEditingController(),reference=TextEditingController(),deceased=TextEditingController(),year=TextEditingController();
+ final title=TextEditingController(),body=TextEditingController(),reference=TextEditingController(),deceased=TextEditingController(),year=TextEditingController(),eventDate=TextEditingController(),eventTime=TextEditingController();
  bool sending=false;final List<String> newsPhotos=[];
  bool get archive=>widget.mode=='archive';
- @override void dispose(){title.dispose();body.dispose();reference.dispose();deceased.dispose();year.dispose();super.dispose();}
+ @override void dispose(){title.dispose();body.dispose();reference.dispose();deceased.dispose();year.dispose();eventDate.dispose();eventTime.dispose();super.dispose();}
  Future<void> submit() async {
   setState(()=>sending=true);
   try {
    final isNews=widget.mode=='berita';
    if(archive){await widget.api.call('archive_create',body:{'archive_year':int.tryParse(year.text)??0,'reference_no':reference.text.trim(),'applicant_name':title.text.trim(),'deceased_name':deceased.text.trim(),'notes':body.text.trim()});}
-   else {final created=await widget.api.call('content_create',body:{'type':isNews?'berita':'pengumuman','title':title.text.trim(),'body':body.text.trim()});
+   else {final created=await widget.api.call('content_create',body:{'type':isNews?'berita':'pengumuman','title':title.text.trim(),'body':body.text.trim(),'event_date':eventDate.text.trim(),'event_time':eventTime.text.trim()});
       if(isNews){final id='${created['id']??''}';for(final path in newsPhotos){await widget.api.upload('v211_news_upload',{'id':id},{'photo':[path]});}newsPhotos.clear();}}
-   if(mounted){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Informasi berhasil diterbitkan.')));title.clear();body.clear();reference.clear();deceased.clear();year.clear();}
+   if(mounted){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Informasi berhasil diterbitkan.')));title.clear();body.clear();reference.clear();deceased.clear();year.clear();eventDate.clear();eventTime.clear();}
   } catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Gagal: $e')));}
   finally {if(mounted)setState(()=>sending=false);}
  }
  Future<void> _addNewsImage(ImageSource source)async{final img=await ImagePicker().pickImage(source:source,imageQuality:82,maxWidth:2200);if(img!=null&&mounted)setState(()=>newsPhotos.add(img.path));}
  Widget entry(String label,TextEditingController controller,{int lines=1,TextInputType? keyboard}) => Padding(padding:const EdgeInsets.only(bottom:12),child:TextField(controller:controller,maxLines:lines,keyboardType:keyboard,decoration:InputDecoration(labelText:label)));
+ Future<void> pickEventDate()async{final now=DateTime.now();final chosen=await showDatePicker(context:context,initialDate:now,firstDate:DateTime(now.year-1),lastDate:DateTime(now.year+5));if(chosen!=null){eventDate.text=chosen.toIso8601String().substring(0,10);setState((){});}}
+ Future<void> pickEventTime()async{final chosen=await showTimePicker(context:context,initialTime:TimeOfDay.now());if(chosen!=null){eventTime.text=chosen.hour.toString().padLeft(2,'0')+':'+chosen.minute.toString().padLeft(2,'0');setState((){});}}
  @override Widget build(BuildContext context) => ListView(padding:const EdgeInsets.all(14),children:[
   Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(archive?'Tambah Arsip Ahli Waris':widget.mode=='berita'?'Publikasi Berita':'Tambah Pengumuman',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:6),Text(archive?'Surat lama disimpan terpisah dari pengajuan online baru.':'Konten diterbitkan di website dan aplikasi setelah tersimpan.',style:Theme.of(context).textTheme.bodySmall)]))),
   const SizedBox(height:12),
   if(archive)...[entry('Tahun surat',year,keyboard:TextInputType.number),entry('Nomor surat',reference),entry('Nama pemohon',title),entry('Nama pewaris',deceased),entry('Catatan arsip',body,lines:4)]
-  else ...[entry('Judul',title),entry('Isi ${widget.mode}',body,lines:9),if(widget.mode=='berita')...[
+  else ...[entry('Judul',title),entry('Isi ${widget.mode}',body,lines:9),if(widget.mode=='pengumuman')...[
+    const Text('Jadwal kegiatan (opsional)',style:TextStyle(fontWeight:FontWeight.w800)),
+    const SizedBox(height:6),
+    Row(children:[Expanded(child:TextField(controller:eventDate,readOnly:true,onTap:pickEventDate,decoration:const InputDecoration(labelText:'Tanggal kegiatan',suffixIcon:Icon(Icons.calendar_month_outlined)))),const SizedBox(width:8),Expanded(child:TextField(controller:eventTime,readOnly:true,onTap:pickEventTime,decoration:const InputDecoration(labelText:'Waktu',suffixIcon:Icon(Icons.access_time))))]),
+    const SizedBox(height:12),
+   ],if(widget.mode=='berita')...[
     const Text('Foto Berita (maksimal 5)',style:TextStyle(fontWeight:FontWeight.w800)),
     Wrap(spacing:8,children:[OutlinedButton.icon(onPressed:newsPhotos.length>=5?null:()=>_addNewsImage(ImageSource.camera),icon:const Icon(Icons.camera_alt_outlined),label:const Text('Kamera')),
        OutlinedButton.icon(onPressed:newsPhotos.length>=5?null:()=>_addNewsImage(ImageSource.gallery),icon:const Icon(Icons.photo_library_outlined),label:const Text('Galeri'))]),

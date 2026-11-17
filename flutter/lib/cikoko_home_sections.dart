@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'cikoko_v6_showcase.dart';
 
@@ -65,9 +67,9 @@ class V6IntegratedServiceGrid extends StatelessWidget{
      GridView.builder(
       shrinkWrap:true,
       physics:const NeverScrollableScrollPhysics(),
-      itemCount:visible.length,
+      itemCount:visible.length > 12 ? 12 : visible.length,
       gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(
-       crossAxisCount:3,crossAxisSpacing:9,mainAxisSpacing:9,mainAxisExtent:119),
+       crossAxisCount:3,crossAxisSpacing:8,mainAxisSpacing:8,mainAxisExtent:88),
       itemBuilder:(ctx,i){
        final service=visible[i];
        final title=(service['title']??'Layanan').toString();
@@ -83,10 +85,10 @@ class V6IntegratedServiceGrid extends StatelessWidget{
           decoration:BoxDecoration(
            border:Border.all(color:V6.border),
            borderRadius:V6.radius(12)),
-          padding:const EdgeInsets.symmetric(horizontal:5,vertical:9),
+          padding:const EdgeInsets.symmetric(horizontal:4,vertical:5),
           child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
            SizedBox(
-            width:65,height:65,
+            width:46,height:46,
             child:hasLogo
              ?Image.network(logo,fit:BoxFit.contain,
                errorBuilder:(_,__,___)=>const Icon(
@@ -180,5 +182,67 @@ class _V6InnovationPreviewState extends State<V6InnovationPreview>{
    :Image.network(url,width:78,height:67,fit:BoxFit.cover,
      errorBuilder:(_,__,___)=>Container(width:78,height:67,color:V6.pale,
        child:const Icon(Icons.image_not_supported_outlined,color:V6.blue,size:25)));
+ }
+}
+
+
+
+/// Homepage preview for verified public boarding houses.
+class V6BoardingHousePreview extends StatefulWidget {
+ final CikokoApi api;
+ final VoidCallback? onAll;
+ const V6BoardingHousePreview({super.key,required this.api,this.onAll});
+ @override State<V6BoardingHousePreview> createState()=>_V6BoardingHousePreviewState();
+}
+class _V6BoardingHousePreviewState extends State<V6BoardingHousePreview>{
+ Map<String,dynamic>? data;
+ bool loading=true;
+ @override void initState(){super.initState();_load();}
+ Future<void> _load()async{
+  try{final value=await widget.api.call('boarding_public');if(mounted)setState(()=>data=value);}
+  catch(_){if(mounted)setState(()=>data=null);}
+  finally{if(mounted)setState(()=>loading=false);}
+ }
+ Future<void> _whatsapp(String phone)async{
+  var digits=phone.replaceAll(RegExp(r'[^0-9]'),'');
+  if(digits.startsWith('0'))digits='62'+digits.substring(1);
+  final uri=Uri.tryParse('https://wa.me/'+digits);
+  if(uri==null||!await canLaunchUrl(uri)){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('WhatsApp pengelola belum dapat dibuka.')));return;}
+  await launchUrl(uri,mode:LaunchMode.externalApplication);
+ }
+ Widget _photo(String url)=>ClipRRect(borderRadius:V6.radius(9),child:url.isEmpty
+  ?Container(width:72,height:62,color:V6.pale,child:const Icon(Icons.apartment_outlined,color:V6.blue,size:25))
+  :Image.network(url,width:72,height:62,fit:BoxFit.cover,
+   errorBuilder:(_,__,___)=>Container(width:72,height:62,color:V6.pale,
+    child:const Icon(Icons.apartment_outlined,color:V6.blue,size:25))));
+ @override Widget build(BuildContext context){
+  final summary=(data?['summary'] as Map?)?.cast<String,dynamic>()??const <String,dynamic>{};
+  final rows=(data?['items'] as List?)?.whereType<Map>().take(2)
+   .map((e)=>Map<String,dynamic>.from(e)).toList()??const <Map<String,dynamic>>[];
+  return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+   V6Section(title:'Data Rumah Kos Cikoko',action:'Lihat selengkapnya',onAction:widget.onAll),
+   V6Panel(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[
+     Container(width:40,height:40,decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(11)),child:const Icon(Icons.apartment_outlined,color:V6.blue)),
+     const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(loading?'Memuat data kos…':(summary['houses']??0).toString()+' rumah kos terverifikasi',style:const TextStyle(fontWeight:FontWeight.w800,color:V6.ink,fontSize:13)),
+      const SizedBox(height:3),Text((summary['rooms']??0).toString()+' kamar · '+(summary['available_rooms']??0).toString()+' tersedia',style:const TextStyle(color:V6.secondary,fontSize:11)),
+     ])),
+    ]),
+    if(rows.isNotEmpty)...[
+     const Divider(height:20),
+     for(final row in rows)Padding(padding:const EdgeInsets.only(bottom:8),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      _photo((row['photo_url']??'').toString()),const SizedBox(width:9),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       Text((row['name']??'Rumah kos').toString(),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:11.5,color:V6.ink)),
+       const SizedBox(height:3),Text('RT '+(row['rt']??'—').toString()+' / RW '+(row['rw']??'—').toString()+' · '+(row['available_rooms']??0).toString()+' kamar tersedia',style:const TextStyle(fontSize:10.5,color:V6.secondary)),
+       if((row['address']??'').toString().isNotEmpty)Text(row['address'].toString(),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:10,color:V6.secondary)),
+       if(widget.api.token!=null&&(row['public_phone']??'').toString().isNotEmpty)TextButton.icon(onPressed:()=>_whatsapp(row['public_phone'].toString()),icon:const Icon(Icons.chat,color:Color(0xFF168A52),size:15),label:const Text('WhatsApp pengelola',style:TextStyle(fontSize:10,color:Color(0xFF168A52)))),
+      ])),
+     ])),
+    ]else if(!loading)Text(data==null?'Data kos belum dapat dimuat.':'Belum ada rumah kos yang dipublikasikan.',style:const TextStyle(fontSize:11,color:V6.secondary)),
+    Align(alignment:Alignment.centerRight,child:TextButton.icon(onPressed:widget.onAll,icon:const Icon(Icons.arrow_forward_rounded,size:16),label:const Text('Lihat selengkapnya'))),
+   ])),
+  ]);
  }
 }

@@ -141,13 +141,30 @@ class _CikokoLiveChatState extends State<CikokoLiveChat> with WidgetsBindingObse
   ));
  }
  @override Widget build(BuildContext context)=>Column(children:[
-  Container(color:Colors.white,padding:const EdgeInsets.all(13),
+  Container(key:const Key('v2562_chat_header'),
+   margin:const EdgeInsets.fromLTRB(12,12,12,8),
+   padding:const EdgeInsets.symmetric(horizontal:14,vertical:13),
+   decoration:BoxDecoration(
+    borderRadius:V6.radius(16),
+    gradient:const LinearGradient(
+     colors:[Color(0xFF06439B),Color(0xFF0A7DE8)],
+     begin:Alignment.topLeft,end:Alignment.bottomRight)),
    child:Row(children:[
-    const Icon(Icons.chat_bubble_outline,color:V6.blue),
-    const SizedBox(width:8),
-    Expanded(child:Text(widget.title,style:const TextStyle(color:V6.ink,
-     fontWeight:FontWeight.w900,fontSize:13))),
-    IconButton(onPressed:reload,icon:const Icon(Icons.refresh,color:V6.blue)),
+    Container(width:39,height:39,
+     decoration:BoxDecoration(color:const Color(0x28FFFFFF),
+       borderRadius:V6.radius(12)),
+     child:const Icon(Icons.chat_bubble_outline_rounded,color:Colors.white,size:21)),
+    const SizedBox(width:10),
+    Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     Text(widget.title,style:const TextStyle(color:Colors.white,
+      fontWeight:FontWeight.w900,fontSize:15)),
+     const SizedBox(height:3),
+     const Text('Komunikasi langsung dengan petugas kelurahan',
+      maxLines:2,overflow:TextOverflow.ellipsis,
+      style:TextStyle(color:Color(0xFFE7F4FF),fontSize:10.3)),
+    ])),
+    IconButton(onPressed:reload,tooltip:'Muat ulang chat',
+     icon:const Icon(Icons.refresh_rounded,color:Colors.white)),
    ])),
   if(error!=null)Padding(padding:const EdgeInsets.all(8),
    child:Text(error!,style:const TextStyle(color:V6.red,fontSize:11))),
