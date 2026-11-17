@@ -551,7 +551,10 @@ class _HomeState extends State<HomePage> {
     case 'Agenda':return V6AgendaPage(content:items);
     case 'Profil Wilayah':return V6RegionPage(api:api,navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return V6ServicesPage(guest:guest,onOpen:_openV6Service);
+    case 'Layanan Online':return V6ServicesPage(
+      guest:guest,onOpen:_openV6Service,
+      integratedServices:activeServices,
+      onIntegratedOpen:_openIntegratedService);
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
     case 'Galeri':return V6GalleryPage(api:api,content:items);
@@ -641,12 +644,11 @@ class _HomeState extends State<HomePage> {
   Widget home(){
     if(role=='admin'||role=='admin_kelurahan'){
       return V6AdminHome(modules:modules,roleName:roleLabel,
-        counts:letterCounts,unread:unreadCount,events:events,api:api,items:items,
-        integratedServices:activeServices,integratedTap:_openIntegratedService,
-        articleTap:_openV5Article,navigate:_openV6Service);
+        counts:letterCounts,unread:unreadCount,events:events,api:api,items:items,integratedServices:activeServices,integratedTap:_openIntegratedService,articleTap:_openV5Article,navigate:_openV6Service);
     }
     return V6Home(role:role,guest:guest,modules:modules,
       api:api,items:items,letterCounts:letterCounts,
+      unreadCount:unreadCount,
       integratedServices:activeServices,integratedTap:_openIntegratedService,
       websiteHeroUrl:websiteHeroUrl,websiteHeroFit:websiteHeroFit,
       websiteHeroAlignment:websiteHeroAlignment,
