@@ -123,6 +123,10 @@ if($action==='register'&&$method==='POST'){
  if(!db_write('portal_users',$users))mobile_error('Data akun gagal disimpan',503);
  mobile_json(['ok'=>true,'message'=>'Akun sudah aktif']);
 }
+if($action==='boarding_photo'&&$method==='GET'){
+ require_once __DIR__.'/boarding_houses.php';
+ cikoko_boarding_photo(mobile_db());
+}
 if($action==='boarding_public'&&$method==='GET'){
  require_once __DIR__.'/boarding_houses.php';
  cikoko_boarding_public(mobile_db());
