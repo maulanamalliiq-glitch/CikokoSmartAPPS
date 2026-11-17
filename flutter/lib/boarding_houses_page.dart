@@ -71,7 +71,7 @@ class _BoardingHousesPageState extends State<BoardingHousesPage> {
       const V6PageHeader(title: 'Pendataan Rumah Kos', description: 'RT mendata rumah kos di wilayahnya. Ketua RW memeriksa sebelum data dipublikasikan.', icon: Icons.apartment_outlined),
       if (rt.isNotEmpty || rw.isNotEmpty) V6Panel(child: Row(children: [const Icon(Icons.location_on_outlined, color: V6.blue), const SizedBox(width: 8), Text('Wilayah tugas  RT ${rt.isEmpty ? '—' : rt}  ·  RW ${rw.isEmpty ? '—' : rw}', style: const TextStyle(color: V6.ink, fontWeight: FontWeight.w700, fontSize: 12))])),
       const SizedBox(height: 12),
-      if (canEnter) Align(alignment: Alignment.centerRight, child: FilledButton.icon(onPressed: () => edit(), icon: const Icon(Icons.add), label: const Text('Tambah data kos')),
+      if (canEnter) Align(alignment: Alignment.centerRight, child: FilledButton.icon(onPressed: () => edit(), icon: const Icon(Icons.add), label: const Text('Tambah data kos'))),
       if (loading) const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator())),
       if (!loading && error != null) V6Panel(child: Column(children: [Text(error!, textAlign: TextAlign.center), TextButton(onPressed: load, child: const Text('Coba lagi'))])),
       if (!loading && error == null && items.isEmpty) const V6Panel(child: Text('Belum ada data rumah kos pada wilayah ini.', style: TextStyle(color: V6.secondary))),
