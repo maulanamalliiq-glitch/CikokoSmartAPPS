@@ -443,6 +443,8 @@ class V6Home extends StatelessWidget{
     const SizedBox(height:20),
     V6CitizenServices(navigate:navigate),
     const SizedBox(height:22),
+    V6BoardingHousePreview(api:api),
+    const SizedBox(height:20),
     V6IntegratedServiceGrid(entries:integratedServices,onOpen:integratedTap),
     const SizedBox(height:21),
     V6Section(title:'Berita & Informasi Terbaru',action:'Lihat Semua',
