@@ -86,6 +86,7 @@ function cikoko_boarding_photo(PDO $db): void {
 
 function cikoko_boarding_public(PDO $db): void {
     cikoko_boarding_schema($db);
+    $viewer = mobile_auth(false);
     $summary = $db->query('SELECT COUNT(*) AS houses, COALESCE(SUM(total_rooms),0) AS rooms,
         COALESCE(SUM(GREATEST(total_rooms-occupied_rooms,0)),0) AS available_rooms
         FROM mobile_boarding_houses
@@ -107,7 +108,7 @@ function cikoko_boarding_public(PDO $db): void {
             'available_rooms' => max(0, (int)$row['total_rooms'] - (int)$row['occupied_rooms']),
             'facilities' => json_decode((string)$row['facilities_json'], true) ?: [],
             'photo_url' => cikoko_boarding_photo_url((int)$row['id'], $row['photo_name'] ?? null),
-            'public_phone' => (int)$row['public_contact'] === 1 ? (string)$row['manager_phone'] : '',
+            'public_phone' => $viewer && (int)$row['public_contact'] === 1 ? (string)$row['manager_phone'] : '',
             'updated_at' => (string)$row['updated_at'],
         ];
     }
