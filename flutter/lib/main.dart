@@ -36,6 +36,7 @@ import 'public_letters.dart';
 import 'v211_features.dart';
 import 'rt_rw_letters.dart';
 import 'rt_rw_signer_page.dart';
+import 'boarding_houses_page.dart';
 import 'lpj_pages.dart';
 import 'cikoko_ppsu_leave.dart' show CikokoPpsuLeaveHub;
 import 'cikoko_pppk_performance.dart';
@@ -433,7 +434,7 @@ class _HomeState extends State<HomePage> {
     }
   }
   IconData iconFor(String s)=>switch(s){
-    'Dashboard'=>Icons.home_outlined,'Laporan Terpadu'=>Icons.assignment_outlined,'Tentang Kami'=>Icons.info_outline,'Menu Cikoko'=>Icons.grid_view_rounded,
+    'Pendataan Rumah Kos'=>Icons.apartment_outlined,'Dashboard'=>Icons.home_outlined,'Laporan Terpadu'=>Icons.assignment_outlined,'Tentang Kami'=>Icons.info_outline,'Menu Cikoko'=>Icons.grid_view_rounded,
     'Berita & Kegiatan'=>Icons.newspaper_outlined,'Pengumuman'=>Icons.campaign_outlined,
     'Layanan Online'=>Icons.widgets_outlined,'Galeri'=>Icons.photo_library_outlined,
     'Surat Ahli Waris'=>Icons.description_outlined,'Persyaratan Ahli Waris'=>Icons.fact_check_outlined,'Surat Pengantar RT/RW'=>Icons.markunread_mailbox_outlined,
@@ -558,6 +559,7 @@ class _HomeState extends State<HomePage> {
     case 'Galeri':return V6GalleryPage(api:api,content:items);
     case 'Surat Ahli Waris':return _v6Form('Pengajuan Ahli Waris','Lengkapi formulir dan dokumen yang diminta.',const WarisForm());
     case 'Surat Pengantar RT/RW':return _v6Form('Pengantar RT/RW','Lengkapi data pengantar wilayah.',RtRwLettersPage(api:api));
+    case 'Pendataan Rumah Kos':return BoardingHousesPage(api:api,role:role);
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
     case 'TTD & Stempel':return RtRwSignerPage(api:api);
     case 'Wilayah Ketua RT/RW':return RtRwOfficerManager(api:api);
