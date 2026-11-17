@@ -190,3 +190,49 @@ class _V6InnovationPreviewState extends State<V6InnovationPreview>{
        child:const Icon(Icons.image_not_supported_outlined,color:V6.blue,size:25)));
  }
 }
+
+
+/// Public directory preview: only active, verified, published kos are shown.
+class V6BoardingHousePreview extends StatefulWidget {
+ final CikokoApi api;
+ final VoidCallback? onAll;
+ const V6BoardingHousePreview({super.key,required this.api,this.onAll});
+ @override State<V6BoardingHousePreview> createState()=>_V6BoardingHousePreviewState();
+}
+class _V6BoardingHousePreviewState extends State<V6BoardingHousePreview>{
+ Map<String,dynamic>? data; bool loading=true;
+ @override void initState(){super.initState();_load();}
+ Future<void> _load()async{
+  try{final value=await widget.api.call('boarding_public');if(mounted)setState(()=>data=value);}
+  catch(_){if(mounted)setState(()=>data=null);}
+  finally{if(mounted)setState(()=>loading=false);}
+ }
+ @override Widget build(BuildContext context){
+  final summary=(data?['summary'] as Map?)?.cast<String,dynamic>()??const <String,dynamic>{};
+  final rows=(data?['items'] as List?)?.whereType<Map>().take(4).map((e)=>Map<String,dynamic>.from(e)).toList()??const <Map<String,dynamic>>[];
+  final count=(summary['houses']??0).toString();
+  return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+   V6Section(title:'Data Rumah Kos Cikoko',action:'Muat ulang',onAction:_load),
+   V6Panel(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[
+     Container(width:40,height:40,decoration:BoxDecoration(color:V6.pale,borderRadius:V6.radius(11)),child:const Icon(Icons.apartment_outlined,color:V6.blue)),
+     const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(loading?'Memuat data kos…':'$count rumah kos terverifikasi',style:const TextStyle(fontWeight:FontWeight.w800,color:V6.ink,fontSize:13)),
+      const SizedBox(height:3),Text('${summary['rooms']??0} kamar · ${summary['available_rooms']??0} tersedia',style:const TextStyle(color:V6.secondary,fontSize:11)),
+     ])),
+    ]),
+    if(rows.isNotEmpty)...[
+     const Divider(height:20),
+     for(final row in rows)Padding(padding:const EdgeInsets.only(bottom:9),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Icon(Icons.home_work_outlined,size:17,color:V6.blue),const SizedBox(width:8),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       Text((row['name']??'Rumah kos').toString(),style:const TextStyle(fontWeight:FontWeight.w700,fontSize:11.5,color:V6.ink)),
+       Text('RT ${row['rt']} / RW ${row['rw']} · ${row['available_rooms']} kamar tersedia',style:const TextStyle(fontSize:10.5,color:V6.secondary)),
+       if((row['address']??'').toString().isNotEmpty)Text(row['address'].toString(),style:const TextStyle(fontSize:10,color:V6.secondary)),
+       if((row['public_phone']??'').toString().isNotEmpty)Text('Kontak: ${row['public_phone']}',style:const TextStyle(fontSize:10,color:V6.secondary)),
+      ])),
+     ])),
+    ] else if(!loading)Padding(padding:const EdgeInsets.only(top:10),child:Text(data==null?'Data kos belum dapat dimuat.':'Belum ada rumah kos yang dipublikasikan.',style:const TextStyle(fontSize:11,color:V6.secondary))),
+   ])),
+  ]);
+ }
+}
