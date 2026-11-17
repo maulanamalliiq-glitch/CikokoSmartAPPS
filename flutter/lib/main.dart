@@ -5,6 +5,7 @@ import 'cikoko_v4_public_pages.dart';
 import 'cikoko_v5_shell.dart';
 import 'cikoko_v6_showcase.dart';
 import 'cikoko_v6_content.dart';
+import 'cikoko_home_extra.dart';
 import 'cikoko_admin_content_hub.dart';
 import 'cikoko_admin_push_page.dart';
 import 'cikoko_chat_v2548.dart';
@@ -550,15 +551,13 @@ class _HomeState extends State<HomePage> {
     case 'Agenda':return V6AgendaPage(content:items);
     case 'Profil Wilayah':return V6RegionPage(api:api,navigate:switchTo);
     case 'Pengumuman':return feed('pengumuman');
-    case 'Layanan Online':return V6ServicesPage(
-      guest:guest,onOpen:_openV6Service,
-      integratedServices:activeServices,
-      onIntegratedOpen:_openIntegratedService);
+    case 'Layanan Online':return V6ServicesPage(guest:guest,onOpen:_openV6Service);
     case 'Katalog DKI':return CikokoIntegratedServices(api:api);
      case 'Kelola Layanan Terpadu':return role=='admin' ? CikokoIntegratedServices(api:api,admin:true) : const Center(child:Text('Menu ini hanya tersedia untuk Admin Utama.'));
     case 'Galeri':return V6GalleryPage(api:api,content:items);
     case 'Surat Ahli Waris':return _v6Form('Pengajuan Ahli Waris','Lengkapi formulir dan dokumen yang diminta.',const WarisForm());
     case 'Surat Pengantar RT/RW':return _v6Form('Pengantar RT/RW','Lengkapi data pengantar wilayah.',RtRwLettersPage(api:api));
+    case 'Data Rumah Kos':return V6BoardingHouseDirectoryPage(api:api);
     case 'Pendataan Rumah Kos':return BoardingHousesPage(api:api,role:role);
     case 'Surat Wilayah':return RtRwLettersPage(api:api);
     case 'TTD & Stempel':return RtRwSignerPage(api:api);
@@ -642,11 +641,12 @@ class _HomeState extends State<HomePage> {
   Widget home(){
     if(role=='admin'||role=='admin_kelurahan'){
       return V6AdminHome(modules:modules,roleName:roleLabel,
-        counts:letterCounts,unread:unreadCount,events:events,navigate:switchTo);
+        counts:letterCounts,unread:unreadCount,events:events,api:api,items:items,
+        integratedServices:activeServices,integratedTap:_openIntegratedService,
+        articleTap:_openV5Article,navigate:_openV6Service);
     }
     return V6Home(role:role,guest:guest,modules:modules,
       api:api,items:items,letterCounts:letterCounts,
-      unreadCount:unreadCount,
       integratedServices:activeServices,integratedTap:_openIntegratedService,
       websiteHeroUrl:websiteHeroUrl,websiteHeroFit:websiteHeroFit,
       websiteHeroAlignment:websiteHeroAlignment,
