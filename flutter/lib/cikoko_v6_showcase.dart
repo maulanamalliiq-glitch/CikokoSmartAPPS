@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'role_catalog.dart';
 import 'cikoko_home_sections.dart';
+import 'cikoko_home_extra.dart';
 
 /// Single design vocabulary based on the supplied Cikoko Smart V4 16-screen showcase.
 /// Keep server values and permissions as the source of truth: no demo reports or fake service data.
@@ -109,7 +110,7 @@ class V6BottomNavigation extends StatelessWidget {
  final int selected; final ValueChanged<int> onSelected;
  const V6BottomNavigation({super.key,required this.selected,required this.onSelected});
  @override Widget build(BuildContext context) {
-  // The five v2562 destinations are fixed; Beranda stays centered and prominent.
+  // Beranda remains precisely centered as previously requested; About is a real fifth page.
   const tabs=[
    ('Layanan',Icons.widgets_outlined,Icons.widgets_rounded),
    ('Inovasi',Icons.auto_awesome_outlined,Icons.auto_awesome_rounded),
@@ -118,7 +119,7 @@ class V6BottomNavigation extends StatelessWidget {
    ('Akun',Icons.person_outline,Icons.person_rounded),
   ];
   return SafeArea(top:false,child:Container(
-    height:70,
+    height:67,
     decoration:const BoxDecoration(color:Colors.white,border:Border(top:BorderSide(color:V6.border)),
       boxShadow:[BoxShadow(color:Color(0x0A0C2455),blurRadius:12,offset:Offset(0,-3))]),
     child:Row(children:[
@@ -126,14 +127,14 @@ class V6BottomNavigation extends StatelessWidget {
       key:Key('v6_nav_$i'),onTap:()=>onSelected(i),
       child:Semantics(selected:i==selected,label:tabs[i].$1,button:true,
        child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-        Container(width:i==2?54:43,height:i==2?42:32,
+        Container(width:i==2?48:43,height:i==2?39:32,
          decoration:BoxDecoration(
            color:i==2?V6.blue:(selected==i?V6.pale:Colors.transparent),
-           borderRadius:V6.radius(i==2?21:12),
+           borderRadius:V6.radius(i==2?16:12),
            boxShadow:i==2?const [BoxShadow(color:Color(0x330B65C2),blurRadius:10,offset:Offset(0,3))]:null),
          alignment:Alignment.center,
          child:Icon(selected==i?tabs[i].$3:tabs[i].$2,
-           size:i==2?26:21,color:i==2?Colors.white:(selected==i?V6.blue:V6.secondary))),
+           size:i==2?25:21,color:i==2?Colors.white:(selected==i?V6.blue:V6.secondary))),
         const SizedBox(height:4),
         Text(tabs[i].$1,maxLines:1,overflow:TextOverflow.ellipsis,
           style:TextStyle(fontSize:i==2?11.5:(i==4?9:10.2),
@@ -154,106 +155,46 @@ class V6Hero extends StatelessWidget{
  const V6Hero({super.key,required this.onServices,required this.onAbout,
    this.photoUrl,this.photoFit=BoxFit.cover,
    this.photoAlignment=Alignment.center});
-
  @override Widget build(BuildContext context)=>Container(
-  key:const Key('v2562_compact_hero'),
-  height:179,clipBehavior:Clip.antiAlias,
-  decoration:BoxDecoration(
-    borderRadius:V6.radius(17),
-    gradient:const LinearGradient(
-      begin:Alignment.topLeft,end:Alignment.bottomRight,
-      colors:[Color(0xFF063C90),Color(0xFF0969DE),Color(0xFF16A1F7)]),
-    boxShadow:const [BoxShadow(color:Color(0x240B66BD),blurRadius:17,offset:Offset(0,7))]),
+  height:178,clipBehavior:Clip.antiAlias,
+  decoration:BoxDecoration(borderRadius:V6.radius(15),border:Border.all(color:const Color(0xFFCFE4FA)),
+   gradient:const LinearGradient(colors:[Color(0xFFEAF5FF),Color(0xFFD1E7FF)])),
   child:Stack(children:[
-   const Positioned(left:0,right:0,bottom:0,
-     child:Opacity(opacity:.35,child:V6Skyline(height:83))),
-   Positioned(top:0,right:0,bottom:0,width:142,child:ClipRRect(
-     borderRadius:const BorderRadius.only(
-       topRight:Radius.circular(17),bottomRight:Radius.circular(17)),
-     child:Opacity(opacity:.76,child:photoUrl!=null&&photoUrl!.isNotEmpty
+   const Positioned(left:0,right:0,bottom:0,child:V6Skyline(height:53)),
+   Positioned(right:0,top:0,bottom:0,width:159,child:ClipRRect(
+     borderRadius:const BorderRadius.only(topRight:Radius.circular(14),bottomRight:Radius.circular(14)),
+     child:photoUrl!=null&&photoUrl!.isNotEmpty
        ?Image.network(photoUrl!,key:const Key('cikoko_live_website_header'),
-         fit:photoFit,alignment:photoAlignment,
-         errorBuilder:(_,__,___)=>Image.asset('assets/kantor-cikoko.jpg',
-           fit:BoxFit.cover))
-       :Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover)))),
-   const Positioned(top:0,bottom:0,right:110,width:85,child:DecoratedBox(
+          fit:photoFit,alignment:photoAlignment,
+          errorBuilder:(_,__,___)=>Image.asset('assets/kantor-cikoko.jpg',
+            fit:BoxFit.cover,alignment:Alignment.center))
+       :Image.asset('assets/kantor-cikoko.jpg',fit:BoxFit.cover,
+          alignment:Alignment.center))),
+   const Positioned(right:137,top:0,bottom:0,width:60,child:DecoratedBox(
      decoration:BoxDecoration(gradient:LinearGradient(colors:[
-       Color(0x00096CDE),Color(0xFF096BDF)],begin:Alignment.centerRight,
-       end:Alignment.centerLeft)))),
-   Positioned(left:15,right:115,top:13,bottom:13,child:Column(
+       Color(0xFFE5F3FF),Color(0xE2E5F3FF),Color(0x00E5F3FF)])))),
+   Positioned(left:14,right:130,top:15,bottom:13,child:Column(
      crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Text('Cikoko Smart',maxLines:1,overflow:TextOverflow.ellipsis,
-        style:TextStyle(fontWeight:FontWeight.w900,color:Colors.white,fontSize:16.5)),
+       style:TextStyle(color:V6.ink,fontWeight:FontWeight.w900,fontSize:18)),
       const SizedBox(height:4),
-      const Text('Layanan Digital\nKelurahan Cikoko',maxLines:2,
-        overflow:TextOverflow.ellipsis,
-        style:TextStyle(color:Colors.white,fontSize:13.2,height:1.17,
-          fontWeight:FontWeight.w800)),
+      const Text('Layanan dan informasi\nKelurahan Cikoko',maxLines:2,
+       style:TextStyle(color:V6.ink,fontSize:13.2,height:1.12,fontWeight:FontWeight.w800)),
       const SizedBox(height:5),
       const Text('Kecamatan Pancoran · Jakarta Selatan',
-        maxLines:2,overflow:TextOverflow.ellipsis,
-        style:TextStyle(color:Color(0xFFE5F4FF),fontSize:9.1,height:1.2)),
+       maxLines:2,style:TextStyle(color:V6.secondary,fontSize:9.4,height:1.3)),
       const Spacer(),
-      SizedBox(height:31,child:FilledButton(
-        onPressed:onServices,
-        style:FilledButton.styleFrom(
-          backgroundColor:Colors.white,foregroundColor:V6.blueDark,
-          padding:const EdgeInsets.symmetric(horizontal:11),
-          shape:RoundedRectangleBorder(borderRadius:V6.radius(9))),
-        child:const Text('Ajukan Layanan  →',
-          style:TextStyle(fontWeight:FontWeight.w900,fontSize:9.7)))),
+      SizedBox(height:32,child:FilledButton(
+       onPressed:onServices,
+       style:FilledButton.styleFrom(padding:const EdgeInsets.symmetric(horizontal:10),
+         shape:RoundedRectangleBorder(borderRadius:V6.radius(7))),
+       child:const Text('Ajukan Layanan  →',style:TextStyle(fontSize:9.5,fontWeight:FontWeight.w800)))),
       const SizedBox(height:5),
       InkWell(onTap:onAbout,child:const Text('Lihat Profil Kelurahan  →',
-        maxLines:1,overflow:TextOverflow.ellipsis,
-        style:TextStyle(color:Colors.white,fontWeight:FontWeight.w700,
-          fontSize:9.1))),
+       style:TextStyle(color:V6.blue,fontSize:9.2,fontWeight:FontWeight.w700))),
      ])),
   ]),
  );
-}
-
-/// Compact quick actions mirror the v2562 mockup while opening real pages.
-/// No fabricated unread counts, application data or notifications.
-class V6QuickActions extends StatelessWidget{
- final void Function(String) navigate;
- final int unreadCount;
- const V6QuickActions({super.key,required this.navigate,this.unreadCount=0});
-
- @override Widget build(BuildContext context){
-  const actions=[
-   ('Ajukan\nLayanan','Layanan Online',Color(0xFF0357CF),Color(0xFF168EFF),Icons.post_add_rounded),
-   ('Cek\nStatus','Riwayat',Color(0xFF029B74),Color(0xFF20C897),Icons.manage_search_rounded),
-   ('Inbox\nNotifikasi','Notifikasi',Color(0xFFF38B12),Color(0xFFFFB436),Icons.notifications_active_outlined),
-   ('Bantuan\n& Info','Hubungi Kami',Color(0xFF5D45DA),Color(0xFF8B6BFA),Icons.help_outline_rounded),
-  ];
-  return Row(key:const Key('v2562_quick_actions'),children:[
-   for(var i=0;i<actions.length;i++)
-     Expanded(child:Padding(
-       padding:EdgeInsets.only(left:i==0?0:3,right:i==actions.length-1?0:3),
-       child:Material(color:Colors.transparent,child:InkWell(
-         key:Key('v2562_quick_$i'),
-         onTap:()=>navigate(actions[i].$2),
-         borderRadius:V6.radius(13),
-         child:Ink(
-          height:84,
-          decoration:BoxDecoration(borderRadius:V6.radius(13),
-           gradient:LinearGradient(
-             begin:Alignment.topLeft,end:Alignment.bottomRight,
-             colors:[actions[i].$3,actions[i].$4]),
-           boxShadow:const [BoxShadow(color:Color(0x160C2455),
-             blurRadius:7,offset:Offset(0,3))]),
-          child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-           Badge(isLabelVisible:i==2&&unreadCount>0,
-             label:Text(unreadCount>99?'99+':unreadCount.toString()),
-             child:Icon(actions[i].$5,size:23,color:Colors.white)),
-           const SizedBox(height:6),
-           Text(actions[i].$1,textAlign:TextAlign.center,maxLines:2,
-             style:const TextStyle(color:Colors.white,fontSize:9.4,
-               height:1.17,fontWeight:FontWeight.w800))
-          ])),
-       )))),
-  ]);
- }
 }
 
 class V6ReportPanel extends StatelessWidget{
@@ -410,7 +351,6 @@ class V6Home extends StatelessWidget{
  final List<dynamic> items;
  final List<Map<String,dynamic>> integratedServices;
  final Map<String,int>? letterCounts;
- final int unreadCount;
  final void Function(String) navigate;
  final void Function(String) letterStatus;
  final ValueChanged<Map<String,dynamic>> integratedTap;
@@ -422,13 +362,11 @@ class V6Home extends StatelessWidget{
  const V6Home({super.key,required this.role,required this.guest,
   required this.modules,required this.api,required this.items,
   required this.integratedServices,required this.letterCounts,
-  this.unreadCount=0,required this.navigate,required this.letterStatus,required this.integratedTap,
+  required this.navigate,required this.letterStatus,required this.integratedTap,
   required this.articleTap,required this.reload,
   this.websiteHeroUrl,this.websiteHeroFit=BoxFit.cover,
   this.websiteHeroAlignment=Alignment.center});
  @override Widget build(BuildContext context){
-  final articles=items.where((row)=>row is Map &&
-     (row['type']=='berita'||row['type']=='pengumuman')).take(3).toList();
   return RefreshIndicator(onRefresh:reload,child:ListView(
    key:const Key('v6_home'),padding:const EdgeInsets.fromLTRB(14,12,14,30),
    children:[
@@ -436,24 +374,19 @@ class V6Home extends StatelessWidget{
       onAbout:()=>navigate('Tentang Kami'),
       photoUrl:websiteHeroUrl,photoFit:websiteHeroFit,
       photoAlignment:websiteHeroAlignment),
-    const SizedBox(height:12),
-    V6QuickActions(navigate:navigate,unreadCount:unreadCount),
-    const SizedBox(height:14),
+    const SizedBox(height:13),
     V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
     V6CitizenServices(navigate:navigate),
     const SizedBox(height:22),
-    V6BoardingHousePreview(api:api),
-    const SizedBox(height:20),
+    V6AnnouncementTicker(items:items,onAll:()=>navigate('Pengumuman')),
+    const SizedBox(height:12),
+    V6NewsCarousel(items:items,api:api,onOpen:articleTap,
+      onAll:()=>navigate('Berita & Kegiatan')),
+    const SizedBox(height:12),
     V6IntegratedServiceGrid(entries:integratedServices,onOpen:integratedTap),
-    const SizedBox(height:21),
-    V6Section(title:'Berita & Informasi Terbaru',action:'Lihat Semua',
-      onAction:()=>navigate('Berita & Kegiatan')),
-    if(articles.isEmpty)const V6Panel(child:Text('Belum ada berita yang dipublikasikan.',
-      style:TextStyle(color:V6.secondary,fontSize:11.5))),
-    for(final item in articles)V6ArticleCard(
-      item:Map<String,dynamic>.from(item as Map),api:api,
-      onTap:()=>articleTap(Map<String,dynamic>.from(item))),
+    const SizedBox(height:12),
+    V6BoardingHousePreview(api:api,onAll:()=>navigate('Data Rumah Kos')),
     const SizedBox(height:16),
     V6InnovationPreview(api:api,onAll:()=>navigate('Inovasi')),
     const SizedBox(height:17),
@@ -478,9 +411,16 @@ class V6AdminHome extends StatelessWidget {
  final Map<String,int>? counts;
  final int unread;
  final List<dynamic> events;
+ final CikokoApi api;
+ final List<dynamic> items;
+ final List<Map<String,dynamic>> integratedServices;
+ final ValueChanged<Map<String,dynamic>> integratedTap;
+ final void Function(Map<String,dynamic>) articleTap;
  final void Function(String) navigate;
  const V6AdminHome({super.key,required this.modules,required this.roleName,
-   required this.counts,required this.unread,required this.events,required this.navigate});
+   required this.counts,required this.unread,required this.events,required this.api,
+   required this.items,required this.integratedServices,required this.integratedTap,
+   required this.articleTap,required this.navigate});
  @override Widget build(BuildContext context) {
   final allowed=modules.map((m)=>m.route).toSet();
   const actions=[
@@ -495,30 +435,15 @@ class V6AdminHome extends StatelessWidget {
    ('Pengumuman','Tambah Pengumuman',Icons.campaign_outlined),
   ];
   return ListView(padding:const EdgeInsets.fromLTRB(14,12,14,32),children:[
-   Container(
-    key:const Key('v2562_admin_header'),
-    padding:const EdgeInsets.fromLTRB(16,17,16,17),
+   Container(padding:const EdgeInsets.all(15),
     decoration:BoxDecoration(
-      borderRadius:V6.radius(17),
-      gradient:const LinearGradient(
-       begin:Alignment.topLeft,end:Alignment.bottomRight,
-       colors:[Color(0xFF063C90),Color(0xFF0879ED)])),
-    child:Row(children:[
-     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-       const Text('Dashboard Admin',style:TextStyle(
-         fontSize:19,color:Colors.white,fontWeight:FontWeight.w900)),
-       const SizedBox(height:5),
-       Text('Selamat datang · '+roleName,
-         style:const TextStyle(fontSize:11.5,color:Color(0xFFE4F2FF))),
-       const SizedBox(height:4),
-       const Text('Kelola layanan dan aktivitas Kelurahan Cikoko',
-         style:TextStyle(fontSize:10,color:Color(0xFFE4F2FF))),
-     ])),
-     Container(width:47,height:47,
-       decoration:BoxDecoration(color:const Color(0x22FFFFFF),
-         borderRadius:V6.radius(13)),
-       child:const Icon(Icons.admin_panel_settings_outlined,
-         color:Colors.white,size:27)),
+      borderRadius:V6.radius(14),gradient:const LinearGradient(
+       colors:[Color(0xFFEAF5FF),Color(0xFFD7EBFF)]),
+      border:Border.all(color:V6.border)),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Text('Dashboard Admin',style:TextStyle(fontSize:20,color:V6.ink,fontWeight:FontWeight.w900)),
+      const SizedBox(height:5),
+      Text('Selamat datang · $roleName',style:const TextStyle(fontSize:11.4,color:V6.secondary)),
     ])),
    const SizedBox(height:17),
    const V6Section(title:'Ringkasan Pelayanan'),
@@ -573,6 +498,12 @@ class V6AdminHome extends StatelessWidget {
        style:const TextStyle(fontSize:10,color:V6.secondary)))),
    if(events.isEmpty)const V6Panel(child:Text('Belum ada aktivitas.',
      style:TextStyle(fontSize:11.5,color:V6.secondary))),
+   const SizedBox(height:15),
+   V6AnnouncementTicker(items:items,onAll:()=>navigate('Pengumuman')),
+   V6NewsCarousel(items:items,api:api,onOpen:articleTap,
+     onAll:()=>navigate('Berita & Kegiatan')),
+   V6IntegratedServiceGrid(entries:integratedServices,onOpen:integratedTap),
+   V6BoardingHousePreview(api:api,onAll:()=>navigate('Data Rumah Kos')),
   ]);
  }
 }
