@@ -15,6 +15,7 @@ function cikoko_boarding_schema(PDO $db): void {
         total_rooms SMALLINT UNSIGNED NOT NULL,
         occupied_rooms SMALLINT UNSIGNED NOT NULL,
         facilities_json TEXT NOT NULL,
+        photo_name VARCHAR(80) NULL,
         public_listing TINYINT(1) NOT NULL DEFAULT 1,
         public_address TINYINT(1) NOT NULL DEFAULT 0,
         public_contact TINYINT(1) NOT NULL DEFAULT 0,
@@ -30,6 +31,8 @@ function cikoko_boarding_schema(PDO $db): void {
         INDEX idx_area_status(rw,rt,record_status,review_status),
         INDEX idx_public(review_status,record_status,public_listing)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    $columns = $db->query("SHOW COLUMNS FROM mobile_boarding_houses LIKE 'photo_name'")->fetch(PDO::FETCH_ASSOC);
+    if (!$columns) $db->exec('ALTER TABLE mobile_boarding_houses ADD COLUMN photo_name VARCHAR(80) NULL AFTER facilities_json');
     $ready = true;
 }
 
@@ -50,6 +53,37 @@ function cikoko_boarding_account(string $uid, string $role): ?array {
     return null;
 }
 
+function cikoko_boarding_photo_url(int $id, $photo): string {
+    if ($id < 1 || !is_string($photo) || !preg_match('/^[a-f0-9]{40}\.(jpg|png|webp)$/D', $photo)) return '';
+    return 'https://datawebs.my.id/mobile-api/index.php?action=boarding_photo&id='.$id;
+}
+
+function cikoko_boarding_photo(PDO $db): void {
+    cikoko_boarding_schema($db);
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id < 1) mobile_error('Foto tidak ditemukan.', 404);
+    $q = $db->prepare('SELECT id,photo_name,rt,rw,record_status,review_status,public_listing FROM mobile_boarding_houses WHERE id=?');
+    $q->execute([$id]); $row = $q->fetch(PDO::FETCH_ASSOC);
+    if (!$row || !preg_match('/^[a-f0-9]{40}\.(jpg|png|webp)$/D', (string)($row['photo_name'] ?? ''))) mobile_error('Foto tidak ditemukan.', 404);
+    $isPublic = $row['record_status'] === 'active' && $row['review_status'] === 'verified' && (int)$row['public_listing'] === 1;
+    if (!$isPublic) {
+        $auth = mobile_auth(false);
+        if (!$auth) mobile_error('Foto tidak ditemukan.', 404);
+        $role = (string)$auth['user_role'];
+        if (!in_array($role, ['rt','rw','admin','admin_kelurahan'], true)) mobile_error('Foto tidak ditemukan.', 404);
+        if (in_array($role, ['rt','rw'], true)) {
+            $account = cikoko_boarding_account((string)$auth['user_id'], $role);
+            if (!$account || (string)($account['rw'] ?? '') !== (string)$row['rw'] || ($role === 'rt' && (string)($account['rt'] ?? '') !== (string)$row['rt'])) mobile_error('Foto tidak ditemukan.', 404);
+        }
+    }
+    $path = __DIR__.'/private/'.basename((string)$row['photo_name']);
+    if (!is_file($path)) mobile_error('Foto tidak ditemukan.', 404);
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+    if (!in_array($mime, ['image/jpeg','image/png','image/webp'], true)) mobile_error('Foto tidak ditemukan.', 404);
+    header_remove('Content-Type'); header('Content-Type: '.$mime); header('Cache-Control: '.($isPublic ? 'public, max-age=300' : 'private, no-store'));
+    header('Content-Length: '.(string)filesize($path)); readfile($path); exit;
+}
+
 function cikoko_boarding_public(PDO $db): void {
     cikoko_boarding_schema($db);
     $summary = $db->query('SELECT COUNT(*) AS houses, COALESCE(SUM(total_rooms),0) AS rooms,
@@ -57,7 +91,7 @@ function cikoko_boarding_public(PDO $db): void {
         FROM mobile_boarding_houses
         WHERE record_status="active" AND review_status="verified" AND public_listing=1')->fetch(PDO::FETCH_ASSOC) ?: [];
     $query = $db->query('SELECT id,name,rt,rw,address,public_address,manager_phone,public_contact,
-        total_rooms,occupied_rooms,facilities_json,updated_at
+        total_rooms,occupied_rooms,facilities_json,photo_name,updated_at
         FROM mobile_boarding_houses
         WHERE record_status="active" AND review_status="verified" AND public_listing=1
         ORDER BY rw,rt,name LIMIT 300');
@@ -72,6 +106,7 @@ function cikoko_boarding_public(PDO $db): void {
             'total_rooms' => (int)$row['total_rooms'],
             'available_rooms' => max(0, (int)$row['total_rooms'] - (int)$row['occupied_rooms']),
             'facilities' => json_decode((string)$row['facilities_json'], true) ?: [],
+            'photo_url' => cikoko_boarding_photo_url((int)$row['id'], $row['photo_name'] ?? null),
             'public_phone' => (int)$row['public_contact'] === 1 ? (string)$row['manager_phone'] : '',
             'updated_at' => (string)$row['updated_at'],
         ];
@@ -112,6 +147,7 @@ function cikoko_boarding_dispatch(string $action, string $method, PDO $db, array
                 'manager_name'=>(string)$row['manager_name'],'manager_phone'=>(string)$row['manager_phone'],
                 'total_rooms'=>(int)$row['total_rooms'],'occupied_rooms'=>(int)$row['occupied_rooms'],
                 'facilities'=>json_decode((string)$row['facilities_json'],true)?:[],
+                'photo_url'=>cikoko_boarding_photo_url((int)$row['id'],$row['photo_name']??null),
                 'public_listing'=>(bool)$row['public_listing'],'public_address'=>(bool)$row['public_address'],
                 'public_contact'=>(bool)$row['public_contact'],'record_status'=>(string)$row['record_status'],
                 'review_status'=>(string)$row['review_status'],'review_note'=>(string)$row['review_note'],
@@ -124,6 +160,8 @@ function cikoko_boarding_dispatch(string $action, string $method, PDO $db, array
     if ($action === 'boarding_save' && $method === 'POST') {
         if ($role === 'rw') mobile_error('Ketua RW memverifikasi data. Pengisian dilakukan oleh RT.', 403);
         $body = mobile_body();
+        if (!$body && $_POST) $body = $_POST;
+        if (isset($body['facilities']) && is_string($body['facilities'])) { $decoded = json_decode($body['facilities'], true); $body['facilities'] = is_array($decoded) ? $decoded : []; }
         $id = (int)($body['id'] ?? 0);
         $name = mobile_text($body['name'] ?? '',160);
         $address = mobile_text($body['address'] ?? '',420);
@@ -144,20 +182,24 @@ function cikoko_boarding_dispatch(string $action, string $method, PDO $db, array
         $rt=$role==='rt'?$homeRt:cikoko_boarding_area($body['rt']??'');
         $rw=in_array($role,['rt','rw'],true)?$homeRw:cikoko_boarding_area($body['rw']??'');
         if ($role==='rt' && $homeRt==='') mobile_error('Akun RT belum diberi wilayah.',403);
-        $publicListing=($body['public_listing']??true)===true;
-        $publicAddress=$publicListing && ($body['public_address']??false)===true;
-        $publicContact=$publicListing && $phone!=='' && ($body['public_contact']??false)===true;
+        $asBool = static fn($value, bool $default=false): bool => $value === null ? $default : in_array($value, [true, 1, '1', 'true', 'on'], true);
+        $publicListing=$asBool($body['public_listing']??null, true);
+        $publicAddress=$publicListing && $asBool($body['public_address']??null);
+        $publicContact=$publicListing && $phone!=='' && $asBool($body['public_contact']??null);
+        $uploadedPhoto = mobile_file('photo', $id === 0);
         if ($id>0) {
-            $check=$db->prepare('SELECT id,rt,rw,created_by FROM mobile_boarding_houses WHERE id=?');
+            $check=$db->prepare('SELECT id,rt,rw,created_by,photo_name FROM mobile_boarding_houses WHERE id=?');
             $check->execute([$id]);$old=$check->fetch(PDO::FETCH_ASSOC);
             if(!$old)mobile_error('Data kos tidak ditemukan.',404);
             if($role==='rt'&&((string)$old['rt']!==$homeRt||(string)$old['rw']!==$homeRw))mobile_error('Kos ini di luar wilayah RT Anda.',403);
             if($role==='rw'&&(string)$old['rw']!==$homeRw)mobile_error('Kos ini di luar wilayah RW Anda.',403);
-            $stmt=$db->prepare('UPDATE mobile_boarding_houses SET name=?,address=?,manager_name=?,manager_phone=?,total_rooms=?,occupied_rooms=?,facilities_json=?,public_listing=?,public_address=?,public_contact=?,record_status=?,review_status="pending",review_note="",verified_by=NULL,verified_at=NULL,updated_by=? WHERE id=?');
-            $stmt->execute([$name,$address,$manager,$phone,$total,$occupied,json_encode($facilities,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),(int)$publicListing,(int)$publicAddress,(int)$publicContact,$status,$uid,$id]);
+            $photoName = $uploadedPhoto ?? ($old['photo_name'] ?? null);
+            $stmt=$db->prepare('UPDATE mobile_boarding_houses SET name=?,address=?,manager_name=?,manager_phone=?,total_rooms=?,occupied_rooms=?,facilities_json=?,photo_name=?,public_listing=?,public_address=?,public_contact=?,record_status=?,review_status="pending",review_note="",verified_by=NULL,verified_at=NULL,updated_by=? WHERE id=?');
+            $stmt->execute([$name,$address,$manager,$phone,$total,$occupied,json_encode($facilities,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$photoName,(int)$publicListing,(int)$publicAddress,(int)$publicContact,$status,$uid,$id]);
+            if ($uploadedPhoto && !empty($old['photo_name']) && $old['photo_name'] !== $uploadedPhoto) { $oldPath=__DIR__.'/private/'.basename((string)$old['photo_name']); if (is_file($oldPath)) @unlink($oldPath); }
         } else {
-            $stmt=$db->prepare('INSERT INTO mobile_boarding_houses(name,address,rt,rw,manager_name,manager_phone,total_rooms,occupied_rooms,facilities_json,public_listing,public_address,public_contact,record_status,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)');
-            $stmt->execute([$name,$address,$rt,$rw,$manager,$phone,$total,$occupied,json_encode($facilities,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),(int)$publicListing,(int)$publicAddress,(int)$publicContact,$status,$uid,$uid]);
+            $stmt=$db->prepare('INSERT INTO mobile_boarding_houses(name,address,rt,rw,manager_name,manager_phone,total_rooms,occupied_rooms,facilities_json,photo_name,public_listing,public_address,public_contact,record_status,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([$name,$address,$rt,$rw,$manager,$phone,$total,$occupied,json_encode($facilities,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$uploadedPhoto,(int)$publicListing,(int)$publicAddress,(int)$publicContact,$status,$uid,$uid]);
             $id=(int)$db->lastInsertId();
         }
         mobile_json(['ok'=>true,'id'=>$id,'review_status'=>'pending','message'=>'Data kos tersimpan dan menunggu verifikasi Ketua RW.']);
