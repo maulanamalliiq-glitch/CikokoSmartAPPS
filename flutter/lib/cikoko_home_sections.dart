@@ -14,41 +14,33 @@ class V6LetterStatusStrip extends StatelessWidget {
   crossAxisAlignment:CrossAxisAlignment.start,children:[
    const V6Section(title:'Status Pelayanan Surat'),
    Row(children:[
-    for(var i=0;i<3;i++)Expanded(child:Padding(
-      padding:EdgeInsets.only(left:i==0?0:4,right:i==2?0:4),
-      child:Builder(builder:(context){
-       const statuses=[
-        ('masuk','Masuk',V6.blue,Icons.description_outlined),
-        ('proses','Proses',V6.amber,Icons.schedule_rounded),
-        ('selesai','Selesai',V6.green,Icons.check_circle_rounded),
-       ];
-       final item=statuses[i];
-       return Material(color:item.$3.withValues(alpha:.10),
-        borderRadius:V6.radius(13),
-        child:InkWell(
-         key:Key('v6_status_'+item.$1),
-         onTap:()=>onStatus(item.$1),
-         borderRadius:V6.radius(13),
-         child:Container(
-          constraints:const BoxConstraints(minHeight:84),
-          padding:const EdgeInsets.symmetric(horizontal:4,vertical:11),
-          decoration:BoxDecoration(
-           border:Border.all(color:item.$3.withValues(alpha:.17)),
-           borderRadius:V6.radius(13)),
-          child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-           Icon(item.$4,size:21,color:item.$3),
-           const SizedBox(height:5),
-           Text(counts==null?'—':(counts![item.$1]??0).toString(),
-            style:TextStyle(color:item.$3,fontSize:20,
-             fontWeight:FontWeight.w900)),
-           const SizedBox(height:2),
-           Text(item.$2,maxLines:1,textAlign:TextAlign.center,
-            style:const TextStyle(color:V6.ink,fontWeight:FontWeight.w700,
-             fontSize:10.5)),
-          ]),
-         ),
-        ));
-      }),
+    for(final item in const [
+     ('masuk','Surat Masuk',V6.blue,Icons.markunread_mailbox_outlined),
+     ('proses','Diproses',V6.amber,Icons.timelapse_outlined),
+     ('selesai','Selesai',V6.green,Icons.check_circle_outline),
+    ])Expanded(child:Padding(
+      padding:const EdgeInsets.symmetric(horizontal:3),
+      child:Material(color:Colors.white,borderRadius:V6.radius(12),
+       child:InkWell(
+        key:Key('v6_status_'+item.$1),
+        onTap:()=>onStatus(item.$1),
+        borderRadius:V6.radius(12),
+        child:Container(
+         padding:const EdgeInsets.symmetric(horizontal:5,vertical:13),
+         decoration:BoxDecoration(border:Border.all(color:V6.border),
+           borderRadius:V6.radius(12)),
+         child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Icon(item.$4,size:18,color:item.$3),
+          const SizedBox(height:5),
+          Text(counts==null?'—':(counts![item.$1]??0).toString(),
+           style:TextStyle(color:item.$3,fontSize:21,fontWeight:FontWeight.w900)),
+          const SizedBox(height:2),
+          Text(item.$2,maxLines:1,textAlign:TextAlign.center,
+           overflow:TextOverflow.ellipsis,
+           style:const TextStyle(color:V6.ink,fontWeight:FontWeight.w700,fontSize:10)),
+         ]),
+        ),
+       )),
     )),
    ]),
  ]);
@@ -207,6 +199,7 @@ class _V6BoardingHousePreviewState extends State<V6BoardingHousePreview>{
   catch(_){if(mounted)setState(()=>data=null);}
   finally{if(mounted)setState(()=>loading=false);}
  }
+ Widget _kosPlaceholder()=>Container(width:72,height:62,color:V6.pale,child:const Icon(Icons.apartment_outlined,color:V6.blue,size:25));
  @override Widget build(BuildContext context){
   final summary=(data?['summary'] as Map?)?.cast<String,dynamic>()??const <String,dynamic>{};
   final rows=(data?['items'] as List?)?.whereType<Map>().take(4).map((e)=>Map<String,dynamic>.from(e)).toList()??const <Map<String,dynamic>>[];
@@ -223,10 +216,13 @@ class _V6BoardingHousePreviewState extends State<V6BoardingHousePreview>{
     ]),
     if(rows.isNotEmpty)...[
      const Divider(height:20),
-     for(final row in rows)Padding(padding:const EdgeInsets.only(bottom:9),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Icon(Icons.home_work_outlined,size:17,color:V6.blue),const SizedBox(width:8),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     for(final row in rows)Padding(padding:const EdgeInsets.only(bottom:10),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      ClipRRect(borderRadius:V6.radius(9),child:(row['photo_url']??'').toString().isNotEmpty
+       ?Image.network(row['photo_url'].toString(),width:72,height:62,fit:BoxFit.cover,errorBuilder:(_,__,___)=>_kosPlaceholder())
+       :_kosPlaceholder()),
+      const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
        Text((row['name']??'Rumah kos').toString(),style:const TextStyle(fontWeight:FontWeight.w700,fontSize:11.5,color:V6.ink)),
-       Text('RT ${row['rt']} / RW ${row['rw']} · ${row['available_rooms']} kamar tersedia',style:const TextStyle(fontSize:10.5,color:V6.secondary)),
+       const SizedBox(height:3),Text('RT ${row['rt']} / RW ${row['rw']} · ${row['available_rooms']} kamar tersedia',style:const TextStyle(fontSize:10.5,color:V6.secondary)),
        if((row['address']??'').toString().isNotEmpty)Text(row['address'].toString(),style:const TextStyle(fontSize:10,color:V6.secondary)),
        if((row['public_phone']??'').toString().isNotEmpty)Text('Kontak: ${row['public_phone']}',style:const TextStyle(fontSize:10,color:V6.secondary)),
       ])),
