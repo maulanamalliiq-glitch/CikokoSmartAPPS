@@ -123,6 +123,10 @@ if($action==='register'&&$method==='POST'){
  if(!db_write('portal_users',$users))mobile_error('Data akun gagal disimpan',503);
  mobile_json(['ok'=>true,'message'=>'Akun sudah aktif']);
 }
+if($action==='boarding_public'&&$method==='GET'){
+ require_once __DIR__.'/boarding_houses.php';
+ cikoko_boarding_public(mobile_db());
+}
 if($action==='public_letter_status' && $method==='GET'){
  require_once __DIR__.'/public_letter_status_v2536.php';
  cikoko_public_letter_status_v2536();
@@ -171,6 +175,11 @@ if(in_array($action,['support_admin_thread','officer_reports','officer_waris','o
 if(in_array($action,['waris_format','waris_stage'],true)){
  require_once __DIR__.'/waris_staging.php';
  cikoko_waris_stage_route($action,$method,$u,(string)$uid);
+}
+
+if(in_array($action,['boarding_list','boarding_save','boarding_verify'],true)){
+ require_once __DIR__.'/boarding_houses.php';
+ cikoko_boarding_dispatch($action,$method,$db,$u,(string)$uid);
 }
 
 if(in_array($action,[
