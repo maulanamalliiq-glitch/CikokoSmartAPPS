@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'role_catalog.dart';
 import 'cikoko_home_sections.dart';
+import 'bank_sampah_annual_home_2618.dart';
 
 /// Single design vocabulary based on the supplied Cikoko Smart V4 16-screen showcase.
 /// Keep server values and permissions as the source of truth: no demo reports or fake service data.
@@ -356,6 +357,8 @@ class V6Home extends StatelessWidget{
     V6Hero(onServices:()=>navigate('Layanan Online'),
       onAbout:()=>navigate('Tentang Kami')),
     const SizedBox(height:13),
+    const BankSampahAnnualHome2618(),
+    const SizedBox(height:17),
     V6LetterStatusStrip(counts:letterCounts,onStatus:letterStatus),
     const SizedBox(height:20),
     V6CitizenServices(navigate:navigate),
@@ -420,6 +423,8 @@ class V6AdminHome extends StatelessWidget {
       const SizedBox(height:5),
       Text('Selamat datang · $roleName',style:const TextStyle(fontSize:11.4,color:V6.secondary)),
     ])),
+   const SizedBox(height:17),
+   const BankSampahAnnualHome2618(),
    const SizedBox(height:17),
    const V6Section(title:'Ringkasan Pelayanan'),
    GridView.count(crossAxisCount:2,childAspectRatio:1.82,
