@@ -15,7 +15,7 @@ $staff=mobile_can($user,'chat:reply');
 $owner=$myId;
 if($staff){
  // Target and photo-read endpoints are resolved by event/photo ID, not a supplied thread ID.
- if(in_array($action,['chat_v2548_target','chat_v2548_photo'],true)){
+ if(in_array($action,['chat_v2548_target','chat_v2548_photo','chat_v2548_threads'],true)){
   $owner=$myId;
  }else{
   $owner=mobile_text(($method==='POST'?($_POST['user_id']??''):($_GET['user_id']??'')),80);
@@ -25,9 +25,16 @@ if($staff){
 }
 if(!$staff&&$owner!==$myId)mobile_error('Tidak diizinkan membaca percakapan lain.',403);
 if(!preg_match('/^[A-Za-z0-9_-]{2,80}$/D',$owner))mobile_error('Akun percakapan tidak valid',422);
-if($staff&&in_array($action,['chat_v2548_thread','chat_v2548_send','chat_v2548_upload'],true)){
- $check=$db->prepare('SELECT id FROM mobile_chat WHERE user_id=? LIMIT 1');
- $check->execute([$owner]);if(!$check->fetchColumn())mobile_error('Percakapan belum tersedia.',404);
+// Only staff with chat:reply may address another account.
+// Existing mobile_chat threads are valid, but for newly created threads the
+// target must be a real, active portal account. This is essential for photo
+// uploads: the previous guard rejected staff photos with a stale false 404,
+// even if the resident was visible in the canonical inbox.
+require_once __DIR__.'/chat_hardcheck_2565.php';
+if($staff&&in_array($action,['chat_v2548_send','chat_v2548_upload'],true)){
+ if(!cikoko_chat_v2565_known_target($db,$owner)){
+  mobile_error('Akun tujuan percakapan tidak ditemukan. Segarkan inbox.',404);
+ }
 }
 $db->exec('CREATE TABLE IF NOT EXISTS mobile_chat_photos(
   message_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -42,6 +49,15 @@ $db->exec('CREATE TABLE IF NOT EXISTS mobile_event_chat_targets(
   thread_user_id VARCHAR(80) NOT NULL,
   INDEX idx_thread(thread_user_id)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+// Admin inbox uses the SAME authenticated database as thread messages.
+// Do not return an individual message for each row or combine distinct users.
+if($action==='chat_v2548_threads'){
+ if($method!=='GET')mobile_error('Metode tidak didukung.',405);
+ if(!$staff)mobile_error('Tidak diizinkan membaca pesan warga.',403);
+ require_once __DIR__.'/chat_inbox_2563.php';
+ mobile_json(cikoko_chat_inbox_2563($db));
+}
 
 function cikoko_chat_v2548_notify(PDO $db,string $owner,bool $fromStaff):void {
  try{
@@ -62,6 +78,18 @@ function cikoko_chat_v2548_notify(PDO $db,string $owner,bool $fromStaff):void {
  }catch(Throwable $e){error_log('[Cikoko chat notification] '.$e->getMessage());}
 }
 if($action==='chat_v2548_thread'&&$method==='GET'){
+ // Optional last_id links the selected inbox row to a concrete DB message.
+ // Both selectors must resolve to the same owner; never cross user boundaries.
+ if($staff){
+  $lastId=max(0,(int)($_GET['last_id']??0));
+  if($lastId>0){
+   $verify=$db->prepare('SELECT user_id FROM mobile_chat WHERE id=? LIMIT 1');
+   $verify->execute([$lastId]);
+   $resolved=(string)($verify->fetchColumn()?:'');
+   if($resolved!==''&&!hash_equals($resolved,$owner))
+    mobile_error('ID percakapan tidak sesuai. Segarkan inbox.',409);
+  }
+ }
  $data=cikoko_chat_page($db,$owner,$staff?'admin':'warga');
  $rows=$data['messages']??[];
  $ids=array_values(array_filter(array_map(static fn($r)=>(int)$r['id'],$rows)));
@@ -80,6 +108,9 @@ if($action==='chat_v2548_thread'&&$method==='GET'){
  }
  unset($row);
  $data['messages']=$rows;
+ // The stable ID lets Flutter check that inbox and thread refer to the
+ // same authorized conversation, independent of the display name.
+ $data['thread_user_id']=$owner;
  mobile_json($data);
 }
 if($action==='chat_v2548_target'&&$method==='GET'){

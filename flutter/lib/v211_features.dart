@@ -95,9 +95,30 @@ class _InnovationPageState extends State<InnovationPage>{
    final items=List<dynamic>.from(s.data?['items']??[]);
    return RefreshIndicator(onRefresh:()async{setState(reload);await pending;},
     child:ListView(padding:const EdgeInsets.all(14),children:[
-     const V6PageHeader(title:'Inovasi Kelurahan',
-       description:'Program inovasi dan kegiatan pengembangan Kelurahan Cikoko.',
-       icon:Icons.auto_awesome_outlined),
+     Container(key:const Key('v2562_innovation_header'),
+       margin:const EdgeInsets.only(bottom:13),
+       padding:const EdgeInsets.fromLTRB(16,16,14,15),
+       decoration:BoxDecoration(borderRadius:V6.radius(17),
+         gradient:const LinearGradient(begin:Alignment.topLeft,
+           end:Alignment.bottomRight,
+           colors:[Color(0xFF073F94),Color(0xFF097DE8)])),
+       child:Row(children:[
+         Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           const Text('Inovasi',style:TextStyle(
+             color:Colors.white,fontSize:21,fontWeight:FontWeight.w900)),
+           const SizedBox(height:5),
+           const Text('Program inovasi Kelurahan Cikoko',
+             style:TextStyle(color:Color(0xFFF0F8FF),fontSize:11.5)),
+           const SizedBox(height:4),
+           const Text('Informasi terbaru langsung dari website resmi',
+             style:TextStyle(color:Color(0xFFD5ECFF),fontSize:10)),
+         ])),
+         Container(width:48,height:48,
+           decoration:BoxDecoration(color:const Color(0x25FFFFFF),
+             borderRadius:V6.radius(13)),
+           child:const Icon(Icons.lightbulb_outline_rounded,
+             color:Colors.white,size:28))
+       ])),
      if(s.data?['offline']==true)Padding(padding:const EdgeInsets.only(bottom:12),
        child:V6Panel(child:Row(children:[
          const Expanded(child:Text('Informasi inovasi belum dapat dimuat dari server.',
@@ -190,51 +211,105 @@ class _CivicProfileState extends State<CivicProfilePage>{
   final hasImage=row['has_photo']==true||avatarReady;
   final role=(widget.api.profile?['role']??'warga').toString();
   return ListView(padding:const EdgeInsets.all(14),children:[
-   const V6PageHeader(title:'Profil Akun',
-     description:'Identitas dan pengaturan akun Cikoko Smart.',icon:Icons.person_outline),
-   V6Panel(child:Row(children:[
-     Stack(children:[
-      CircleAvatar(radius:30,backgroundColor:V6.pale,
+   Container(key:const Key('v2562_account_header'),
+    padding:const EdgeInsets.fromLTRB(15,16,15,17),
+    decoration:BoxDecoration(
+      borderRadius:V6.radius(18),
+      gradient:const LinearGradient(begin:Alignment.topLeft,
+        end:Alignment.bottomRight,
+        colors:[Color(0xFF063C8B),Color(0xFF0A77E8)])),
+    child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+     const Text('Profil Akun',style:TextStyle(color:Color(0xFFEAF4FF),
+       fontWeight:FontWeight.w700,fontSize:11)),
+     const SizedBox(height:12),
+     Row(children:[
+      Stack(children:[
+       CircleAvatar(radius:30,backgroundColor:const Color(0x33FFFFFF),
         backgroundImage:hasImage?NetworkImage(photoUrl,
           headers:{'Authorization':'Bearer '+(widget.api.token??'')}):null,
-        child:hasImage?null:const Icon(Icons.person_outline,color:V6.blue,size:35)),
-      Positioned(right:0,bottom:0,child:InkWell(
-        onTap:uploadAvatar,
-        child:Container(width:23,height:23,decoration:BoxDecoration(
-          color:V6.blue,borderRadius:V6.radius(12)),
-          child:const Icon(Icons.camera_alt_outlined,size:14,color:Colors.white)))),
-     ]),
-     const SizedBox(width:11),
-     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        child:hasImage?null:const Icon(Icons.person_outline,
+          color:Colors.white,size:34)),
+       Positioned(right:0,bottom:0,child:Material(
+        color:Colors.white,borderRadius:V6.radius(12),
+        child:InkWell(onTap:uploadAvatar,
+         borderRadius:V6.radius(12),
+         child:const Padding(padding:EdgeInsets.all(4),
+           child:Icon(Icons.camera_alt_outlined,size:15,color:V6.blue))))),
+      ]),
+      const SizedBox(width:13),
+      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
        Text(fields['name']!.text.isEmpty?'Pengguna Cikoko':fields['name']!.text,
-          style:const TextStyle(color:V6.ink,fontSize:15,fontWeight:FontWeight.w900)),
+         maxLines:2,overflow:TextOverflow.ellipsis,
+         style:const TextStyle(color:Colors.white,
+           fontSize:15.5,fontWeight:FontWeight.w900)),
        const SizedBox(height:4),
-       Text('Akun '+role.toUpperCase(),style:const TextStyle(
-        color:V6.secondary,fontSize:10.5,fontWeight:FontWeight.w700)),
-     ])),
-     IconButton(onPressed:()=>setState(()=>editing=!editing),
-       icon:Icon(editing?Icons.close:Icons.edit_outlined,color:V6.blue,size:21)),
-   ])),
+       Text('Akun '+role.toUpperCase(),
+         style:const TextStyle(color:Color(0xFFE0F1FF),
+           fontSize:10.5,fontWeight:FontWeight.w700)),
+      ])),
+      IconButton(
+       tooltip:editing?'Tutup edit profil':'Ubah profil',
+       onPressed:()=>setState(()=>editing=!editing),
+       icon:Icon(editing?Icons.close_rounded:Icons.edit_outlined,
+         color:Colors.white,size:22)),
+     ]),
+    ])),
    const SizedBox(height:18),
    if(!editing)...[
      const V6Section(title:'Pengaturan Akun'),
-     for(final menu in const [
-       ('Data Profil','Kelola data pribadi Anda',Icons.person_outline,'Profil'),
-       ('Riwayat Pengajuan','Lihat semua pengajuan',Icons.fact_check_outlined,'Riwayat'),
-       ('Notifikasi','Pemberitahuan aktivitas aplikasi',Icons.notifications_none,'Notifikasi'),
-       ('Tentang Kami','Informasi Kelurahan Cikoko',Icons.info_outline,'Tentang Kami'),
-       ('Bantuan & FAQ','Hubungi petugas kelurahan',Icons.help_outline,'Hubungi Kami'),
-     ])Padding(padding:const EdgeInsets.only(bottom:8),
-       child:V6Panel(padding:EdgeInsets.zero,child:ListTile(
-         leading:Icon(menu.$3,color:V6.blue,size:22),
+     V6Panel(padding:EdgeInsets.zero,
+      child:Column(children:[
+       if(role=='pjlp')...[
+        ListTile(dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:const Icon(Icons.access_time_rounded,color:V6.blue,size:22),
+         title:const Text('Absensi & Kinerja PJLP',style:TextStyle(
+          color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w800)),
+         subtitle:const Text('Kehadiran, shift, dan laporan kerja',
+          style:TextStyle(color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
+         onTap:()=>widget.onNavigate?.call('Absensi dan Kinerja PJLP')),
+        const Divider(height:1,indent:57,color:V6.border),
+       ],
+       if(role=='pppk')...[
+        ListTile(dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:const Icon(Icons.assessment_outlined,color:V6.blue,size:22),
+         title:const Text('Kinerja PPPK',style:TextStyle(
+          color:V6.ink,fontSize:12.3,fontWeight:FontWeight.w800)),
+         subtitle:const Text('Laporan dan pemantauan kinerja',
+          style:TextStyle(color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
+         onTap:()=>widget.onNavigate?.call('Kinerja PPPK')),
+        const Divider(height:1,indent:57,color:V6.border),
+       ],
+       for(final menu in const [
+        ('Data Profil','Kelola data pribadi Anda',Icons.person_outline,'Profil'),
+        ('Riwayat Pengajuan','Lihat semua pengajuan',Icons.fact_check_outlined,'Riwayat'),
+        ('Notifikasi','Pemberitahuan aktivitas aplikasi',Icons.notifications_none,'Notifikasi'),
+        ('Tentang Kami','Informasi Kelurahan Cikoko',Icons.info_outline,'Tentang Kami'),
+        ('Bantuan & FAQ','Hubungi petugas kelurahan',Icons.help_outline,'Hubungi Kami'),
+       ])...[
+        ListTile(
+         dense:true,visualDensity:VisualDensity.compact,
+         contentPadding:const EdgeInsets.symmetric(horizontal:12),
+         leading:Container(
+          width:35,height:35,alignment:Alignment.center,
+          decoration:BoxDecoration(color:V6.pale,
+           borderRadius:V6.radius(10)),
+          child:Icon(menu.$3,color:V6.blue,size:20)),
          title:Text(menu.$1,style:const TextStyle(color:V6.ink,
           fontSize:12.3,fontWeight:FontWeight.w800)),
          subtitle:Text(menu.$2,style:const TextStyle(
-          color:V6.secondary,fontSize:10.5)),
-         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:19),
+          color:V6.secondary,fontSize:10.4)),
+         trailing:const Icon(Icons.chevron_right_rounded,color:V6.blue,size:18),
          onTap:menu.$4=='Profil'?()=>setState(()=>editing=true):
            ()=>widget.onNavigate?.call(menu.$4),
-       ))),
+        ),
+        if(menu.$4!='Hubungi Kami')
+         const Divider(height:1,indent:57,color:V6.border),
+       ],
+      ])),
      if(widget.onLogout!=null)Padding(padding:const EdgeInsets.only(top:7),
        child:OutlinedButton.icon(
          onPressed:()async{

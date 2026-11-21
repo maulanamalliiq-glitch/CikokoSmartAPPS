@@ -1,26 +1,45 @@
 {
   "project_info": {
-    "project_number": "166946807393",
-    "project_id": "cikoko-smartapp",
-    "storage_bucket": "cikoko-smartapp.firebasestorage.app"
+    "project_number": "417622897353",
+    "firebase_url": "https://kelurahan-cikoko-862d3-default-rtdb.firebaseio.com",
+    "project_id": "kelurahan-cikoko-862d3",
+    "storage_bucket": "kelurahan-cikoko-862d3.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:166946807393:android:ff8a443446da77968dd420",
+        "mobilesdk_app_id": "1:417622897353:android:e73c72f1f67a0028a45318",
         "android_client_info": {
           "package_name": "com.KelurahanCikoko.malik"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "417622897353-ops3tfbnc7pq03gtcc3u02u89vb2ddfi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.KelurahanCikoko.malik",
+            "certificate_hash": "a2a9064bebcf1a33f486297d44326f94014bac05"
+          }
+        },
+        {
+          "client_id": "417622897353-5s9dm00fpbv9eik69u8ri8d9mot6hibe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyCvlRb4euz2heNVWIhIVMsPlB7d8sc_mIg"
+          "current_key": "AIzaSyBoEydBuUL6qJGn1XWQMT6Q4fi60RydMk4"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "417622897353-5s9dm00fpbv9eik69u8ri8d9mot6hibe.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
